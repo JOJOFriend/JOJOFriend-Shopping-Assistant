@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Assistant shopping JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Un assistant shopping intelligent pour les coupons, la comparaison des prix et le cashback."
+  },
+  "setting_modal_title": {
+    "message": "Paramètres"
+  },
+  "setting_modal_language_title": {
+    "message": "Langue"
+  },
+  "setting_modal_language_description": {
+    "message": "Choisissez votre langue :"
+  },
+  "setting_modal_history_title": {
+    "message": "Limite d’historique"
+  },
+  "setting_modal_history_description": {
+    "message": "Nombre max. d’éléments (min. : {1}, max. : {2}. Enregistrement automatique.) :"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Entrez un nombre dans la plage, ex. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Vider le cache"
+  },
+  "setting_modal_clear_description": {
+    "message": "Vider le cache et l’historique. Cette action est irréversible."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Vider"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Vider tout l’historique ? Cette action est irréversible."
+  },
+  "history_box_title": {
+    "message": "Historique de navigation"
+  },
+  "history_bar_hint": {
+    "message": "Historique"
+  },
+  "history_box_hit_today": {
+    "message": "—— Aujourd’hui ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Hier ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Réessayer"
+  },
+  "inspect_couponList_copied": {
+    "message": "Copié"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Recherche de bonnes offres…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Test des codes en cours pour vous faire économiser."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend vous rappelle : c’est déjà la meilleure offre."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Code appliqué automatiquement. Belle économie !"
+  },
+  "setting_window_display_title": {
+    "message": "Affichage"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Masquer {1} min"
+  },
+  "setting_window_display_session": {
+    "message": "Masquer pour cette session"
+  },
+  "setting_window_display_all": {
+    "message": "Tout afficher"
+  },
+  "setting_window_general_title": {
+    "message": "Général"
+  },
+  "setting_window_general_label": {
+    "message": "Langue, historique et plus"
+  }
+}

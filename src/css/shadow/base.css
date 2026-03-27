@@ -1,0 +1,130 @@
+/**
+ * Shadow DOM design tokens (single source of truth).
+ * Naming: --{type}-{category}-{variant}
+ *   type: color | size
+ *   category: surface | border | text | overlay | shadow | brand | ...
+ * Used by: detect.css, detectFlyout.css, detectCouponList.css, skeleton.css, inspect.css, itemsHistory.css
+ * Alternative color schemes: see COLOR-THEMES.md in this folder.
+ */
+:host {
+  /* ---------- Surface (backgrounds) — indigo theme, main #3730a3 ---------- */
+  --color-surface-primary: #ffffff;
+  --color-surface-secondary: #f5f3ff;
+  --color-surface-tertiary: #ede9fe;
+  --color-surface-muted: #e0e7ff;
+
+  /* ---------- Border ---------- */
+  --color-border-default: #e0e7ff;
+  --color-border-divider: #c7d2fe;
+  --color-border-light: #ede9fe;
+  --color-border-muted: #818cf8;
+
+  /* ---------- Text ---------- */
+  --color-text-primary: #1e1b4b;
+  --color-text-heading: #312e81;
+  --color-text-secondary: #5b5b6b;
+  --color-text-muted: #818cf8;
+  --color-text-inverse: #fff;
+  --color-text-disabled: #a5b4fc;
+
+  /* ---------- Icon ---------- */
+  --color-icon-light: #ffffff;
+  --color-icon-default: #6366f1;
+  --color-icon-hover: #3730a3;
+
+  /* ---------- Neutral (decorative, scrollbar, etc.) ---------- */
+  --color-neutral-strong: #312e81;
+  --color-neutral-muted: #4f46e5;
+  --color-neutral-subtle: rgba(55, 48, 163, 0.35);
+  --color-scrollbar-thumb: #8096ef;
+
+  /* ---------- Overlay (backdrop, modal) ---------- */
+  --color-overlay-backdrop: rgba(30, 27, 75, 0.6);
+  --color-overlay-review: rgba(55, 48, 163, 0.15);
+
+  /* ---------- Shadow ---------- */
+  --color-shadow-soft: rgba(55, 48, 163, 0.15);
+  --color-shadow-overlay: rgba(49, 46, 129, 0.08);
+  --color-shadow-medium: rgba(55, 48, 163, 0.25);
+  --color-shadow-strong: rgba(30, 27, 75, 0.15);
+  --color-shadow-panel: rgba(99, 102, 241, 0.2);
+  --color-shadow-brand: rgba(55, 48, 163, 0.35);
+
+  /* ---------- Brand (accent / CTA / gradient) — main #3730a3 ---------- */
+  --color-brand-primary: #3730a3;
+  --color-brand-accent: #312e81;
+  --color-brand-accent-light: #4f46e5;
+  --color-brand-gradient-start: #3730a3;
+  --color-brand-gradient-end: #4f46e5;
+  --color-brand-gradient-highlight-start: #312e81;
+  --color-brand-gradient-highlight-end: #3730a3;
+
+  /* ---------- Coupon (feature) ---------- */
+  --color-coupon-border: #4f46e5;
+  --color-coupon-bg: #ede9fe;
+
+  /* ---------- State ---------- */
+  --color-success: #059669;
+  --color-danger: #dc2626;
+  --color-badge-success: #037a1e;
+
+  /* ---------- Sizes: modal ---------- */
+  --size-modal-header-height: 60px;
+  --size-modal-header-padding-x: 10px;
+  --size-modal-icon: 55px;
+  --size-modal-operate-icon: 35px;
+  --size-modal-header-font: 18px;
+
+  /* ---------- Widget: activate / drag / notification ---------- */
+  --color-widget-drag-start: #4f46e5;
+  --color-widget-drag-mid: #3730a3;
+  --color-widget-drag-end: #312e81;
+  --color-activate-trigger-bg: #3730a3;
+  --color-notification-bg: #5584ff;
+  --color-notification-text: #fff;
+  --size-activate-trigger-width: 45px;
+  --size-activate-trigger-height: 45px;
+  --size-notification-width: 22px;
+  --size-notification-height: 22px;
+}
+
+/**
+ * Shared in all contexts including shadow DOM (import separately in shadow DOM).
+ */
+*[data-extension-direction='rtl'] {
+  direction: rtl !important;
+}
+* {
+  margin: 0;
+  padding: 0;
+}
+
+@keyframes cgg-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes cgg-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cgg-point-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-10px); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes swipeText {
+  0% { background-position: 200% center; }
+  100% { background-position: 0% center; }
+}

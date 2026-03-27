@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Trợ lý mua sắm JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Trợ lý mua sắm thông minh cho mã giảm giá, so sánh giá và hoàn tiền."
+  },
+  "setting_modal_title": {
+    "message": "Cài đặt"
+  },
+  "setting_modal_language_title": {
+    "message": "Ngôn ngữ"
+  },
+  "setting_modal_language_description": {
+    "message": "Chọn ngôn ngữ bạn muốn:"
+  },
+  "setting_modal_history_title": {
+    "message": "Giới hạn lịch sử"
+  },
+  "setting_modal_history_description": {
+    "message": "Số mục tối đa (tối thiểu: {1}, tối đa: {2}. Tự động lưu.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Nhập số trong khoảng, vd. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Xóa bộ nhớ đệm"
+  },
+  "setting_modal_clear_description": {
+    "message": "Xóa bộ nhớ đệm và lịch sử duyệt web. Không thể hoàn tác."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Xóa"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Xóa toàn bộ lịch sử duyệt web? Không thể hoàn tác."
+  },
+  "history_box_title": {
+    "message": "Lịch sử duyệt web"
+  },
+  "history_bar_hint": {
+    "message": "Lịch sử"
+  },
+  "history_box_hit_today": {
+    "message": "—— Hôm nay ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Hôm qua ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Thử lại"
+  },
+  "inspect_couponList_copied": {
+    "message": "Đã sao chép"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Đang tìm ưu đãi hấp dẫn…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Tự động thử mã để giúp bạn tiết kiệm tiền."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend nhắc: bạn đã có ưu đãi tốt nhất rồi."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Mã đã được áp dụng tự động. Tiết kiệm tốt!"
+  },
+  "setting_window_display_title": {
+    "message": "Hiển thị"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Ẩn {1} phút"
+  },
+  "setting_window_display_session": {
+    "message": "Ẩn trong phiên này"
+  },
+  "setting_window_display_all": {
+    "message": "Hiển thị tất cả"
+  },
+  "setting_window_general_title": {
+    "message": "Chung"
+  },
+  "setting_window_general_label": {
+    "message": "Ngôn ngữ, lịch sử và thêm"
+  }
+}

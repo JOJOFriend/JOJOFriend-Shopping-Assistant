@@ -1,0 +1,203 @@
+.jox-acq-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--color-overlay-backdrop);
+    z-index: 2147483646; /* just below the flyout */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+    
+  .jox-acq-flyout {
+    position: fixed;
+    width: 320px;
+    background-color: var(--color-surface-primary);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px var(--color-shadow-soft), 0 2px 8px var(--color-shadow-overlay);
+    z-index: 2147483647 !important; /* highest value + override others */
+    font-family: system-ui, -apple-system, Arial, sans-serif;
+    overflow: hidden;
+  }
+  
+  .jox-acq-container.activate,
+  .jox-acq-container.deactivate{
+      width: 0vw;
+      height: 0vh;
+      background:transparent;
+  }
+  
+  .jox-acq-container.override .jox-acq-flyout{
+      width:450px;
+  }
+  
+  .jox-acq-container.deactivate .jox-acq-flyout{
+      width:350px;
+  }
+  
+  /* Position classes */
+  .jox-acq-left-top { top: 20px; left: 20px; }
+  .jox-acq-right-top { top: 20px; right: 20px; }
+  .jox-acq-left-bottom { bottom: 20px; left: 20px; }
+  .jox-acq-center-top { top: 20px; left: 50%; transform: translateX(-50%); }
+  .jox-acq-center-bottom { bottom: 20px; left: 50%; transform: translateX(-50%); }
+  .jox-acq-center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+  
+  .jox-acq-flyout-header {
+    color: var(--color-text-inverse);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 52px;
+    padding: 10px 15px;
+    border-radius: 10px 10px 0 0;
+    box-sizing: border-box;
+
+    /* Layered background: blue coupon/cashback theme — gradient + light overlay */
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%),
+                linear-gradient(135deg, var(--color-brand-accent) 0%, var(--color-brand-accent-light) 50%, #6366f1 100%);
+    background-size: auto;
+    background-repeat: no-repeat;
+    background-position: 0 0;
+
+    /* Subtle separation from body */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    border: 0px solid transparent;
+  }
+  
+  .jox-acq-flyout-header img {
+    width: 45px;
+    height: 45px;
+    object-fit: contain;
+    margin-right: 10px;
+    background: var(--color-surface-primary);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+  
+  .jox-acq-flyout-title {
+    flex-grow: 1;
+    margin-right: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 18px;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+  
+  .jox-acq-messages{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .jox-acq-activate-state{
+    font-size: 16px;
+    margin: 15px 0;
+    color: var(--color-danger);
+    font-weight: bold;
+    background: 0 0;
+    font-style: oblique;
+    cursor: not-allowed;
+    box-shadow: none;
+    pointer-events: none;
+    opacity: .8;
+  }
+  
+  .jox-acq-close-btn {
+    background: none;
+    border: none;
+    color: var(--color-icon-light);
+    font-size: 25px;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+  }
+
+  .jox-acq-close-btn:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    opacity: 1;
+  }
+
+  .jox-acq-flyout-body {
+    padding: 18px 15px 15px;
+    text-align: center;
+  }
+    
+  .jox-acq-fade-out {
+    animation: cgg-fade-out 0.3s ease-in-out forwards;
+  }
+  
+  /* ---- flyout: group primary button, message, and secondary button with tighter spacing ---- */
+  .jox-acq-flyout-body .jox-acq-cashback-btn {
+    margin: 10px 0 12px 0;
+  }
+
+  /* ---- middle message "Wow, coupon found!" ---- */
+  .jox-acq-flyout-body .jox-acq-activate-suggestion {
+    margin: 0 10px 10px;
+    font-size: 13px;
+    text-align: center;
+    line-height: 18px;
+  }
+
+  /* ---- secondary button "Apply coupons": outline style, distinct from primary ---- */
+  .jox-acq-coupon-apply-btn-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 0;
+    margin: 20px 0px 15px 0px;
+  }
+
+  .jox-acq-coupon-apply-btn {
+    background: transparent;
+    color: var(--color-brand-primary);
+    font-weight: 600;
+    border: 2px solid var(--color-brand-primary);
+    padding: 8px 20px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+    width: fit-content;
+    box-shadow: none;
+  }
+
+  .jox-acq-coupon-apply-btn:hover {
+    background-color: var(--color-coupon-bg);
+    color: var(--color-brand-accent);
+    border-color: var(--color-brand-accent);
+  }
+
+  .jox-acq-override-notice{
+      color: var(--color-text-heading);
+      font-size: 14px;
+      line-height: 22px;
+      margin-top: 10px;
+      padding: 0 15px;
+  }
+  
+  .jox-acq-flyout-body .jox-acq-need-to-know {
+    padding: 5px 0;
+    margin: 0 0 10px 0;
+    line-height: 1.2;
+  }
+
+  .jox-acq-flyout-body .jox-acq-need-to-know span {
+    color: var(--color-danger);
+  }

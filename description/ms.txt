@@ -1,0 +1,23 @@
+JOJOFriend ialah sambungan pelayar percuma dan sumber terbuka yang secara automatik mencari serta menggunakan kod kupon terbaik semasa checkout, membantu anda memperoleh cashback pada kadar yang kompetitif.
+
+Dapatkan cashback dengan satu klik
+Beli-belah di kedai dalam talian kegemaran anda - JOJOFriend akan memaklumkan apabila cashback tersedia. Aktifkan ganjaran anda dengan satu klik, kemudian teruskan membeli-belah seperti biasa. Cashback anda akan dijejaki secara automatik dan dikreditkan ke akaun anda.
+
+Mengapa pilih JOJOFriend?
+- Keselamatan dan ketelusan: JOJOFriend ialah sumber terbuka dan sentiasa disemak oleh komuniti global, memastikan kebolehpercayaan dan ketelusan.
+- Penjimatan automatik: Mengesan dan menggunakan kod kupon terbaik yang tersedia semasa checkout secara segera.
+- Wawasan beli-belah pintar: Lihat sejarah harga produk Amazon untuk membuat keputusan pembelian yang lebih bijak.
+- Amaran kupon pintar: Terima notifikasi apabila kupon tersedia semasa anda melayari produk.
+- Tawaran eksklusif: Akses pilihan diskaun bernilai tinggi yang disusun khas merentas kedai yang disokong.
+
+Pendedahan afiliasi
+Apabila anda membeli-belah di kedai yang mengambil bahagian, JOJOFriend mungkin memperoleh komisen melalui pautan afiliasi. Kami berkongsi komisen tersebut dengan pengguna dalam bentuk ganjaran.
+
+Notis sumber terbuka
+JOJOFriend dikeluarkan di bawah Lesen Apache 2.0. Anda bebas menggunakan dan mengubah suai kod sumber mengikut terma lesen. Kami mengalu-alukan sumbangan komuniti, maklum balas, dan kerjasama.
+
+Laman web rasmi: https://www.jojofriend.com/
+Dasar privasi: https://www.jojofriend.com/ext/privacy
+Platform yang disokong: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+
+Pasang JOJOFriend secara percuma hari ini dan mula berjimat tanpa usaha setiap kali anda membeli-belah.

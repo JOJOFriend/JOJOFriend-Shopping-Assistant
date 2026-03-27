@@ -1,0 +1,55 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_extension_name__",
+  "short_name": "__MSG_extension_short_name__",
+  "description": "__MSG_extension_description__",
+  "default_locale": "en",
+  "version": "0.0.0",
+  "version_name": "Dev",
+  "icons": {
+    "16": "images/icon/default/icon16.png",
+    "32": "images/icon/default/icon32.png",
+    "48": "images/icon/default/icon48.png",
+    "128": "images/icon/default/icon128.png",
+    "512": "images/icon/default/icon512.png"
+  },
+  "browser_action": {
+    "default_icon": {
+			"16": "images/icon/default/icon16.png",
+      "32": "images/icon/default/icon32.png",
+      "48": "images/icon/default/icon48.png",
+      "128": "images/icon/default/icon128.png",
+      "512": "images/icon/default/icon512.png"
+    }
+  },
+  "permissions": ["storage", "tabs", "http://*/*", "https://*/*"],
+  "browser_specific_settings": {
+    "gecko": {
+        "id": "joinjojofriend@firefox.jojofriend.com",
+        "data_collection_permissions": {
+          "required": [
+            "browsingActivity",
+            "websiteContent",
+            "websiteActivity"
+          ],
+          "optional": [
+            "technicalAndInteraction"
+          ]
+         }
+      }
+  },
+  "background": {"scripts": ["js/background.js"]},
+  "content_scripts": [
+    {
+      "js": ["js/inject.coupon.js"],
+      "matches": [ "http://*/*", "https://*/*" ],
+      "run_at": "document_start"
+    },
+    {
+      "js": ["js/others/partner.js"],
+      "matches": [ "https://www.tool77.com/*" ],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [ "css/**", "images/**" ]
+}

@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Assistente acquisti JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Un assistente shopping intelligente per coupon, confronto prezzi e cashback."
+  },
+  "setting_modal_title": {
+    "message": "Impostazioni"
+  },
+  "setting_modal_language_title": {
+    "message": "Lingua"
+  },
+  "setting_modal_language_description": {
+    "message": "Seleziona la lingua preferita:"
+  },
+  "setting_modal_history_title": {
+    "message": "Limite cronologia"
+  },
+  "setting_modal_history_description": {
+    "message": "Numero max. di elementi (min: {1}, max: {2}. Salvataggio automatico.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Inserisci un numero nel range, es. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Svuota cache"
+  },
+  "setting_modal_clear_description": {
+    "message": "Svuota cache e cronologia. L’operazione non può essere annullata."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Svuota"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Svuotare tutta la cronologia? L’operazione non può essere annullata."
+  },
+  "history_box_title": {
+    "message": "Cronologia di navigazione"
+  },
+  "history_bar_hint": {
+    "message": "Cronologia"
+  },
+  "history_box_hit_today": {
+    "message": "—— Oggi ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Ieri ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Riprova"
+  },
+  "inspect_couponList_copied": {
+    "message": "Copiato"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Ricerca delle migliori offerte…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Prova i codici in automatico per farti risparmiare."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend ti ricorda: hai già la migliore offerta."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Codice applicato automaticamente. Ottimo risparmio!"
+  },
+  "setting_window_display_title": {
+    "message": "Visualizzazione"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Nascondi per {1} minuti"
+  },
+  "setting_window_display_session": {
+    "message": "Nascondi per questa sessione"
+  },
+  "setting_window_display_all": {
+    "message": "Mostra tutto"
+  },
+  "setting_window_general_title": {
+    "message": "Generale"
+  },
+  "setting_window_general_label": {
+    "message": "Lingua, cronologia e altro"
+  }
+}

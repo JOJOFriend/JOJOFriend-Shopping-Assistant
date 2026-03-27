@@ -1,0 +1,23 @@
+JOJOFriend, odeme sirasinda en iyi kupon kodlarini otomatik olarak bulan ve uygulayan, rekabetci oranlarla cashback kazanmaniza yardimci olan ucretsiz ve acik kaynakli bir tarayici uzantisidir.
+
+Tek tikla cashback kazanin
+Favori online magazalarinizda alisveris yapin - cashback mevcut oldugunda JOJOFriend sizi bilgilendirir. Odullerinizi tek tikla etkinlestirin ve normal sekilde alisverise devam edin. Cashback tutariniz otomatik olarak takip edilir ve hesabiniza islenir.
+
+Neden JOJOFriend?
+- Guvenlik ve seffaflik: JOJOFriend acik kaynaklidir ve dunyanin dort bir yanindaki topluluk tarafindan surekli incelenir; bu da guven saglar.
+- Otomatik tasarruf: Odeme sirasinda mevcut en iyi kupon kodlarini aninda tespit eder ve uygular.
+- Akilli alisveris icgoruleri: Daha bilincli satin alma kararları icin Amazon fiyat gecmisini goruntuleyin.
+- Akilli kupon uyarilari: Urunlere goz atarken kupon mevcutsa bildirim alin.
+- Ozel firsatlar: Desteklenen magazalarda yuksek degerli indirimlerden olusan ozenle secilmis tekliflere erisin.
+
+Is ortakligi aciklamasi
+Katilimci magazalarda alisveris yaptiginizda JOJOFriend, is ortakligi baglantilari uzerinden komisyon kazanabilir. Bu komisyonlari kullanicilarimizla odul olarak paylasiyoruz.
+
+Acik kaynak bildirimi
+JOJOFriend Apache License 2.0 kapsaminda yayinlanir. Kaynak kodu lisans kosullarina uygun sekilde kullanmakta ve degistirmekte ozgursunuz. Topluluktan katkilar, geri bildirimler ve is birligi memnuniyetle karsilanir.
+
+Resmi web sitesi: https://www.jojofriend.com/
+Gizlilik politikasi: https://www.jojofriend.com/ext/privacy
+Desteklenen platformlar: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+
+JOJOFriend'i bugun ucretsiz yukleyin ve her alisveriste zahmetsizce tasarruf etmeye baslayin.

@@ -1,0 +1,6 @@
+/**
+ * Shared in all contexts including shadow DOM (import separately in shadow DOM).
+ */
+ *[data-extension-direction='rtl'] {
+    direction: rtl !important;
+  }

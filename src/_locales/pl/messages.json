@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Asystent zakupów JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Inteligentny asystent zakupów do kuponów, porównywania cen i zwrotu gotówki."
+  },
+  "setting_modal_title": {
+    "message": "Ustawienia"
+  },
+  "setting_modal_language_title": {
+    "message": "Język"
+  },
+  "setting_modal_language_description": {
+    "message": "Wybierz preferowany język:"
+  },
+  "setting_modal_history_title": {
+    "message": "Limit historii"
+  },
+  "setting_modal_history_description": {
+    "message": "Maks. elementów (min: {1}, max: {2}. Zmiany zapisują się automatycznie.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Wprowadź liczbę z zakresu, np. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Wyczyść pamięć podręczną"
+  },
+  "setting_modal_clear_description": {
+    "message": "Wyczyść pamięć podręczną i historię. Tej operacji nie można cofnąć."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Wyczyść"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Wyczyścić całą historię? Tej operacji nie można cofnąć."
+  },
+  "history_box_title": {
+    "message": "Historia przeglądania"
+  },
+  "history_bar_hint": {
+    "message": "Historia"
+  },
+  "history_box_hit_today": {
+    "message": "—— Dzisiaj ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Wczoraj ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Ponów"
+  },
+  "inspect_couponList_copied": {
+    "message": "Skopiowano"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Szukam najlepszych ofert…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Automatyczne próby kodów, żeby zaoszczędzić."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend przypomina: masz już najlepszą ofertę."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Kod zastosowany automatycznie. Dobra robota!"
+  },
+  "setting_window_display_title": {
+    "message": "Wyświetlanie"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Ukryj na {1} min"
+  },
+  "setting_window_display_session": {
+    "message": "Ukryj na tę sesję"
+  },
+  "setting_window_display_all": {
+    "message": "Pokaż wszystko"
+  },
+  "setting_window_general_title": {
+    "message": "Ogólne"
+  },
+  "setting_window_general_label": {
+    "message": "Język, historia i inne"
+  }
+}

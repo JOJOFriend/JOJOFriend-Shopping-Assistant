@@ -1,0 +1,52 @@
+{
+	"manifest_version": 3,
+	"name": "JOJOFriend Extension",
+	"short_name": "JOJOFriend",
+	"description": "__MSG_extension_description__",
+	"default_locale": "en",
+	"version": "0.0.0",
+	"version_name": "Dev",
+	"icons": {
+	  	"16": "images/icon/default/icon16.png",
+		"32": "images/icon/default/icon32.png",
+		"48": "images/icon/default/icon48.png",
+		"128": "images/icon/default/icon128.png",
+		"512": "images/icon/default/icon512.png"
+	},
+	"action": {
+	  "default_icon": {
+		"16": "images/icon/default/icon16.png",
+        "32": "images/icon/default/icon32.png",
+        "48": "images/icon/default/icon48.png",
+        "128": "images/icon/default/icon128.png",
+        "512": "images/icon/default/icon512.png"
+	  }
+	},
+	"permissions": ["storage", "tabs"],
+	"host_permissions": [ "http://*/*", "https://*/*" ],
+	"background": {
+	  "service_worker": "js/background.js"
+	},
+	"content_scripts": [
+		{
+			"js": ["js/inject.coupon.js"],
+			"matches": [ "https://*/*", "http://*/*" ],
+			"run_at": "document_start"
+		},
+		{
+			"js": ["js/others/partner.js"],
+			"matches": [ "https://www.tool77.com/*" ],
+			"run_at": "document_end"
+		}
+	],
+	"web_accessible_resources": [
+	    {
+	    	"resources": [ "css/**", "images/**", "templates/**" ],
+	    	"matches": ["<all_urls>"]
+	    }
+    ],
+	"content_security_policy": {
+		"extension_pages": "script-src 'self'; object-src 'self'; connect-src https://o.jiayoushichang.com https://www.jojofriend.com http://127.0.0.1:8080;"
+    
+	}
+}

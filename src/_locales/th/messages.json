@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "ผู้ช่วยช้อปปิ้ง JOJOFriend"
+  },
+  "extension_description": {
+    "message": "ผู้ช่วยช้อปปิ้งอัจฉริยะสำหรับคูปอง การเปรียบเทียบราคา และแคชแบ็ก"
+  },
+  "setting_modal_title": {
+    "message": "การตั้งค่า"
+  },
+  "setting_modal_language_title": {
+    "message": "ภาษา"
+  },
+  "setting_modal_language_description": {
+    "message": "เลือกภาษาที่ต้องการ:"
+  },
+  "setting_modal_history_title": {
+    "message": "จำกัดประวัติ"
+  },
+  "setting_modal_history_description": {
+    "message": "จำนวนรายการสูงสุด (ต่ำสุด: {1}, สูงสุด: {2}. บันทึกอัตโนมัติ):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "ใส่ตัวเลขในช่วง เช่น 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "ล้างแคช"
+  },
+  "setting_modal_clear_description": {
+    "message": "ล้างแคชและประวัติการเข้าชม ไม่สามารถยกเลิกได้"
+  },
+  "setting_modal_clear_btn": {
+    "message": "ล้าง"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "ล้างประวัติการเข้าชมทั้งหมด? ไม่สามารถยกเลิกได้"
+  },
+  "history_box_title": {
+    "message": "ประวัติการเข้าชม"
+  },
+  "history_bar_hint": {
+    "message": "ประวัติ"
+  },
+  "history_box_hit_today": {
+    "message": "—— วันนี้ ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— เมื่อวาน ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "ลองอีกครั้ง"
+  },
+  "inspect_couponList_copied": {
+    "message": "คัดลอกแล้ว"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "กำลังค้นหาข้อเสนอที่ยอดเยี่ยม…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "ลองรหัสโดยอัตโนมัติเพื่อช่วยประหยัดเงิน"
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend แจ้งเตือน: คุณได้ข้อเสนอที่ดีที่สุดแล้ว"
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "นำรหัสไปใช้โดยอัตโนมัติ ประหยัดได้ดี!"
+  },
+  "setting_window_display_title": {
+    "message": "การแสดงผล"
+  },
+  "setting_window_display_hide30m": {
+    "message": "ซ่อน {1} นาที"
+  },
+  "setting_window_display_session": {
+    "message": "ซ่อนสำหรับเซสชันนี้"
+  },
+  "setting_window_display_all": {
+    "message": "แสดงทั้งหมด"
+  },
+  "setting_window_general_title": {
+    "message": "ทั่วไป"
+  },
+  "setting_window_general_label": {
+    "message": "ภาษา, ประวัติ และอื่นๆ"
+  }
+}

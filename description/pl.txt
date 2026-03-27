@@ -1,0 +1,23 @@
+JOJOFriend to darmowe, otwartozrodlowe rozszerzenie przegladarki, ktore automatycznie znajduje i stosuje najlepsze kody kuponowe przy finalizacji zakupu, pomagajac Ci zdobywac cashback na konkurencyjnych warunkach.
+
+Zarabiaj cashback jednym kliknieciem
+Kupuj w swoich ulubionych sklepach internetowych - JOJOFriend powiadomi Cie, gdy cashback bedzie dostepny. Aktywuj nagrody jednym kliknieciem i kupuj jak zwykle. Twoj cashback bedzie automatycznie sledzony i dopisany do konta.
+
+Dlaczego JOJOFriend?
+- Bezpieczenstwo i przejrzystosc: JOJOFriend jest open source i stale weryfikowany przez globalna spolecznosc, co buduje zaufanie.
+- Automatyczne oszczedzanie: Natychmiast wykrywa i stosuje najlepsze dostepne kody kuponowe przy platnosci.
+- Inteligentne wskazowki zakupowe: Sprawdzaj historie cen produktow Amazon, aby podejmowac lepsze decyzje zakupowe.
+- Inteligentne alerty kuponowe: Otrzymuj powiadomienia, gdy podczas przegladania pojawiaja sie dostepne kupony.
+- Oferty ekskluzywne: Dostep do starannie wybranych, wysokowartosciowych znizek w obslugiwanych sklepach.
+
+Ujawnienie afiliacyjne
+Gdy robisz zakupy w sklepach partnerskich, JOJOFriend moze otrzymac prowizje przez linki afiliacyjne. Dzielimy sie tymi prowizjami z uzytkownikami w formie nagrod.
+
+Informacja open source
+JOJOFriend jest udostepniany na licencji Apache 2.0. Mozesz swobodnie uzywac i modyfikowac kod zrodlowy zgodnie z warunkami licencji. Zapraszamy do wspoltworzenia, opinii i wspolpracy.
+
+Oficjalna strona: https://www.jojofriend.com/
+Polityka prywatnosci: https://www.jojofriend.com/ext/privacy
+Obslugiwane platformy: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+
+Zainstaluj JOJOFriend za darmo juz dzis i oszczedzaj bez wysilku przy kazdym zakupie.

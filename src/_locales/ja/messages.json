@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "JOJOFriend ショッピングアシスタント"
+  },
+  "extension_description": {
+    "message": "クーポン、価格比較、キャッシュバックのためのスマートショッピングアシスタント。"
+  },
+  "setting_modal_title": {
+    "message": "設定"
+  },
+  "setting_modal_language_title": {
+    "message": "言語"
+  },
+  "setting_modal_language_description": {
+    "message": "言語を選択："
+  },
+  "setting_modal_history_title": {
+    "message": "履歴の上限"
+  },
+  "setting_modal_history_description": {
+    "message": "保存する件数（最小：{1}、最大：{2}。自動保存）："
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "範囲内の数値を入力（例：30）"
+  },
+  "setting_modal_clear_title": {
+    "message": "キャッシュをクリア"
+  },
+  "setting_modal_clear_description": {
+    "message": "キャッシュと閲覧履歴をクリアします。元に戻せません。"
+  },
+  "setting_modal_clear_btn": {
+    "message": "クリア"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "閲覧履歴をすべてクリアしますか？元に戻せません。"
+  },
+  "history_box_title": {
+    "message": "閲覧履歴"
+  },
+  "history_bar_hint": {
+    "message": "履歴"
+  },
+  "history_box_hit_today": {
+    "message": "—— 今日 ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— 昨日 ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "再試行"
+  },
+  "inspect_couponList_copied": {
+    "message": "コピーしました"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "お得な情報を検索中…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "コードを自動で試して節約します。"
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriendより：すでに最安のオファーです。"
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "コードを自動適用しました。よく節約できました！"
+  },
+  "setting_window_display_title": {
+    "message": "表示"
+  },
+  "setting_window_display_hide30m": {
+    "message": "{1}分間非表示"
+  },
+  "setting_window_display_session": {
+    "message": "このセッションでは非表示"
+  },
+  "setting_window_display_all": {
+    "message": "すべて表示"
+  },
+  "setting_window_general_title": {
+    "message": "一般"
+  },
+  "setting_window_general_label": {
+    "message": "言語・履歴など"
+  }
+}

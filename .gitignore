@@ -1,0 +1,15 @@
+.idea/
+.project
+__tmp/
+__dist/
+node_modules/
+package-lock.json
+.DS_Store
+*.zip
+/dist/
+/__dist/
+/__tmp/
+/__demo/
+/node_modules/
+/target_dist/
+**/node_modules/

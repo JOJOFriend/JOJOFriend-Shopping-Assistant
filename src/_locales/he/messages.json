@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "עוזר הקניות JOJOFriend"
+  },
+  "extension_description": {
+    "message": "עוזר קניות חכם לקופונים, השוואת מחירים והחזר כספי."
+  },
+  "setting_modal_title": {
+    "message": "הגדרות"
+  },
+  "setting_modal_language_title": {
+    "message": "שפה"
+  },
+  "setting_modal_language_description": {
+    "message": "בחר את השפה המועדפת עליך:"
+  },
+  "setting_modal_history_title": {
+    "message": "מגבלת היסטוריה"
+  },
+  "setting_modal_history_description": {
+    "message": "מספר פריטים מרבי לשמירה (מינימום: {1}, מקסימום: {2}. השינויים נשמרים אוטומטית.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "הזן מספר בטווח, למשל 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "ניקוי מטמון"
+  },
+  "setting_modal_clear_description": {
+    "message": "ניקוי מטמון והיסטוריית גלישה. לא ניתן לבטל פעולה זו."
+  },
+  "setting_modal_clear_btn": {
+    "message": "נקה"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "לנקות את כל היסטוריית הגלישה? לא ניתן לבטל פעולה זו."
+  },
+  "history_box_title": {
+    "message": "היסטוריית גלישה"
+  },
+  "history_bar_hint": {
+    "message": "היסטוריה"
+  },
+  "history_box_hit_today": {
+    "message": "—— היום ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— אתמול ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "נסה שוב"
+  },
+  "inspect_couponList_copied": {
+    "message": "הועתק"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "מחפש עסקאות מעולות…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "מנסה קודים אוטומטית כדי לחסוך לך כסף."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend מזכיר לך: אתה כבר בעסקה הטובה ביותר."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "הקוד הוחל אוטומטית. חיסכון יפה!"
+  },
+  "setting_window_display_title": {
+    "message": "תצוגה"
+  },
+  "setting_window_display_hide30m": {
+    "message": "הסתר ל־{1} דקות"
+  },
+  "setting_window_display_session": {
+    "message": "הסתר למשך ההפעלה"
+  },
+  "setting_window_display_all": {
+    "message": "הצג הכל"
+  },
+  "setting_window_general_title": {
+    "message": "כללי"
+  },
+  "setting_window_general_label": {
+    "message": "שפה, היסטוריה ועוד"
+  }
+}

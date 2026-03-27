@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Asistente de compras JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Un asistente de compras inteligente para cupones, comparación de precios y reembolsos."
+  },
+  "setting_modal_title": {
+    "message": "Ajustes"
+  },
+  "setting_modal_language_title": {
+    "message": "Idioma"
+  },
+  "setting_modal_language_description": {
+    "message": "Selecciona tu idioma preferido:"
+  },
+  "setting_modal_history_title": {
+    "message": "Límite de historial"
+  },
+  "setting_modal_history_description": {
+    "message": "Máximo de elementos (mín.: {1}, máx.: {2}. Los cambios se guardan solos.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Introduce un número en el rango, p. ej. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Borrar caché"
+  },
+  "setting_modal_clear_description": {
+    "message": "Borrar caché e historial. No se puede deshacer."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Borrar"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "¿Borrar todo el historial? No se puede deshacer."
+  },
+  "history_box_title": {
+    "message": "Historial de navegación"
+  },
+  "history_bar_hint": {
+    "message": "Historial"
+  },
+  "history_box_hit_today": {
+    "message": "—— Hoy ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Ayer ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Reintentar"
+  },
+  "inspect_couponList_copied": {
+    "message": "Copiado"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Buscando buenas ofertas…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Probando códigos automáticamente para ahorrarte dinero."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend te recuerda: ya tienes la mejor oferta."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Código aplicado. ¡Buen ahorro!"
+  },
+  "setting_window_display_title": {
+    "message": "Pantalla"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Ocultar {1} minutos"
+  },
+  "setting_window_display_session": {
+    "message": "Ocultar en esta sesión"
+  },
+  "setting_window_display_all": {
+    "message": "Mostrar todo"
+  },
+  "setting_window_general_title": {
+    "message": "General"
+  },
+  "setting_window_general_label": {
+    "message": "Idioma, historial y más"
+  }
+}

@@ -1,0 +1,574 @@
+.panel-container{
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+}
+
+/* Top navigation */
+.panel-container .panel-navigation {
+  width: 100%;
+  position: relative;
+  background: var(--color-surface-primary);
+  z-index: 10;
+  padding: 10px 0;
+  box-shadow: 0 4px 6px var(--color-shadow-overlay);
+}
+
+.panel-container .panel-navigation > ul {
+  width: 90%;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: flex;
+  justify-content: center;
+  background: var(--color-surface-secondary);
+  border-radius: 999px;
+  overflow: hidden;
+  list-style: none !important;
+  border: 1px solid var(--color-border-divider);
+}
+
+.panel-container .panel-navigation > ul > li {
+  flex: 1;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+/* Tab segment control: selected item is a filled block, distinct from outline button below */
+.panel-container .panel-navigation > ul > li > a {
+  display: block;
+  text-align: center;
+  padding: 8px 12px;
+  margin: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background-color: transparent;
+  text-decoration: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.panel-container .panel-navigation > ul > li > a:hover {
+  background-color: var(--color-surface-tertiary);
+  color: var(--color-text-heading);
+}
+
+.panel-container .panel-navigation > ul > li > a.active {
+  background-color: rgba(37, 99, 235, 0.15);
+  color: var(--color-brand-primary) !important;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+  /* Fill + thin border to distinguish from jox-acq-apply-inner outline; selected state more visible */
+}
+
+.navigation-hidden{
+	display:none;
+}
+
+
+/* Coupon tab content: fade-in via animation on tab switch (transition does not work with display toggle) */
+.panel-container .panel-tabs {
+  flex: 1;
+  position: relative;
+}
+
+.panel-container .tab-pane {
+  display: none;
+  background: var(--color-surface-secondary);
+  overflow-y: auto;
+}
+
+.panel-container .tab-pane.active {
+  display: block !important;
+}
+
+.panel-container .tab-pane.active.fade,
+.panel-container .tab-pane.active.fade-in {
+  animation: cgg-fade-in 0.2s ease-out forwards;
+}
+
+/* ---- scroll-box ---- */
+.scroll-box {
+  position: relative;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  outline: none;
+  background-color: var(--color-scrollbar-thumb);
+  -webkit-background-clip: text;
+  transition: background-color 0.3s;
+}
+
+.scroll-box::-webkit-scrollbar {
+  width: 4px;
+  background: transparent;
+}
+
+.scroll-box::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  background-color: inherit;
+}
+
+.scroll-box::-webkit-scrollbar-track {
+  background: transparent !important;
+  border-radius: 3px;
+}
+
+.scroll-box.hide-scrollbar {
+  background-color: transparent !important;
+}
+
+/* Coupon tab */
+#jox-acq-coupon-list{
+	overflow: auto;
+}
+#jox-acq-coupon-list .jox-acq-coupon-list{
+	overflow:auto;
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item{
+  display: flex;
+  margin:10px 10px;
+  border:1px dashed var(--color-surface-tertiary);
+  padding:10px;
+  background-color: var(--color-surface-primary);
+}
+
+/* Media item (with image) */
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-media-item{
+	flex-direction:column;
+}
+
+/*img*/
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-media-item > .jox-acq-img{
+
+ 	width: 100%;
+    max-height: 80px;
+    display: flex;
+    border-radius: 2px;
+    margin-bottom: 5px;
+    justify-content: flex-start;
+    align-items: flex-start;
+    overflow: hidden;
+}
+
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-media-item > .jox-acq-img > img{
+
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/*content*/
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-media-item > .jox-acq-content{
+  display: flex;
+  flex-direction:row;
+}
+
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-left{
+  flex:1;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  padding-right: 10px;
+  overflow: hidden;
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-left .item-coupon-text{
+  height: 30px;
+  line-height: 30px;
+  font-size: 17px;
+  color: var(--color-text-primary);
+  font-weight: bold;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none; /* Prevent text selection */
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-left .item-coupon-subtitle{
+  color: var(--color-text-secondary);
+  font-size:13px;
+  margin-top:5px;
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-right{
+  display: flex;
+  align-items: center;
+  justify-content: end;
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-right .discount-base{
+   background: linear-gradient(105deg, var(--color-brand-gradient-start) 7.84%, var(--color-brand-gradient-end) 90.08%);
+   color: var(--color-text-inverse);
+   border-radius:3px;
+   text-align:center;
+   cursor:pointer;
+   font-weight: bold;
+   transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-right .discount-base:hover{
+ 	background: linear-gradient(105deg, var(--color-brand-gradient-highlight-start) 7.84%, var(--color-brand-gradient-highlight-end) 90.08%);
+	box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.3);
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-right .discount-btn-sm{
+  height:30px;
+  width: 50px;
+  line-height:30px;
+  font-size:13px;
+}
+#jox-acq-coupon-list .jox-acq-coupon-list >.jox-acq-coupon-item .jox-acq-item-right .discount-btn-default{
+	height: 40px;
+    width: 100px;
+    line-height: 40px;
+    font-size: 13px;
+    padding:0px 5px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis
+}
+
+/* Apply coupons: same outline style as flyout secondary button for consistent layout */
+#jox-acq-coupon-list .jox-acq-coupon-apply {
+  margin: 15px 0px 0px 0px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#jox-acq-coupon-list .jox-acq-coupon-apply .jox-acq-apply-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 8px 25px;
+  min-height: 38px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  color: var(--color-brand-primary);
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: 2px solid var(--color-brand-primary);
+  border-radius: 999px;
+  width: 100%;
+  text-align: center;
+  margin: 0px 15px;
+}
+
+#jox-acq-coupon-list .jox-acq-coupon-apply .jox-acq-apply-inner:hover {
+  background-color: var(--color-coupon-bg);
+  color: var(--color-brand-accent);
+  border-color: var(--color-brand-accent);
+}
+
+
+/** Store tab **/
+#jox-acq-store-list{
+	overflow: auto;
+}
+#jox-acq-store-list .jox-acq-store-list .jox-acq-store-item{
+	margin: 10px 10px;
+	border: 1px dashed var(--color-border-divider);
+	padding: 10px;
+	background-color: var(--color-surface-primary);
+	text-align: center;
+	cursor: pointer;
+}
+
+/** Colored underline **/
+#jox-acq-store-list .jox-acq-store-list .jox-acq-store-item >span{
+	font-size: 14px;
+	font-weight: bold;
+  position: relative;
+  display: inline-block;
+}
+#jox-acq-store-list .jox-acq-store-list .jox-acq-store-item >span::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet);
+  transition: transform 0.3s ease-out;
+  transform: scaleX(0); /* initially hidden */
+  transform-origin: bottom left;
+}
+#jox-acq-store-list .jox-acq-store-list .jox-acq-store-item >span.underline-show::after {
+  transform: scaleX(1); /* show gradient line */
+}
+#jox-acq-store-list .jox-acq-store-list .jox-acq-store-item .jox-acq-platform-logo{
+	height: 100px;
+	text-align: center!important;
+	display: flex;
+    justify-content: center;
+    align-items: center;
+}
+#jox-acq-store-list .jox-acq-store-list .jox-acq-store-item .jox-acq-platform-logo >img{
+ 	height: 100% !important;
+    display: inline-block !important;
+    width: auto !important;
+    border-radius: 0px !important;
+    object-fit: cover !important;
+    transition: none !important;
+}
+
+/** show more **/
+#jox-acq-coupon-list .jox-acq-showmore-box{
+  margin-top: 15px;
+}
+#jox-acq-coupon-list .jox-acq-showmore-box > .showmore-pic{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#jox-acq-coupon-list .jox-acq-showmore-box > .showmore-subtitle{
+  color: var(--color-text-secondary);
+  font-size:14px;
+  width:80%;
+  margin:0px auto;
+}
+
+#jox-acq-coupon-list .jox-acq-showmore-box > .showmore-btn,
+#jox-acq-store-list .jox-acq-showmore-box > .showmore-btn {
+    width: fit-content; /* ✨ Automatically size based on content */
+    height: 40px;
+    border: 4px solid var(--color-border-divider);
+    border-radius: 50px;
+    margin: 20px auto;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    white-space: nowrap; /* Prevent line breaks */
+    padding: 0 20px; /* Optional: add horizontal padding */
+}
+
+/* RTL: right-to-left (e.g. Arabic) */
+.panel-container[data-direction='right']{
+  direction: rtl; /* right-to-left text direction */
+}
+
+/*footer part*/
+.panel-cfooter{
+  position: relative;
+  bottom: 0;
+  width: 100%;
+  background-color: var(--color-surface-tertiary);
+  color: var(--color-text-heading);
+  text-align: center;
+  padding: 10px 0;
+  font-size: 15px;
+  font-weight: bold;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.jox-acq-download-icon {
+  font-size: 18px;
+  display: inline-block;
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+.jox-acq-message-wrapper {
+  height: 1.3em;
+  overflow: hidden;
+  display: inline-block;
+  position: relative;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+
+.jox-acq-message-wrapper > a {
+	text-decoration:none;
+	color: var(--color-brand-accent);
+}
+
+.jox-acq-message-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.jox-acq-message {
+  height: 1.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size:14px;
+}
+
+/*---cashback panel----*/
+.cashback-panel {
+  font-family: Arial, sans-serif;
+  width: 100%;
+  background: var(--color-surface-primary);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  padding: 20px 0 5px 0;
+  margin-bottom:10px;
+  z-index: 1;
+}
+
+.cashback-user-info {
+  margin-bottom:0px;
+  text-align: center;
+}
+
+.jox-acq-user-avatar {
+  position: relative;
+  width: 65px;
+  height: 65px;
+  margin: 0 auto;
+}
+
+.jox-acq-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--color-border-divider);
+}
+
+.jox-acq-vip-badge-css {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: var(--color-badge-success);
+  color: var(--color-text-inverse);
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.jox-acq-vip-badge-css span {
+  font-size: 8px;
+}
+
+.jox-acq-username {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.jox-acq-account {
+    display: flex;
+    justify-content: center;
+    gap: 12px; /* Better spacing than margin-right */
+    margin: 5px 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--color-text-heading);
+    padding: 10px 20px;
+}
+
+.jox-acq-account > div {
+    white-space: nowrap;
+}
+
+.jox-acq-account .jox-acq-account-confirmed,
+.jox-acq-account .jox-acq-account-pending {
+    display: inline-block;
+    background: linear-gradient(90deg, var(--color-brand-accent), var(--color-brand-accent-light), var(--color-brand-accent));
+    background-size: 200% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: swipeText 2s linear infinite;
+    font-weight: bold;
+    margin-left: 3px;
+}
+
+.cashback-panel .jox-acq-cashback-btn-container {
+  margin: 10px 0;
+}
+
+.cashback-panel .jox-acq-cashback-btn:disabled,
+.cashback-panel .jox-acq-cashback-btn.disabled {
+  margin-top: -15px;
+  margin-bottom: -5px;
+}
+
+.jox-acq-user-login-first {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 15px 0;
+  padding: 0 10px;
+  color: var(--color-brand-accent);
+  font-weight: bold;
+  font-size: 16px;
+  gap: 8px;
+}
+
+.cashback-panel .jox-acq-activate-suggestion {
+  margin: 0 10px 10px 10px;
+  font-size: 13px;
+  text-align: center;
+  line-height: 16px;
+}
+
+/*--stepper--*/
+
+.jox-acq-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0 20px 0;
+  padding: 0 30px;
+}
+
+.jox-acq-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.jox-acq-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--color-border-divider);
+  z-index: 1;
+}
+
+.jox-acq-step.jox-acq-active .jox-acq-circle {
+  background-color: var(--color-brand-accent);
+}
+
+.jox-acq-label {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-border-divider);
+}
+
+.jox-acq-step.jox-acq-active .jox-acq-label {
+  color: var(--color-brand-accent-light);
+  font-weight: bold;
+}
+
+.jox-acq-line {
+   flex: 1;
+   height: 2px;
+   background: linear-gradient(to right, var(--color-surface-tertiary) 50%, var(--color-border-divider) 50%);
+   margin: 0 10px;
+   border-radius: 2px;
+}
+
+/* --- Terms section wrapper (content styles in detect.css) --- */
+.panel-terms-section {
+  flex-shrink: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--color-surface-tertiary);
+}

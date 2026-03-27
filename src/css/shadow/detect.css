@@ -1,0 +1,188 @@
+/* --- Terms collapsible section --- */
+.jox-acq-terms-toggle {
+  cursor: pointer;
+  padding: 15px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-heading);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--color-surface-secondary);
+  user-select: none;
+  border-radius: 8px; /* when closed: all four corners rounded */
+  transition: background-color 0.2s ease, border-radius 0.2s ease;
+}
+
+input:checked ~ .jox-acq-terms-toggle {
+  border-radius: 8px 8px 0 0; /* when expanded: only top-left and top-right rounded */
+}
+
+.jox-acq-terms-toggle:hover {
+  background-color: var(--color-surface-tertiary);
+}
+
+.jox-acq-arrow {
+  transition: transform 0.3s ease;
+  font-size: 12px;
+  color: var(--color-brand-primary);
+}
+
+.jox-acq-terms-content {
+  display: none;
+  padding: 0px 15px 15px 15px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  background-color: var(--color-surface-secondary);
+  border-radius: 0 0 8px 8px;
+  text-align: left;
+}
+
+.jox-acq-terms-toggle input {
+  display: none;
+}
+
+input:checked ~ .jox-acq-terms-content {
+  display: block;
+}
+
+input:checked ~ .jox-acq-terms-toggle .jox-acq-arrow {
+  transform: rotate(180deg);
+}
+.jox-acq-terms-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 10px 0;
+}
+
+.jox-acq-terms-content li {
+  position: relative;
+  padding-left: 18px;
+  margin-bottom: 8px;
+}
+
+.jox-acq-terms-content li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--color-brand-primary);
+  font-weight: bold;
+}
+
+.jox-acq-terms-content p{
+  padding-bottom: 10px;
+}
+
+.jox-acq-terms-content a {
+  color: var(--color-brand-accent);
+  text-decoration: none;
+}
+
+.jox-acq-terms-content a:hover {
+  text-decoration: underline;
+}
+
+/* --- Cashback button container and primary button --- */
+.jox-acq-cashback-btn-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.jox-acq-cashback-btn {
+  background: linear-gradient(90deg, var(--color-brand-gradient-highlight-start), var(--color-brand-gradient-highlight-end));
+  color: var(--color-text-inverse);
+  font-weight: 700;
+  border: none;
+  padding: 14px 22px;
+  border-radius: 999px;
+  font-size: 16px;
+  cursor: pointer;
+  /* Glow: small spread, subtle */
+  box-shadow: 0 4px 12px var(--color-shadow-brand),
+              0 0 12px rgba(37, 99, 235, 0.2),
+              0 0 24px rgba(37, 99, 235, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 90%;
+  text-align: center;
+}
+.jox-acq-cashback-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--color-shadow-brand),
+              0 0 16px rgba(37, 99, 235, 0.25),
+              0 0 32px rgba(37, 99, 235, 0.12);
+}
+
+.jox-acq-cashback-btn:disabled,
+.jox-acq-cashback-btn.disabled {
+  background: transparent;
+  color: var(--color-danger);
+  font-style: oblique;
+  cursor: not-allowed;
+  box-shadow: none;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* --- Cashback QR code container --- */
+.jox-acq-cashback-qrcode-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.jox-acq-cashback-qrcode-container img {
+  background: var(--color-surface-tertiary);
+  border-radius: 10px;
+}
+
+/* --- Activate suggestion text --- */
+.jox-acq-activate-suggestion {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 15px 0;
+  padding: 0 10px;
+  color: var(--color-brand-accent);
+  font-weight: bold;
+  font-size: 16px;
+  gap: 8px;
+}
+
+/* --- Hand gesture animations --- */
+.hand-down-animate {
+  animation: bounce 1.5s infinite;
+  display: inline-block;
+}
+
+.hand-left-animate {
+  display: inline-block;
+  color: var(--color-text-inverse);
+  animation: cgg-point-left 1s infinite alternate ease-in-out;
+  transform: rotate(0deg);
+}
+
+/* --- User need to know notice block --- */
+.jox-acq-need-to-know {
+  padding: 5px 15px;
+  margin: 5px 0 0 5px;
+  border-radius: 5px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.jox-acq-need-to-know-important {
+  color: var(--color-danger);
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.jox-acq-need-to-know span {
+  color: var(--color-text-primary);
+}

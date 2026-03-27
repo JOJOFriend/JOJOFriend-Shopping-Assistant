@@ -1,6 +1,6 @@
 # JOJOFriend
 
-** JOJOFriend** is a free, open-source browser extension that automatically finds and applies the best coupon codes at checkout and helps you earn cashback at competitive rates.
+**JOJOFriend** is a free, open-source browser extension that automatically finds and applies the best coupon codes at checkout and helps you earn cashback at competitive rates.
 
 [➜ Official Website](https://www.jojofriend.com/) · [➜ Privacy Policy](https://www.jojofriend.com/ext/privacy) · [➜ Supported Platforms](https://github.com/jojofriend/JOJOFriend-Shopping-Assistant/blob/main/PLATFORMS.md)
 

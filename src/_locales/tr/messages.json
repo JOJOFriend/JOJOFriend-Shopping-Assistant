@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "JOJOFriend Alışveriş Asistanı"
+  },
+  "extension_description": {
+    "message": "Kuponlar, fiyat karşılaştırması ve nakit iadesi için akıllı bir alışveriş asistanı."
+  },
+  "setting_modal_title": {
+    "message": "Ayarlar"
+  },
+  "setting_modal_language_title": {
+    "message": "Dil"
+  },
+  "setting_modal_language_description": {
+    "message": "Tercih ettiğiniz dili seçin:"
+  },
+  "setting_modal_history_title": {
+    "message": "Geçmiş limiti"
+  },
+  "setting_modal_history_description": {
+    "message": "Maks. öğe (min: {1}, max: {2}. Değişiklikler otomatik kaydedilir.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Aralıkta bir sayı girin, örn. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Önbelleği temizle"
+  },
+  "setting_modal_clear_description": {
+    "message": "Önbellek ve gezinme geçmişini temizle. Bu işlem geri alınamaz."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Temizle"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Tüm gezinme geçmişi temizlensin mi? Geri alınamaz."
+  },
+  "history_box_title": {
+    "message": "Gezinme geçmişi"
+  },
+  "history_bar_hint": {
+    "message": "Geçmiş"
+  },
+  "history_box_hit_today": {
+    "message": "—— Bugün ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Dün ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Tekrar dene"
+  },
+  "inspect_couponList_copied": {
+    "message": "Kopyalandı"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Harika fırsatlar aranıyor…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Paranızı korumak için kodlar otomatik deneniyor."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend hatırlatır: Zaten en iyi fırsattasınız."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Kod otomatik uygulandı. İyi tasarruf!"
+  },
+  "setting_window_display_title": {
+    "message": "Görüntü"
+  },
+  "setting_window_display_hide30m": {
+    "message": "{1} dakika gizle"
+  },
+  "setting_window_display_session": {
+    "message": "Bu oturum için gizle"
+  },
+  "setting_window_display_all": {
+    "message": "Tümünü göster"
+  },
+  "setting_window_general_title": {
+    "message": "Genel"
+  },
+  "setting_window_general_label": {
+    "message": "Dil, geçmiş ve diğerleri"
+  }
+}

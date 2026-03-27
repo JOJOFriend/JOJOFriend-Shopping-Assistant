@@ -1,0 +1,23 @@
+JOJOFriend is een gratis, open-source browserextensie die automatisch de beste kortingscodes vindt en toepast bij het afrekenen, en je helpt cashback te verdienen tegen concurrerende tarieven.
+
+Verdien cashback met een klik
+Shop bij je favoriete webwinkels - JOJOFriend laat je weten wanneer cashback beschikbaar is. Activeer je beloningen met een klik en winkel verder zoals gewoonlijk. Je cashback wordt automatisch bijgehouden en op je account bijgeschreven.
+
+Waarom JOJOFriend kiezen?
+- Veiligheid en transparantie: JOJOFriend is open source en wordt continu beoordeeld door een wereldwijde community, voor vertrouwen en duidelijkheid.
+- Automatisch besparen: Detecteert en past direct de beste beschikbare kortingscodes toe bij het afrekenen.
+- Slimme winkelinzichten: Bekijk de prijsgeschiedenis van Amazon-producten om beter onderbouwde aankoopbeslissingen te nemen.
+- Intelligente couponmeldingen: Krijg meldingen wanneer coupons beschikbaar zijn tijdens het browsen van producten.
+- Exclusieve deals: Toegang tot een samengestelde selectie waardevolle kortingen bij ondersteunde winkels.
+
+Affiliateverklaring
+Wanneer je winkelt bij deelnemende winkels, kan JOJOFriend commissie verdienen via affiliatelinks. We delen deze commissies met onze gebruikers in de vorm van beloningen.
+
+Open-source kennisgeving
+JOJOFriend wordt uitgebracht onder de Apache License 2.0. Je bent vrij om de broncode te gebruiken en te wijzigen volgens de licentievoorwaarden. We verwelkomen bijdragen, feedback en samenwerking vanuit de community.
+
+Officiele website: https://www.jojofriend.com/
+Privacybeleid: https://www.jojofriend.com/ext/privacy
+Ondersteunde platforms: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+
+Installeer JOJOFriend vandaag gratis en bespaar moeiteloos bij elke aankoop.

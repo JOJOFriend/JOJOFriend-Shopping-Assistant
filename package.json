@@ -1,0 +1,36 @@
+{
+  "name": "jojofriend_shopping_assistant",
+  "version": "1.0.1",
+  "versionName": "1.0.1.released",
+  "author": "JOJOFriend",
+  "license": "Apache-2.0",
+  "scripts": {
+    "init": "npm install && npm install -g npm-check-updates && npm rebuild sass",
+    "update": "ncu -u --packageFile package.json && npm install",
+    "release": "node build.js",
+    "updateAndRelease": "npm run update && npm run release",
+    "scss": "sass -o src/css src/scss"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "concat": "^1.0.3",
+    "create-file": "^1.0.1",
+    "del": "^6.1.1",
+    "fs-extra": "^10.1.0",
+    "glob-concat": "^1.0.2",
+    "html-minifier": "^4.0.0",
+    "jsonminify": "^0.4.2",
+    "npm-check-updates": "^15.2.0",
+    "read-file": "^0.2.0",
+    "request": "^2.88.2",
+    "terser": "^5.14.1",
+    "zip-dir": "^2.0.0"
+  },
+  "dependencies": {
+    "clean-css": "^5.3.3",
+    "sass": "^1.83.0",
+    "strip-json-comments": "^5.0.3"
+  }
+}

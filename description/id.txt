@@ -1,0 +1,23 @@
+JOJOFriend adalah ekstensi browser gratis dan open-source yang secara otomatis menemukan dan menerapkan kode kupon terbaik saat checkout, membantu Anda mendapatkan cashback dengan tingkat yang kompetitif.
+
+Dapatkan cashback dalam satu klik
+Belanja di toko online favorit Anda - JOJOFriend akan memberi tahu saat cashback tersedia. Aktifkan reward Anda dengan satu klik, lalu lanjutkan belanja seperti biasa. Cashback Anda akan dilacak secara otomatis dan dikreditkan ke akun Anda.
+
+Mengapa memilih JOJOFriend?
+- Keamanan dan transparansi: JOJOFriend bersifat open-source dan terus ditinjau oleh komunitas global, sehingga lebih tepercaya dan akuntabel.
+- Hemat otomatis: Langsung mendeteksi dan menerapkan kode kupon terbaik yang tersedia saat checkout.
+- Insight belanja cerdas: Lihat riwayat harga produk Amazon untuk membuat keputusan pembelian yang lebih tepat.
+- Peringatan kupon pintar: Dapatkan notifikasi saat kupon tersedia ketika Anda menelusuri produk.
+- Penawaran eksklusif: Akses pilihan diskon bernilai tinggi yang dikurasi di toko yang didukung.
+
+Pengungkapan afiliasi
+Saat Anda berbelanja di toko yang berpartisipasi, JOJOFriend dapat memperoleh komisi melalui tautan afiliasi. Komisi tersebut kami bagikan kepada pengguna dalam bentuk reward.
+
+Pemberitahuan open source
+JOJOFriend dirilis di bawah Apache License 2.0. Anda bebas menggunakan dan memodifikasi kode sumber sesuai ketentuan lisensi. Kami menyambut kontribusi komunitas, masukan, dan kolaborasi.
+
+Situs resmi: https://www.jojofriend.com/
+Kebijakan privasi: https://www.jojofriend.com/ext/privacy
+Platform yang didukung: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+
+Pasang JOJOFriend gratis hari ini dan mulai hemat dengan mudah setiap kali Anda berbelanja.

@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "JOJOFriend Einkaufsassistent"
+  },
+  "extension_description": {
+    "message": "Ein intelligenter Einkaufsassistent für Gutscheine, Preisvergleich und Cashback."
+  },
+  "setting_modal_title": {
+    "message": "Einstellungen"
+  },
+  "setting_modal_language_title": {
+    "message": "Sprache"
+  },
+  "setting_modal_language_description": {
+    "message": "Wählen Sie Ihre bevorzugte Sprache:"
+  },
+  "setting_modal_history_title": {
+    "message": "Verlauf begrenzen"
+  },
+  "setting_modal_history_description": {
+    "message": "Max. Einträge (Min.: {1}, Max.: {2}. Änderungen werden automatisch gespeichert.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Zahl im Bereich eingeben, z. B. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Cache leeren"
+  },
+  "setting_modal_clear_description": {
+    "message": "Cache und Browserverlauf leeren. Dies kann nicht rückgängig gemacht werden."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Leeren"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Gesamten Browserverlauf leeren? Dies kann nicht rückgängig gemacht werden."
+  },
+  "history_box_title": {
+    "message": "Browserverlauf"
+  },
+  "history_bar_hint": {
+    "message": "Verlauf"
+  },
+  "history_box_hit_today": {
+    "message": "—— Heute ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Gestern ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Erneut versuchen"
+  },
+  "inspect_couponList_copied": {
+    "message": "Kopiert"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Suche nach tollen Angeboten…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Codes werden automatisch ausprobiert, um Ihnen Geld zu sparen."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend erinnert Sie: Sie haben bereits das beste Angebot."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Code automatisch angewendet. Gut gespart!"
+  },
+  "setting_window_display_title": {
+    "message": "Anzeige"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Für {1} Minuten ausblenden"
+  },
+  "setting_window_display_session": {
+    "message": "Für diese Sitzung ausblenden"
+  },
+  "setting_window_display_all": {
+    "message": "Alles anzeigen"
+  },
+  "setting_window_general_title": {
+    "message": "Allgemein"
+  },
+  "setting_window_general_label": {
+    "message": "Sprache, Verlauf & mehr"
+  }
+}

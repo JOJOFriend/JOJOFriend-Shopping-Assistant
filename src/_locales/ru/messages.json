@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Помощник по покупкам JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Умный помощник для покупок: купоны, сравнение цен и кэшбэк."
+  },
+  "setting_modal_title": {
+    "message": "Настройки"
+  },
+  "setting_modal_language_title": {
+    "message": "Язык"
+  },
+  "setting_modal_language_description": {
+    "message": "Выберите язык:"
+  },
+  "setting_modal_history_title": {
+    "message": "Лимит истории"
+  },
+  "setting_modal_history_description": {
+    "message": "Макс. записей (мин.: {1}, макс.: {2}. Сохранение автоматическое.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Введите число в диапазоне, напр. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Очистить кэш"
+  },
+  "setting_modal_clear_description": {
+    "message": "Очистить кэш и историю. Действие нельзя отменить."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Очистить"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Очистить всю историю? Действие нельзя отменить."
+  },
+  "history_box_title": {
+    "message": "История просмотров"
+  },
+  "history_bar_hint": {
+    "message": "История"
+  },
+  "history_box_hit_today": {
+    "message": "—— Сегодня ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Вчера ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Повторить"
+  },
+  "inspect_couponList_copied": {
+    "message": "Скопировано"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Поиск выгодных предложений…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Пробуем коды автоматически, чтобы сэкономить."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend напоминает: у вас уже лучшее предложение."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Код применён автоматически. Отличная экономия!"
+  },
+  "setting_window_display_title": {
+    "message": "Отображение"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Скрыть на {1} мин"
+  },
+  "setting_window_display_session": {
+    "message": "Скрыть на эту сессию"
+  },
+  "setting_window_display_all": {
+    "message": "Показать всё"
+  },
+  "setting_window_general_title": {
+    "message": "Общие"
+  },
+  "setting_window_general_label": {
+    "message": "Язык, история и другое"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "دستیار خرید JOJOFriend"
+  },
+  "extension_description": {
+    "message": "دستیار خرید هوشمند برای کوپن‌ها، مقایسه قیمت و کش‌بک."
+  },
+  "setting_modal_title": {
+    "message": "تنظیمات"
+  },
+  "setting_modal_language_title": {
+    "message": "زبان"
+  },
+  "setting_modal_language_description": {
+    "message": "زبان دلخواه را انتخاب کنید:"
+  },
+  "setting_modal_history_title": {
+    "message": "حد تاریخچه"
+  },
+  "setting_modal_history_description": {
+    "message": "حداکثر موارد (حداقل: {1}، حداکثر: {2}. ذخیره خودکار.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "عددی در محدوده وارد کنید، مثلاً 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "پاک‌سازی کش"
+  },
+  "setting_modal_clear_description": {
+    "message": "کش و تاریخچه مرور پاک شود. این عمل قابل بازگشت نیست."
+  },
+  "setting_modal_clear_btn": {
+    "message": "پاک‌سازی"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "همه تاریخچه مرور پاک شود؟ قابل بازگشت نیست."
+  },
+  "history_box_title": {
+    "message": "تاریخچه مرور"
+  },
+  "history_bar_hint": {
+    "message": "تاریخچه"
+  },
+  "history_box_hit_today": {
+    "message": "—— امروز ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— دیروز ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "تلاش مجدد"
+  },
+  "inspect_couponList_copied": {
+    "message": "کپی شد"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "در حال یافتن پیشنهادهای عالی…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "کدها به‌طور خودکار امتحان می‌شوند تا پول پس‌انداز کنید."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend یادآوری می‌کند: همین الان بهترین پیشنهاد را دارید."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "کد خودکار اعمال شد. خوب پس‌انداز کردید!"
+  },
+  "setting_window_display_title": {
+    "message": "نمایش"
+  },
+  "setting_window_display_hide30m": {
+    "message": "پنهان برای {1} دقیقه"
+  },
+  "setting_window_display_session": {
+    "message": "پنهان برای این جلسه"
+  },
+  "setting_window_display_all": {
+    "message": "نمایش همه"
+  },
+  "setting_window_general_title": {
+    "message": "عمومی"
+  },
+  "setting_window_general_label": {
+    "message": "زبان، تاریخچه و بیشتر"
+  }
+}
