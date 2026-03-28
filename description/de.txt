@@ -4,7 +4,6 @@ Erhalte Cashback mit nur einer Anmeldung
 Kaufe in deinen bevorzugten Online-Shops ein — JOJOFriend benachrichtigt dich, wenn Cashback verfügbar ist. Aktiviere die Belohnung mit nur einer Anmeldung und kaufe dann wie gewohnt weiter ein. Dein Cashback wird automatisch verfolgt und deinem Konto gutgeschrieben.
 
 Warum JOJOFriend wählen?
-
 * Sicher und transparent: JOJOFriend ist Open Source und wird kontinuierlich von einer weltweiten Community überprüft, was Zuverlässigkeit gewährleistet.
 * Automatisches Sparen: Erkennt und wendet beim Bezahlen schnell die besten verfügbaren Gutscheincodes an.
 * Intelligente Einkaufsinformationen: Sieh dir den Preisverlauf von Amazon-Produkten an, um fundiertere Kaufentscheidungen zu treffen.

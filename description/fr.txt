@@ -4,7 +4,6 @@ Obtenez du cashback avec une seule connexion
 Faites vos achats sur vos boutiques en ligne préférées — JOJOFriend vous avertit lorsque du cashback est disponible. Activez la récompense avec une seule connexion, puis continuez vos achats comme d’habitude. Votre cashback est suivi automatiquement et crédité sur votre compte.
 
 Pourquoi choisir JOJOFriend ?
-
 * Sûr et transparent : JOJOFriend est open source et continuellement vérifié par une communauté mondiale, ce qui garantit sa fiabilité.
 * Économies automatiques : Détecte et applique rapidement les meilleurs codes promo disponibles au moment du paiement.
 * Informations d’achat intelligentes : Consultez l’historique des prix des produits Amazon pour prendre des décisions d’achat plus éclairées.

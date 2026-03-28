@@ -4,7 +4,6 @@ Odbierz cashback przy jednym logowaniu
 Kupuj w swoich ulubionych sklepach internetowych — JOJOFriend powiadomi Cię, gdy cashback będzie dostępny. Aktywuj nagrodę przy jednym logowaniu, a następnie kontynuuj zakupy jak zwykle. Twój cashback będzie automatycznie śledzony i dodawany do Twojego konta.
 
 Dlaczego warto wybrać JOJOFriend
-
 * Bezpieczne i przejrzyste: JOJOFriend jest open source i jest nieustannie weryfikowane przez globalną społeczność, co zapewnia wiarygodność.
 * Automatyczne oszczędzanie: Szybko wykrywa i stosuje najlepsze dostępne kody rabatowe podczas płatności.
 * Inteligentne informacje o zakupach: Sprawdź historię cen produktów na Amazon, aby podejmować bardziej świadome decyzje zakupowe.

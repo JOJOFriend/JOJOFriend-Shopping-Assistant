@@ -4,7 +4,6 @@ Receba cashback com apenas um login
 Compre nas suas lojas online favoritas — o JOJOFriend notificará quando houver cashback disponível. Ative a recompensa com apenas um login e continue comprando normalmente. O seu cashback será acompanhado automaticamente e creditado na sua conta.
 
 Por que escolher o JOJOFriend
-
 * Seguro e transparente: o JOJOFriend é open source e continuamente revisado por uma comunidade global, garantindo confiabilidade.
 * Economia automática: detecta e aplica rapidamente os melhores códigos de desconto disponíveis no momento do pagamento.
 * Informações inteligentes de compra: consulte o histórico de preços dos produtos da Amazon para tomar decisões de compra mais informadas.
