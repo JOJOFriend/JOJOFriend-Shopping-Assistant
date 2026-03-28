@@ -16,8 +16,8 @@ Khi bạn mua sắm tại các cửa hàng tham gia, JOJOFriend có thể nhận
 Thông báo mã nguồn mở
 JOJOFriend được phát hành theo giấy phép Apache License 2.0. Bạn có thể sử dụng và chỉnh sửa mã nguồn theo điều khoản giấy phép. Chúng tôi hoan nghênh đóng góp, phản hồi và hợp tác từ cộng đồng.
 
-Trang web chính thức: [https://www.jojofriend.com/](https://www.jojofriend.com/)
-Chính sách quyền riêng tư: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
-Nền tảng được hỗ trợ: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+Trang web chính thức: https://www.jojofriend.com/
+Chính sách quyền riêng tư: https://www.jojofriend.com/ext/privacy
+Nền tảng được hỗ trợ: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
 
 Cài đặt JOJOFriend miễn phí ngay hôm nay và bắt đầu tiết kiệm dễ dàng mỗi lần mua sắm.

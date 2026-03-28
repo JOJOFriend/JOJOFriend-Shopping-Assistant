@@ -16,8 +16,8 @@ Beim Einkauf in teilnehmenden Shops kann JOJOFriend über Affiliate-Links eine P
 Hinweis zum Open-Source-Status
 JOJOFriend wird unter der Apache License 2.0 veröffentlicht. Du kannst den Quellcode gemäß den Lizenzbedingungen verwenden und anpassen. Wir begrüßen Beiträge, Feedback und Zusammenarbeit aus der Community.
 
-Offizielle Website: [https://www.jojofriend.com/](https://www.jojofriend.com/)
-Datenschutzrichtlinie: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
-Unterstützendes Repository: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+Offizielle Website: https://www.jojofriend.com/
+Datenschutzrichtlinie: https://www.jojofriend.com/ext/privacy
+Unterstützendes Repository: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
 
 Installiere JOJOFriend noch heute kostenlos und beginne, bei jedem Einkauf mühelos zu sparen.

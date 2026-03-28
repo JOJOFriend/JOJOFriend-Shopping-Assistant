@@ -16,8 +16,8 @@ Ao comprar em lojas participantes, o JOJOFriend pode receber comissão através 
 Aviso de código aberto
 O JOJOFriend é distribuído sob a licença Apache License 2.0. Você pode usar e modificar o código-fonte de acordo com os termos da licença. Agradecemos contribuições, feedback e colaboração da comunidade.
 
-Site oficial: [https://www.jojofriend.com/](https://www.jojofriend.com/)
-Política de privacidade: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
-Repositório de suporte: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+Site oficial: https://www.jojofriend.com/
+Política de privacidade: https://www.jojofriend.com/ext/privacy
+Repositório de suporte: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
 
 Instale o JOJOFriend gratuitamente hoje e comece a economizar facilmente em todas as suas compras.

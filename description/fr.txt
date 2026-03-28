@@ -16,8 +16,8 @@ Lors de vos achats dans des boutiques participantes, JOJOFriend peut recevoir un
 Avis open source
 JOJOFriend est publié sous la licence Apache License 2.0. Vous pouvez utiliser et modifier le code source conformément aux conditions de la licence. Nous accueillons avec plaisir les contributions, les retours et la collaboration de la communauté.
 
-Site officiel : [https://www.jojofriend.com/](https://www.jojofriend.com/)
-Politique de confidentialité : [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
-Dépôt de support : [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+Site officiel : https://www.jojofriend.com/
+Politique de confidentialité : https://www.jojofriend.com/ext/privacy
+Dépôt de support : https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
 
 Installez JOJOFriend gratuitement dès aujourd’hui et commencez à économiser facilement à chaque achat.

@@ -16,8 +16,8 @@ Bij aankopen in deelnemende winkels kan JOJOFriend een commissie ontvangen via a
 Open-source melding
 JOJOFriend wordt uitgebracht onder de Apache License 2.0. Je kunt de broncode gebruiken en aanpassen volgens de licentievoorwaarden. We verwelkomen bijdragen, feedback en samenwerking van de community.
 
-Officiële website: [https://www.jojofriend.com/](https://www.jojofriend.com/)
-Privacybeleid: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
-Ondersteunend repository: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+Officiële website: https://www.jojofriend.com/
+Privacybeleid: https://www.jojofriend.com/ext/privacy
+Ondersteunend repository: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
 
 Installeer JOJOFriend vandaag gratis en begin eenvoudig te besparen bij elke aankoop.

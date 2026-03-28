@@ -16,8 +16,8 @@ JOJOFriend क्यों चुनें?
 ओपन-सोर्स सूचना
 JOJOFriend Apache License 2.0 के अंतर्गत जारी किया गया है। आप लाइसेंस की शर्तों के अनुसार सोर्स कोड का उपयोग और संशोधन कर सकते हैं। हम समुदाय से योगदान, प्रतिक्रिया और सहयोग का स्वागत करते हैं।
 
-आधिकारिक वेबसाइट: [https://www.jojofriend.com/](https://www.jojofriend.com/)
-गोपनीयता नीति: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
-समर्थन रिपॉज़िटरी: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+आधिकारिक वेबसाइट: https://www.jojofriend.com/
+गोपनीयता नीति: https://www.jojofriend.com/ext/privacy
+समर्थन रिपॉज़िटरी: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
 
 आज ही JOJOFriend को मुफ्त में इंस्टॉल करें और हर खरीदारी पर आसानी से बचत शुरू करें।
