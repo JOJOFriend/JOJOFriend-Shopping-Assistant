@@ -4,11 +4,11 @@ Earn Cash Back in One Click
 Shop at your favorite online stores—JOJOFriend will notify you when cashback is available. Activate your rewards with a single click, then continue shopping as usual. Your cashback will be tracked automatically and credited to your account.
 
 Why Choose JOJOFriend?
-- Security & Transparency: JOJOFriend is open-source and continuously reviewed by a global community of users, ensuring accountability and trust.
-- Automatic Savings: Instantly detects and applies the best available coupon codes at checkout.
-- Smart Shopping Insights: View Amazon product price history to make more informed purchase decisions.
--Intelligent Coupon Alerts: Get notified when coupons are available while browsing products.
-- Exclusive Deals: Access a curated selection of high-value discounts across supported stores.
+* Security & Transparency: JOJOFriend is open-source and continuously reviewed by a global community of users, ensuring accountability and trust.
+* Automatic Savings: Instantly detects and applies the best available coupon codes at checkout.
+* Smart Shopping Insights: View Amazon product price history to make more informed purchase decisions.
+* Intelligent Coupon Alerts: Get notified when coupons are available while browsing products.
+* Exclusive Deals: Access a curated selection of high-value discounts across supported stores.
 
 Affiliate Disclosure
 When you shop at participating stores, JOJOFriend may earn a commission through affiliate links. We share those commissions with our users in the form of rewards.

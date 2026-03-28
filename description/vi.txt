@@ -1,23 +1,24 @@
-JOJOFriend la tien ich mo rong trinh duyet mien phi, ma nguon mo, tu dong tim va ap dung ma giam gia tot nhat khi thanh toan, giup ban nhan cashback voi ty le canh tranh.
+JOJOFriend là tiện ích mở rộng trình duyệt miễn phí và mã nguồn mở, tự động tìm và áp dụng mã giảm giá tốt nhất khi thanh toán, đồng thời giúp bạn nhận cashback với tỷ lệ cạnh tranh.
 
-Nhan cashback chi voi mot lan nhap
-Mua sam tai cac cua hang truc tuyen yeu thich - JOJOFriend se thong bao khi co cashback. Kich hoat phan thuong chi voi mot lan nhap, sau do tiep tuc mua sam nhu binh thuong. Cashback cua ban se duoc theo doi tu dong va cong vao tai khoan.
+Nhận cashback chỉ với một lần đăng nhập
+Mua sắm tại các cửa hàng trực tuyến yêu thích — JOJOFriend sẽ thông báo khi có cashback. Kích hoạt phần thưởng chỉ với một lần đăng nhập, sau đó tiếp tục mua sắm như bình thường. Cashback của bạn sẽ được theo dõi tự động và cộng vào tài khoản.
 
-Vi sao chon JOJOFriend?
-- Bao mat va minh bach: JOJOFriend la ma nguon mo va duoc cong dong toan cau danh gia lien tuc, dam bao do tin cay.
-- Tiet kiem tu dong: Nhanh chong phat hien va ap dung ma giam gia tot nhat co san khi thanh toan.
-- Thong tin mua sam thong minh: Xem lich su gia san pham Amazon de dua ra quyet dinh mua hang hop ly hon.
-- Canh bao coupon thong minh: Nhan thong bao khi co coupon trong luc ban dang xem san pham.
-- Uu dai doc quyen: Truy cap danh sach uu dai gia tri cao da duoc chon loc tren cac cua hang duoc ho tro.
+Vì sao chọn JOJOFriend
 
-Tiet lo tiep thi lien ket
-Khi ban mua sam tai cac cua hang tham gia, JOJOFriend co the nhan hoa hong thong qua lien ket tiep thi. Chung toi chia se cac khoan hoa hong do voi nguoi dung duoi dang phan thuong.
+* An toàn và minh bạch: JOJOFriend là mã nguồn mở và được cộng đồng toàn cầu đánh giá liên tục, đảm bảo độ tin cậy.
+* Tiết kiệm tự động: Nhanh chóng phát hiện và áp dụng mã giảm giá tốt nhất có sẵn khi thanh toán.
+* Thông tin mua sắm thông minh: Xem lịch sử giá sản phẩm Amazon để đưa ra quyết định mua hàng hợp lý hơn.
+* Cảnh báo coupon thông minh: Nhận thông báo khi có coupon trong lúc bạn đang xem sản phẩm.
+* Ưu đãi độc quyền: Truy cập danh sách ưu đãi giá trị cao đã được chọn lọc trên các cửa hàng được hỗ trợ.
 
-Thong bao ma nguon mo
-JOJOFriend duoc phat hanh theo giay phep Apache License 2.0. Ban co the su dung va chinh sua ma nguon theo dieu khoan giay phep. Chung toi hoan nghenh dong gop, phan hoi va hop tac tu cong dong.
+Tiết lộ tiếp thị liên kết
+Khi bạn mua sắm tại các cửa hàng tham gia, JOJOFriend có thể nhận hoa hồng thông qua liên kết tiếp thị. Chúng tôi chia sẻ các khoản hoa hồng đó với người dùng dưới dạng phần thưởng.
 
-Trang web chinh thuc: https://www.jojofriend.com/
-Chinh sach quyen rieng tu: https://www.jojofriend.com/ext/privacy
-Nen tang duoc ho tro: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Thông báo mã nguồn mở
+JOJOFriend được phát hành theo giấy phép Apache License 2.0. Bạn có thể sử dụng và chỉnh sửa mã nguồn theo điều khoản giấy phép. Chúng tôi hoan nghênh đóng góp, phản hồi và hợp tác từ cộng đồng.
 
-Cai dat JOJOFriend mien phi ngay hom nay va bat dau tiet kiem de dang moi lan mua sam.
+Trang web chính thức: [https://www.jojofriend.com/](https://www.jojofriend.com/)
+Chính sách quyền riêng tư: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
+Nền tảng được hỗ trợ: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+
+Cài đặt JOJOFriend miễn phí ngay hôm nay và bắt đầu tiết kiệm dễ dàng mỗi lần mua sắm.

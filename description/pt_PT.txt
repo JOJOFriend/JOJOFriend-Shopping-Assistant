@@ -1,23 +1,24 @@
-JOJOFriend e uma extensao de navegador gratuita e de codigo aberto que encontra e aplica automaticamente os melhores codigos de cupao no checkout, ajudando-o a ganhar cashback com taxas competitivas.
+JOJOFriend é uma extensão de navegador gratuita e de código aberto que encontra e aplica automaticamente os melhores códigos de desconto no momento do pagamento, ajudando você a receber cashback com taxas competitivas.
 
-Ganhe cashback com um clique
-Compre nas suas lojas online favoritas - o JOJOFriend avisa quando houver cashback disponivel. Ative as suas recompensas com um clique e continue a comprar normalmente. O seu cashback sera acompanhado automaticamente e creditado na sua conta.
+Receba cashback com apenas um login
+Compre nas suas lojas online favoritas — o JOJOFriend notificará quando houver cashback disponível. Ative a recompensa com apenas um login e continue comprando normalmente. O seu cashback será acompanhado automaticamente e creditado na sua conta.
 
-Porque escolher o JOJOFriend?
-- Seguranca e transparencia: o JOJOFriend e open source e revisto continuamente por uma comunidade global, garantindo confianca e responsabilidade.
-- Poupanca automatica: Deteta e aplica de imediato os melhores codigos de cupao disponiveis no checkout.
-- Informacoes inteligentes de compra: Veja o historico de precos de produtos na Amazon para tomar decisoes de compra mais informadas.
-- Alertas inteligentes de cupoes: Receba notificacoes quando houver cupoes disponiveis enquanto navega por produtos.
-- Ofertas exclusivas: Aceda a uma selecao curada de descontos de elevado valor em lojas suportadas.
+Por que escolher o JOJOFriend
 
-Divulgacao de afiliacao
-Quando compra em lojas participantes, o JOJOFriend pode receber uma comissao atraves de links de afiliacao. Partilhamos essas comissoes com os nossos utilizadores sob a forma de recompensas.
+* Seguro e transparente: o JOJOFriend é open source e continuamente revisado por uma comunidade global, garantindo confiabilidade.
+* Economia automática: detecta e aplica rapidamente os melhores códigos de desconto disponíveis no momento do pagamento.
+* Informações inteligentes de compra: consulte o histórico de preços dos produtos da Amazon para tomar decisões de compra mais informadas.
+* Alertas inteligentes de cupons: receba notificações quando houver cupons disponíveis enquanto visualiza produtos.
+* Ofertas exclusivas: acesso a uma lista selecionada de ofertas de alto valor em lojas compatíveis.
 
-Aviso de codigo aberto
-JOJOFriend e disponibilizado sob a Licenca Apache 2.0. E livre de utilizar e modificar o codigo-fonte de acordo com os termos da licenca. Damos as boas-vindas a contribuicoes, feedback e colaboracao da comunidade.
+Divulgação de afiliados
+Ao comprar em lojas participantes, o JOJOFriend pode receber comissão através de links de afiliados. Compartilhamos essas comissões com os usuários na forma de recompensas.
 
-Site oficial: https://www.jojofriend.com/
-Politica de privacidade: https://www.jojofriend.com/ext/privacy
-Plataformas suportadas: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Aviso de código aberto
+O JOJOFriend é distribuído sob a licença Apache License 2.0. Você pode usar e modificar o código-fonte de acordo com os termos da licença. Agradecemos contribuições, feedback e colaboração da comunidade.
 
-Instale o JOJOFriend gratuitamente hoje e comece a poupar sem esforco sempre que fizer compras.
+Site oficial: [https://www.jojofriend.com/](https://www.jojofriend.com/)
+Política de privacidade: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
+Repositório de suporte: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
+
+Instale o JOJOFriend gratuitamente hoje e comece a economizar facilmente em todas as suas compras.

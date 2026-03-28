@@ -1,23 +1,23 @@
-JOJOFriend هو اضافة متصفح مجانية ومفتوحة المصدر تقوم تلقائيا بالعثور على افضل اكواد القسائم وتطبيقها عند الدفع، وتساعدك على كسب cashback بمعدلات تنافسية.
+JOJOFriend la tien ich mo rong trinh duyet mien phi, ma nguon mo, tu dong tim va ap dung ma giam gia tot nhat khi thanh toan, giup ban nhan cashback voi ty le canh tranh.
 
-اكسب cashback بنقرة واحدة
-تسوق من متاجرك الالكترونية المفضلة - سيقوم JOJOFriend باعلامك عند توفر cashback. فعّل مكافاتك بنقرة واحدة ثم واصل التسوق كالمعتاد. سيتم تتبع cashback تلقائيا واحتسابه في حسابك.
+Nhan cashback chi voi mot lan nhap
+Mua sam tai cac cua hang truc tuyen yeu thich - JOJOFriend se thong bao khi co cashback. Kich hoat phan thuong chi voi mot lan nhap, sau do tiep tuc mua sam nhu binh thuong. Cashback cua ban se duoc theo doi tu dong va cong vao tai khoan.
 
-لماذا تختار JOJOFriend؟
-- الامان والشفافية: JOJOFriend مفتوح المصدر ويتم مراجعته باستمرار من مجتمع عالمي، مما يعزز الثقة والمصداقية.
-- توفير تلقائي: يكتشف ويطبق افضل اكواد القسائم المتاحة فورا عند اتمام الشراء.
-- رؤى تسوق ذكية: اعرض سجل اسعار منتجات Amazon لاتخاذ قرارات شراء اكثر وعيا.
-- تنبيهات قسائم ذكية: احصل على اشعارات عند توفر القسائم اثناء تصفح المنتجات.
-- عروض حصرية: وصول الى مجموعة منتقاة من الخصومات العالية القيمة عبر المتاجر المدعومة.
+Vi sao chon JOJOFriend?
+* Bao mat va minh bach: JOJOFriend la ma nguon mo va duoc cong dong toan cau danh gia lien tuc, dam bao do tin cay.
+* Tiet kiem tu dong: Nhanh chong phat hien va ap dung ma giam gia tot nhat co san khi thanh toan.
+* Thong tin mua sam thong minh: Xem lich su gia san pham Amazon de dua ra quyet dinh mua hang hop ly hon.
+* Canh bao coupon thong minh: Nhan thong bao khi co coupon trong luc ban dang xem san pham.
+* Uu dai doc quyen: Truy cap danh sach uu dai gia tri cao da duoc chon loc tren cac cua hang duoc ho tro.
 
-افصاح الشراكة
-عند التسوق في المتاجر المشاركة، قد يحصل JOJOFriend على عمولة عبر روابط الشراكة. نحن نشارك هذه العمولات مع المستخدمين على شكل مكافات.
+Tiet lo tiep thi lien ket
+Khi ban mua sam tai cac cua hang tham gia, JOJOFriend co the nhan hoa hong thong qua lien ket tiep thi. Chung toi chia se cac khoan hoa hong do voi nguoi dung duoi dang phan thuong.
 
-اشعار مفتوح المصدر
-يتم اصدار JOJOFriend بموجب رخصة Apache 2.0. يمكنك استخدام وتعديل الشيفرة المصدرية وفقا لشروط الرخصة. نرحب بمساهمات المجتمع والملاحظات والتعاون.
+Thong bao ma nguon mo
+JOJOFriend duoc phat hanh theo giay phep Apache License 2.0. Ban co the su dung va chinh sua ma nguon theo dieu khoan giay phep. Chung toi hoan nghenh dong gop, phan hoi va hop tac tu cong dong.
 
-الموقع الرسمي: https://www.jojofriend.com/
-سياسة الخصوصية: https://www.jojofriend.com/ext/privacy
-المنصات المدعومة: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Trang web chinh thuc: https://www.jojofriend.com/
+Chinh sach quyen rieng tu: https://www.jojofriend.com/ext/privacy
+Nen tang duoc ho tro: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
 
-ثبّت JOJOFriend مجانا اليوم وابدأ التوفير بسهولة في كل مرة تتسوق فيها.
+Cai dat JOJOFriend mien phi ngay hom nay va bat dau tiet kiem de dang moi lan mua sam.

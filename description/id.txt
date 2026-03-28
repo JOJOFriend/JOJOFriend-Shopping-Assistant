@@ -1,23 +1,24 @@
-JOJOFriend adalah ekstensi browser gratis dan open-source yang secara otomatis menemukan dan menerapkan kode kupon terbaik saat checkout, membantu Anda mendapatkan cashback dengan tingkat yang kompetitif.
+JOJOFriend adalah ekstensi peramban gratis dan sumber terbuka yang secara otomatis menemukan dan menerapkan kode kupon terbaik saat checkout, serta membantu Anda mendapatkan cashback dengan tingkat yang kompetitif.
 
-Dapatkan cashback dalam satu klik
-Belanja di toko online favorit Anda - JOJOFriend akan memberi tahu saat cashback tersedia. Aktifkan reward Anda dengan satu klik, lalu lanjutkan belanja seperti biasa. Cashback Anda akan dilacak secara otomatis dan dikreditkan ke akun Anda.
+Dapatkan cashback hanya dengan satu kali login
+Berbelanja di toko online favorit Anda — JOJOFriend akan memberi tahu Anda saat cashback tersedia. Aktifkan hadiah hanya dengan satu kali login, lalu lanjutkan berbelanja seperti biasa. Cashback Anda akan dilacak secara otomatis dan dikreditkan ke akun Anda.
 
 Mengapa memilih JOJOFriend?
-- Keamanan dan transparansi: JOJOFriend bersifat open-source dan terus ditinjau oleh komunitas global, sehingga lebih tepercaya dan akuntabel.
-- Hemat otomatis: Langsung mendeteksi dan menerapkan kode kupon terbaik yang tersedia saat checkout.
-- Insight belanja cerdas: Lihat riwayat harga produk Amazon untuk membuat keputusan pembelian yang lebih tepat.
-- Peringatan kupon pintar: Dapatkan notifikasi saat kupon tersedia ketika Anda menelusuri produk.
-- Penawaran eksklusif: Akses pilihan diskon bernilai tinggi yang dikurasi di toko yang didukung.
+
+* Aman dan transparan: JOJOFriend bersifat sumber terbuka dan terus ditinjau oleh komunitas global, sehingga menjamin keandalannya.
+* Hemat otomatis: Dengan cepat mendeteksi dan menerapkan kode kupon terbaik yang tersedia saat checkout.
+* Informasi belanja cerdas: Lihat riwayat harga produk Amazon untuk membantu Anda membuat keputusan pembelian yang lebih tepat.
+* Peringatan kupon cerdas: Dapatkan notifikasi saat kupon tersedia ketika Anda melihat produk.
+* Penawaran eksklusif: Akses daftar penawaran bernilai tinggi yang telah dipilih di toko yang didukung.
 
 Pengungkapan afiliasi
-Saat Anda berbelanja di toko yang berpartisipasi, JOJOFriend dapat memperoleh komisi melalui tautan afiliasi. Komisi tersebut kami bagikan kepada pengguna dalam bentuk reward.
+Saat berbelanja di toko yang berpartisipasi, JOJOFriend dapat menerima komisi melalui tautan afiliasi. Kami membagikan komisi ini kepada pengguna dalam bentuk hadiah.
 
-Pemberitahuan open source
-JOJOFriend dirilis di bawah Apache License 2.0. Anda bebas menggunakan dan memodifikasi kode sumber sesuai ketentuan lisensi. Kami menyambut kontribusi komunitas, masukan, dan kolaborasi.
+Pemberitahuan sumber terbuka
+JOJOFriend dirilis di bawah lisensi Apache License 2.0. Anda dapat menggunakan dan memodifikasi kode sumber sesuai dengan ketentuan lisensi. Kami menyambut kontribusi, masukan, dan kolaborasi dari komunitas.
 
-Situs resmi: https://www.jojofriend.com/
-Kebijakan privasi: https://www.jojofriend.com/ext/privacy
-Platform yang didukung: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Situs resmi: [https://www.jojofriend.com/](https://www.jojofriend.com/)
+Kebijakan privasi: [https://www.jojofriend.com/ext/privacy](https://www.jojofriend.com/ext/privacy)
+Repositori pendukung: [https://github.com/jojofriend/JOJOFriend-Shopping-Assistan](https://github.com/jojofriend/JOJOFriend-Shopping-Assistan)
 
-Pasang JOJOFriend gratis hari ini dan mulai hemat dengan mudah setiap kali Anda berbelanja.
+Instal JOJOFriend secara gratis hari ini dan mulai hemat dengan mudah di setiap pembelian.

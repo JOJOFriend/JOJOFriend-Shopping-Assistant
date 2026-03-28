@@ -25,7 +25,7 @@
 	//Configuration file
     $.opts = {
         manifest: manifest,
-        apiVersion:"2.0.1", //API version, may need to be treated differently, v1 is for the Tampermonkey version, v2 is for the plugin version.
+        apiVersion:"2.0.1",
         number:"8000",      //This is an identifier specific to the extension; once set, it cannot be changed.
         baseUrl:"https://o.jiayoushichang.com",
         // baseUrl:"http://127.0.0.1:8080/jojofriend",
