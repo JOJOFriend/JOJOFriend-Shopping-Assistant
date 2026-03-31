@@ -18,6 +18,6 @@ JOJOFriend is released under the Apache License 2.0. You are free to use and mod
 
 Official Website: https://www.jojofriend.com/
 Privacy Policy: https://www.jojofriend.com/ext/privacy
-Supported Platforms: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Supported Platforms: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 Install JOJOFriend for free today and start saving effortlessly every time you shop.

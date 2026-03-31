@@ -18,6 +18,6 @@ JOJOFriend, Apache License 2.0 altında dağıtılmaktadır. Kaynak kodunu lisan
 
 Resmî web sitesi: https://www.jojofriend.com/
 Gizlilik politikası: https://www.jojofriend.com/ext/privacy
-Destek deposu: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Destek deposu: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 JOJOFriend’i bugün ücretsiz kurun ve her alışverişinizde kolayca tasarruf etmeye başlayın.

@@ -18,6 +18,6 @@ JOJOFriend dikeluarkan di bawah lesen Apache License 2.0. Anda boleh menggunakan
 
 Laman web rasmi: https://www.jojofriend.com/
 Dasar Privasi: https://www.jojofriend.com/ext/privacy
-Repositori sokongan: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Repositori sokongan: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 Pasang JOJOFriend secara percuma hari ini dan mula menjimatkan dengan mudah pada setiap pembelian.

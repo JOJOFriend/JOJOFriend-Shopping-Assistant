@@ -18,6 +18,6 @@ JOJOFriend wird unter der Apache License 2.0 veröffentlicht. Du kannst den Quel
 
 Offizielle Website: https://www.jojofriend.com/
 Datenschutzrichtlinie: https://www.jojofriend.com/ext/privacy
-Unterstützendes Repository: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Unterstützendes Repository: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 Installiere JOJOFriend noch heute kostenlos und beginne, bei jedem Einkauf mühelos zu sparen.

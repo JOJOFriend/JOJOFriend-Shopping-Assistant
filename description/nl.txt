@@ -18,6 +18,6 @@ JOJOFriend wordt uitgebracht onder de Apache License 2.0. Je kunt de broncode ge
 
 Officiële website: https://www.jojofriend.com/
 Privacybeleid: https://www.jojofriend.com/ext/privacy
-Ondersteunend repository: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Ondersteunend repository: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 Installeer JOJOFriend vandaag gratis en begin eenvoudig te besparen bij elke aankoop.

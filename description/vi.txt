@@ -18,6 +18,6 @@ JOJOFriend được phát hành theo giấy phép Apache License 2.0. Bạn có 
 
 Trang web chính thức: https://www.jojofriend.com/
 Chính sách quyền riêng tư: https://www.jojofriend.com/ext/privacy
-Nền tảng được hỗ trợ: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Nền tảng được hỗ trợ: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 Cài đặt JOJOFriend miễn phí ngay hôm nay và bắt đầu tiết kiệm dễ dàng mỗi lần mua sắm.

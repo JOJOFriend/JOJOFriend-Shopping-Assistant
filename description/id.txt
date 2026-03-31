@@ -18,6 +18,6 @@ JOJOFriend dirilis di bawah lisensi Apache License 2.0. Anda dapat menggunakan d
 
 Situs resmi: https://www.jojofriend.com/
 Kebijakan privasi: https://www.jojofriend.com/ext/privacy
-Repositori pendukung: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Repositori pendukung: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 Instal JOJOFriend secara gratis hari ini dan mulai hemat dengan mudah di setiap pembelian.

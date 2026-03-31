@@ -18,6 +18,6 @@ JOJOFriend распространяется под лицензией Apache Lic
 
 Официальный сайт: https://www.jojofriend.com/
 Политика конфиденциальности: https://www.jojofriend.com/ext/privacy
-Репозиторий поддержки: https://github.com/jojofriend/JOJOFriend-Shopping-Assistan
+Репозиторий поддержки: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
 Установите JOJOFriend бесплатно уже сегодня и начните легко экономить при каждой покупке.
