@@ -22,7 +22,7 @@
       "512": "images/icon/default/icon512.png"
     }
   },
-  "permissions": ["storage", "tabs", "http://*/*", "https://*/*"],
+  "permissions": ["storage", "http://*/*", "https://*/*"],
   "browser_specific_settings": {
     "gecko": {
         "id": "joinjojofriend@firefox.jojofriend.com",

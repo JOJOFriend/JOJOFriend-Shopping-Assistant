@@ -251,19 +251,6 @@
         };
 
         /**
-         * Setup tab update listener for icon updates
-         */
-        const setupTabUpdateListener = () => {
-            $.api.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-                if (tab?.url) {
-                    updateTabIcon(tabId, tab.url);
-                } else {
-                    updateIconUnavailable(tabId);
-                }
-            });
-        };
-
-        /**
          * Initialize helper dependencies
          */
         const initDependencies = () => {
@@ -295,7 +282,6 @@
 
             // Setup event listeners
             setupIconClickListener();
-            setupTabUpdateListener();
             addMessageListener();
 
             // Initialize dependencies

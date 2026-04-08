@@ -21,6 +21,7 @@
         this.run = () => {
             const { platformConfig, platformConfigs } = (new $.PlatformConfigsHelper()).getConfigForUrl(window.location.href);
             if (!platformConfig) {
+                this.sendBackgroundMessage($.opts.messageActions.iconUnavailable, {});
                 return;
             }
             
