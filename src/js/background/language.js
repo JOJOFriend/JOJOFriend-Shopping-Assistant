@@ -1,131 +1,275 @@
 ($ => {
     "use strict";
 
-    $.LanguageHelper = function (b) {
+    $.LanguageHelper = function () {
 
-        //en, es, ar, fr, pt, ru, ja, de, ko, it, id, tr, pl, uk, nl, vi, ms, th, es-MX, es-CL, fa, zh-CN, zh-TW
-        const allLanguages = {
-            default: "Default",
-            en: "English",
-            es: "Español",
-            ar: "العربية",
-            fr: "Français",
-            pt: "Português",
-            ru: "Русский",
-            ja: "日本語",
-            de: "Deutsch",
-            ko: "한국어",
-            it: "Italiano",
-            id: "Bahasa Indonesia",
-            tr: "Türkçe",
-            pl: "Polski",
-            uk: "Українська",
-            nl: "Nederlands",
-            vi: "Tiếng Việt",
-            ms: "Bahasa Melayu",
-            th: "ไทย",
-            hi: "हिन्दी",
-            he: "עברית"
+        /* ------------------ Language registry (BCP-47 format) ------------------ */
+        // IMPORTANT:
+        // All language identifiers here MUST follow BCP-47 (hyphen format, e.g. zh-CN).
+        // Chrome extension folder names (_locales) will be converted later to zh_CN.
+        const defaultLabelMap = {
+            ar: "اتّباع لغة المتصفح",
+            de: "Browser-Sprache folgen",
+            en: "Follow Browser",
+            es: "Seguir el navegador",
+            fr: "Suivre la langue du navigateur",
+            he: "התאם לשפת הדפדפן",
+            hi: "ब्राउज़र भाषा का अनुसरण करें",
+            id: "Ikuti bahasa browser",
+            it: "Segui la lingua del browser",
+            ja: "ブラウザーに従う",
+            ko: "브라우저 언어 따르기",
+            ms: "Ikut bahasa pelayar",
+            nl: "Browsertaal volgen",
+            pl: "Dopasuj do jezyka przegladarki",
+            pt: "Seguir o idioma do navegador",
+            ru: "Следовать языку браузера",
+            th: "ใช้ภาษาตามเบราว์เซอร์",
+            tr: "Tarayici dilini takip et",
+            uk: "Використовувати мову браузера",
+            vi: "Theo ngon ngu trinh duyet",
+            zh: "跟随浏览器",
+            "zh-TW": "跟隨瀏覽器",
         };
 
-        const rtlLangs = ["ar", "fa", "he"];
-        const aliasLangs = {pt: "pt_PT"};
+        const allLanguages = {
+            default: "Follow Browser",
+            ar: "العربية",
+            de: "Deutsch",
+            en: "English",
+            "en-US": "English (US)",
+            es: "Español",
+            fr: "Français",
+            he: "עברית",
+            hi: "हिन्दी",
+            id: "Bahasa Indonesia",
+            it: "Italiano",
+            ja: "日本語",
+            ko: "한국어",
+            ms: "Bahasa Melayu",
+            nl: "Nederlands",
+            pl: "Polski",
+            "pt-BR": "Português (Brasil)",
+            "pt-PT": "Português (Portugal)",
+            ru: "Русский",
+            th: "ไทย",
+            tr: "Türkçe",
+            uk: "Українська",
+            vi: "Tiếng Việt",
+            "zh-CN": "简体中文",
+            "zh-TW": "繁體中文",
+        };
+
+
+        const rtlLangs = ["ar", "he", "fa"];
+
+        // Language aliases (short codes mapped to canonical ones)
+        const aliasLangs = { pt: "pt-PT" };
 
         let language = null;
         let languageLabel = null;
         let langVars = {};
         let isRtl = false;
-        let availableLanguages = {};
+        let selectedLanguage = "default";
+
+        const getDefaultLanguageLabel = () => {
+            const supportedKeys = new Set(
+                Object.keys(allLanguages).filter((key) => key !== "default")
+            );
+            const supportedShorts = new Set(
+                Array.from(supportedKeys).map((key) => key.toLowerCase().split("-")[0])
+            );
+
+            try {
+                const ui = $.api.i18n.getUILanguage();
+                // Do not rely on normalizeLocaleKey declaration order here.
+                const normalized = String(ui || "")
+                    .trim()
+                    .replace(/_/g, "-")
+                    .split("-")
+                    .filter(Boolean)
+                    .map((part, i) => (i === 0 ? part.toLowerCase() : part.toUpperCase()))
+                    .join("-");
+                const short = normalized ? normalized.toLowerCase().split("-")[0] : "";
+
+                // 1) exact locale (e.g. zh-TW) if supported
+                if (normalized && supportedKeys.has(normalized) && defaultLabelMap[normalized]) {
+                    return defaultLabelMap[normalized];
+                }
+
+                // 2) short locale (e.g. zh) if supported group exists
+                if (supportedShorts.has(short) && defaultLabelMap[short]) {
+                    return defaultLabelMap[short];
+                }
+
+                // 3) fallback to english
+                return defaultLabelMap.en;
+            } catch (err) {
+                return defaultLabelMap.en;
+            }
+        };
+        allLanguages.default = getDefaultLanguageLabel();
+
+        // Convert zh_CN -> zh-CN (standard format)
+        const toBCP47 = (code) => code ? code.replace(/_/g, "-") : null;
+
+        // Convert zh-CN -> zh_CN (Chrome _locales folder format)
+        const toChromeLocale = (code) => code ? code.replace(/-/g, "_") : null;
 
         /**
-         * Initialises the language file
-         *
-         * @returns {Promise}
+         * Normalize any locale string to BCP-47:
+         * zh_CN / zh-cn / zh-Hans-CN → zh-CN
+         */
+        const normalizeLocaleKey = (raw) => {
+            if (!raw) return null;
+
+            const parts = raw.trim().replace(/_/g, "-").split("-").filter(Boolean);
+            const lang = parts[0].toLowerCase();
+
+            // Find region part if exists (US, CN, TW, 419, ...)
+            const region = parts.slice(1).find(p => /^[a-z]{2}$/i.test(p) || /^\d{3}$/.test(p));
+            return region ? `${lang}-${region.toUpperCase()}` : lang;
+        };
+
+        /**
+         * Build a mapping index like:
+         * "zh-cn" -> "zh-CN"
+         * "zh" -> "zh-CN"
+         * This solves incomplete short code mapping issues.
+         */
+        const buildLocaleIndex = () => {
+            const index = {};
+            Object.keys(allLanguages).forEach(key => {
+                const norm = normalizeLocaleKey(key);
+                index[norm.toLowerCase()] = key;
+
+                // also map short language code
+                const short = norm.split("-")[0];
+                if (!index[short]) index[short] = key;
+            });
+            return index;
+        };
+
+        const localeIndex = buildLocaleIndex();
+
+        /**
+         * Resolve any input language to the canonical key in allLanguages.
+         */
+        const resolveCanonicalLang = (code) => {
+            const norm = normalizeLocaleKey(code);
+            if (!norm) return null;
+            return localeIndex[norm.toLowerCase()] || norm;
+        };
+
+        /**
+         * Create a prioritized language fallback list.
+         * Example for zh-HK:
+         * zh-HK → zh-TW → zh → default
+         */
+        const getLangCandidates = (rawLang, defaultLang) => {
+            const candidates = [];
+            const canonical = resolveCanonicalLang(rawLang);
+            if (canonical) candidates.push(canonical);
+
+            const norm = normalizeLocaleKey(rawLang);
+            if (norm) {
+                const [short, region] = norm.split("-");
+
+                // Special Chinese region handling
+                if (short === "zh") {
+                    if (region === "HK" || region === "MO") candidates.push("zh-TW");
+                    if (region === "SG") candidates.push("zh-CN");
+                }
+
+                // Portuguese alias handling
+                if (short === "pt") candidates.push("pt-PT");
+
+                if (localeIndex[short]) candidates.push(localeIndex[short]);
+            }
+
+            candidates.push(defaultLang);
+            return [...new Set(candidates)];
+        };
+
+        /**
+         * Load translation file from _locales.
+         * Note: ONLY here we convert to zh_CN format.
+         */
+        const getVars = (lang, defaultLang = null) => new Promise((resolve) => {
+
+            const load = (baseVars) => {
+                fetch($.api.runtime.getURL("_locales/" + toChromeLocale(lang) + "/messages.json"))
+                    .then(r => r.ok ? r.json() : Promise.reject())
+                    .then(data => {
+                        Object.assign(baseVars, data);
+                        resolve({ langVars: baseVars });
+                    })
+                    .catch(() => resolve({ langVars: baseVars }));
+            };
+
+            // Always load default language first as base, then override
+            if (defaultLang && defaultLang !== lang) {
+                getVars(defaultLang, null).then(res => load(res.langVars));
+            } else {
+                load({});
+            }
+        });
+
+
+        // ------------------ Initialization ------------------
+
+        /**
+         * Determine best language and load translations.
          */
         this.init = () => new Promise((resolve) => {
             $.api.storage.local.get(["language"], (data) => {
-                let lang = null;
-                if (data && data.language) {
-                    lang = data.language;
-                }
+                const storedLanguage = data?.language || "default";
+                const followBrowser = storedLanguage === "default";
+                selectedLanguage = storedLanguage;
+                let lang = followBrowser ? this.getUILanguage() : storedLanguage;
 
-                // Verify the reliability of the language.
-                const possible = possibleLang(lang);
-                const fallbackLang = possible.fallbackLang;
-                const defaultLang = possible.defaultLang;
-                lang = possible.lang;
+                lang = resolveCanonicalLang(lang);
+                if (aliasLangs[lang]) lang = aliasLangs[lang];
 
-                this.getAvailableLanguages().then((obj) => {
-                    // Save the list of reliable languages for possible future use.
-                    availableLanguages = obj;
+                const defaultLang = resolveCanonicalLang($.opts.manifest.default_locale);
+                const candidates = getLangCandidates(lang, defaultLang);
 
-                    // Check if user language exists, if not fall back to default language chain.
-                    [lang, fallbackLang, defaultLang].some((_language) => {
-                        if (
-                            _language !== null &&
-                            obj &&
-                            obj.infos &&
-                            obj.infos[_language] &&
-                            obj.infos[_language].available
-                        ) {
-                            language = _language;
-                            languageLabel = allLanguages[_language];
-                            isRtl = rtlLangs.indexOf(language) > -1;
+                this.getAvailableLanguages().then((available) => {
+                    const infos = available && available.infos ? available.infos : {};
+                    const usable = candidates.find((l) => infos[l] && infos[l].available);
+                    language = usable || defaultLang;
+                    languageLabel = followBrowser ? allLanguages.default : allLanguages[language];
+                    isRtl = rtlLangs.some(r => language.startsWith(r));
 
-                            // Load language variables from model.
-                            getVars(_language, defaultLang).then((varsData) => {
-                                if (varsData && varsData.langVars) {
-                                    langVars = varsData.langVars;
-                                    resolve();
-                                }
-                            });
-                            return true;
-                        }
+                    getVars(language, defaultLang).then(res => {
+                        langVars = res.langVars;
+                        resolve();
                     });
                 });
             });
         });
 
-        /**
-         * Returns the UI language of the browser in the format "de_DE" or "de"
-         *
-         * @returns {string}
-         */
+  
+        // ------------------ Public APIs ------------------
+
         this.getUILanguage = () => {
             try {
-                // Some browsers cannot use this interface, so use try/catch.
-                let ret = $.api.i18n.getUILanguage();
-                ret = ret.replace("-", "_");
-                return ret;
-            } catch (err) {
-                // fall through to default
+                return normalizeLocaleKey($.api.i18n.getUILanguage());
+            } catch {
+                return $.opts.manifest.default_locale;
             }
-            return $.opts.manifest.default_locale;
         };
 
-        /**
-         * Returns the language which is used for the language variables
-         *
-         * @returns {string}
-         */
         this.getLanguage = () => language;
 
-        /**
-         *
-         * @returns {Promise}
-         */
         this.getRtlLanguages = async () => rtlLangs;
 
-        /**
-         * Returns the name and the language variables of the user language
-         * This method will be called when other pages are initialized, and it must ensure that this object has been fully initialized before returning.
-         * @returns {Promise}
-         */
         this.getLangVars = () => new Promise((resolve) => {
             const checkTask = () => {
                 if (language) {
                     resolve({
                         language: language,
+                        selectedLanguage: selectedLanguage,
                         languageLabel: languageLabel,
                         dir: isRtl ? "rtl" : "ltr",
                         vars: langVars
@@ -134,149 +278,60 @@
                     setTimeout(checkTask, 100);
                 }
             };
-
             checkTask();
         });
 
+        this.getVars = (opts = {}) => getVars(opts.language, $.opts.manifest.default_locale);
 
         /**
-         * @param {*} opts 
-         * @returns 
-         */
-        this.getVars = (opts) => getVars(opts.language, $.opts.manifest.default_locale);
-
-        /**
-         * Returns the information about the all languages
-         *
-         * @returns {Promise}
+         * Check which _locales folders actually exist.
          */
         this.getAvailableLanguages = () => new Promise((resolve) => {
-            const total = Object.keys(allLanguages).length;
-            let loaded = 0;
             const infos = {};
+            const langs = Object.keys(allLanguages);
 
-            Object.keys(allLanguages).forEach((lang) => {
+            let done = 0;
+            langs.forEach((lang) => {
                 infos[lang] = {
                     language: lang,
                     languageLabel: allLanguages[lang],
                     available: false
                 };
 
-                const fetchDone = () => {
-                    if (++loaded === total) {
-                        resolve({infos: infos});
-                    }
-                };
-
-                // Test whether the language file is available.
-                fetch($.api.runtime.getURL("_locales/" + lang + "/messages.json"), {method: "HEAD"})
-                    .then(
-                        () => {
-                            infos[lang].available = true;
-                            fetchDone();
-                        },
-                        fetchDone
-                    )
-                    .catch(() => {});
-            });
-        });
-
-        /**
-         * Determines all languages with incomplete translations
-         *
-         * @returns {Promise}
-         */
-        this.getIncompleteLanguages = () => new Promise((resolve) => {
-            fetch($.opts.website.translation.info).then((xhr) => {
-                const infos = JSON.parse(xhr.responseText);
-                const incompleteLangs = [];
-
-                if (infos && infos.languages && infos.categories) {
-                    let totalVars = 0;
-                    // Determine the total amount of language variables.
-                    Object.values(infos.categories).forEach((cat) => {
-                        totalVars += cat.total;
-                    });
-
-                    // Add all languages with an incomplete amount of variables to the list.
-                    infos.languages.forEach((lang) => {
-                        if (lang.varsAmount < totalVars) {
-                            incompleteLangs.push(lang.name);
+                fetch($.api.runtime.getURL("_locales/" + toChromeLocale(lang) + "/messages.json"), { method: "HEAD" })
+                    .then(() => {
+                        infos[lang].available = true;
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                        if (++done === langs.length) {
+                            resolve({infos: infos});
                         }
                     });
-                }
-
-                resolve(incompleteLangs);
             });
         });
 
         /**
-         * Returns the language variables for the given language
-         *
-         * @param {string} lang
-         * @param {string} defaultLang
-         * @returns {Promise}
+         * Detect languages with incomplete translations from your translation platform.
          */
-        const getVars = (lang, defaultLang = null) => new Promise((resolve) => {
-            if (!lang) {
-                return;
-            }
+        this.getIncompleteLanguages = () => new Promise((resolve) => {
+            const url = $.opts?.website?.translation?.info;
+            if (!url) return resolve([]);
 
-            const sendXhr = (obj) => {
-                const currentLangVars = obj.langVars;
+            fetch(url)
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(infos => {
+                    const total = Object.values(infos.categories || {})
+                        .reduce((s, c) => s + (c.total || 0), 0);
 
-                fetch($.api.runtime.getURL("_locales/" + lang + "/messages.json"))
-                    .then((res) => {
-                        res.json().then((data) => {
-                            // Override all default variables with the ones from the language file.
-                            Object.assign(currentLangVars, data);
-                            resolve({
-                                langVars: currentLangVars,
-                                language: lang,
-                                languageLabel: allLanguages[lang]
-                            });
-                        });
-                    })
-                    .catch(() => {});
-            };
+                    const incomplete = (infos.languages || [])
+                        .filter(l => (l.varsAmount || 0) < total)
+                        .map(l => resolveCanonicalLang(l.name));
 
-            // Load default language variables first and replace them afterwards with the language-specific ones.
-            if (defaultLang && defaultLang !== lang) {
-                getVars(defaultLang, null).then(sendXhr);
-            } else {
-                sendXhr({langVars: {}});
-            }
+                    resolve(incomplete);
+                })
+                .catch(() => resolve([]));
         });
-
-        /**
-         * Obtain possible language codes
-         * @param {*} lang 
-         * @param {*} defaultLang 
-         * @returns 
-         */
-        const possibleLang = (lang) => {
-            let fallbackLang = null;
-            if (!lang || lang === "default") {
-                const uiLanguage = this.getUILanguage();
-                if (uiLanguage) {
-                    lang = uiLanguage;
-                }
-            }
-
-            lang = lang.replace("-", "_");
-            // language code is an alias for another one (e.g. pt -> pt_PT)
-            if (aliasLangs[lang]) {
-                lang = aliasLangs[lang];
-            }
-
-            // search for a language file with short language code, too (e.g. de_DE -> de)
-            if (lang.indexOf("_") > -1) {
-                fallbackLang = lang.replace(/_.*$/, "");
-            }
-
-            const defaultLang = $.opts.manifest.default_locale;
-            return {lang: lang, fallbackLang: fallbackLang, defaultLang: defaultLang};
-        };
     };
 
 })(jsu);

@@ -121,7 +121,7 @@
                 Object.values(languageInfos).forEach((languageInfo) => {
                     const li = document.createElement("li");
                     li.classList.add("switcher-item-li");
-                    li.textContent = languageInfo.languageLabel;
+                    li.textContent = `${languageInfo.languageLabel} (${languageInfo.language})`;
                     li.setAttribute("data-language", languageInfo.language);
                     li.addEventListener("click", () =>
                         SettingOperat.changeLanguage($content, languageInfo.language, languageInfo.languageLabel)

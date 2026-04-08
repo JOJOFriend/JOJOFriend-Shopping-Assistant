@@ -16,7 +16,7 @@ JOJOFriend เป็นส่วนขยายเบราว์เซอร์
 ประกาศโอเพ่นซอร์ส
 JOJOFriend จัดจำหน่ายภายใต้ Apache License 2.0 คุณสามารถใช้และแก้ไขซอร์สโค้ดตามข้อกำหนดของไลเซนส์ เราขอต้อนรับการมีส่วนร่วม ข้อเสนอแนะ และความร่วมมือจากชุมชน
 
-เว็บไซต์ทางการ: https://www.jojofriend.com/
+เว็บไซต์ทางการ: https://www.jojofriend.com
 นโยบายความเป็นส่วนตัว: https://www.jojofriend.com/ext/privacy
 ที่เก็บข้อมูลสำหรับการสนับสนุน: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 

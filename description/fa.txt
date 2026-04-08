@@ -16,7 +16,7 @@ JOJOFriend یک افزونه مرورگر رایگان و متن‌باز است
 اطلاعیه متن‌باز
 JOJOFriend تحت مجوز Apache License 2.0 منتشر شده است. شما می‌توانید طبق شرایط این مجوز از کد منبع استفاده کرده و آن را تغییر دهید. ما از مشارکت، بازخورد و همکاری جامعه استقبال می‌کنیم.
 
-وب‌سایت رسمی: https://www.jojofriend.com/
+وب‌سایت رسمی: https://www.jojofriend.com
 سیاست حفظ حریم خصوصی: https://www.jojofriend.com/ext/privacy
 مخزن پشتیبانی: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 

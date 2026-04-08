@@ -16,7 +16,7 @@ Saat berbelanja di toko yang berpartisipasi, JOJOFriend dapat menerima komisi me
 Pemberitahuan sumber terbuka
 JOJOFriend dirilis di bawah lisensi Apache License 2.0. Anda dapat menggunakan dan memodifikasi kode sumber sesuai dengan ketentuan lisensi. Kami menyambut kontribusi, masukan, dan kolaborasi dari komunitas.
 
-Situs resmi: https://www.jojofriend.com/
+Situs resmi: https://www.jojofriend.com
 Kebijakan privasi: https://www.jojofriend.com/ext/privacy
 Repositori pendukung: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 

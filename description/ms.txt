@@ -16,7 +16,7 @@ Apabila membeli di kedai yang menyertai, JOJOFriend boleh menerima komisen melal
 Makluman sumber terbuka
 JOJOFriend dikeluarkan di bawah lesen Apache License 2.0. Anda boleh menggunakan dan mengubah suai kod sumber mengikut syarat lesen. Kami mengalu-alukan sumbangan, maklum balas dan kerjasama daripada komuniti.
 
-Laman web rasmi: https://www.jojofriend.com/
+Laman web rasmi: https://www.jojofriend.com
 Dasar Privasi: https://www.jojofriend.com/ext/privacy
 Repositori sokongan: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 

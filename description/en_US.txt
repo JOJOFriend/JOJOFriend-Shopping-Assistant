@@ -16,7 +16,7 @@ When you shop at participating stores, JOJOFriend may earn a commission through 
 Open Source Notice
 JOJOFriend is released under the Apache License 2.0. You are free to use and modify the source code in accordance with the license terms. We welcome community contributions, feedback, and collaboration.
 
-Official Website: https://www.jojofriend.com/
+Official Website: https://www.jojofriend.com
 Privacy Policy: https://www.jojofriend.com/ext/privacy
 Supported Platforms: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 

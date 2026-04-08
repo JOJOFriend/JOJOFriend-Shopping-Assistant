@@ -16,7 +16,7 @@ JOJOFriend הוא תוסף דפדפן חינמי ובקוד פתוח שמאתר 
 הודעת קוד פתוח
 JOJOFriend מופץ תחת רישיון Apache License 2.0. באפשרותך להשתמש ולשנות את קוד המקור בהתאם לתנאי הרישיון. אנו מברכים על תרומות, משוב ושיתוף פעולה מהקהילה.
 
-האתר הרשמי: https://www.jojofriend.com/
+האתר הרשמי: https://www.jojofriend.com
 מדיניות פרטיות: https://www.jojofriend.com/ext/privacy
 מאגר התמיכה: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 

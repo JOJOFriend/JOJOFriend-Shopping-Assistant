@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "JOJOFriend 购物助手"
+  },
+  "extension_description": {
+    "message": "智能购物助手：优惠券、比价与返现。"
+  },
+  "setting_modal_title": {
+    "message": "设置"
+  },
+  "setting_modal_language_title": {
+    "message": "语言"
+  },
+  "setting_modal_language_description": {
+    "message": "请选择你的首选语言："
+  },
+  "setting_modal_history_title": {
+    "message": "历史记录上限"
+  },
+  "setting_modal_history_description": {
+    "message": "最多保留条目数（最少：{1}，最多：{2}。更改会自动保存）："
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "请输入范围内的数字，例如 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "清除缓存"
+  },
+  "setting_modal_clear_description": {
+    "message": "清除缓存与浏览历史记录。此操作无法撤销。"
+  },
+  "setting_modal_clear_btn": {
+    "message": "清除"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "确定清除所有浏览历史记录？此操作无法撤销。"
+  },
+  "history_box_title": {
+    "message": "浏览历史"
+  },
+  "history_bar_hint": {
+    "message": "历史"
+  },
+  "history_box_hit_today": {
+    "message": "—— 今天 ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— 昨天 ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "重试"
+  },
+  "inspect_couponList_copied": {
+    "message": "已复制"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "正在为你寻找优惠…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "自动尝试优惠码，帮你省钱。"
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend 提醒你：当前已经是最优优惠。"
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "已自动使用优惠码。省得漂亮！"
+  },
+  "setting_window_display_title": {
+    "message": "显示"
+  },
+  "setting_window_display_hide30m": {
+    "message": "隐藏 {1} 分钟"
+  },
+  "setting_window_display_session": {
+    "message": "本次会话内隐藏"
+  },
+  "setting_window_display_all": {
+    "message": "全部显示"
+  },
+  "setting_window_general_title": {
+    "message": "通用"
+  },
+  "setting_window_general_label": {
+    "message": "语言、历史记录等"
+  }
+}

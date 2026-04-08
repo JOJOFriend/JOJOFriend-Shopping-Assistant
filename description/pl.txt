@@ -16,7 +16,7 @@ Podczas zakupów w uczestniczących sklepach JOJOFriend może otrzymywać prowiz
 Informacja o open source
 JOJOFriend jest udostępniany na licencji Apache License 2.0. Możesz korzystać i modyfikować kod źródłowy zgodnie z warunkami licencji. Zachęcamy do wkładu, opinii i współpracy ze strony społeczności.
 
-Oficjalna strona: https://www.jojofriend.com/
+Oficjalna strona: https://www.jojofriend.com
 Polityka prywatności: https://www.jojofriend.com/ext/privacy
 Repozytorium wsparcia: https://github.com/JOJOFriend/JOJOFriend-Shopping-Assistant
 
