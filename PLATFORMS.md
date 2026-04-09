@@ -308,3 +308,4 @@ JOJOFriend only supports the following platforms and matches URLs using the "Per
 | pdffiller | ^https:\/\/([\w-]+\.)?pdffiller\.[\w.-]+([/?#].*)?$ |
 | points | ^https:\/\/(storefront\.)?points\.[\w.-]+([/?#].*)?$ |
 | goldenline | ^https:\/\/(storefront\.)?golden-line\.[\w.-]+([/?#].*)?$ |
+| invideo | ^https:\/\/([\w-]+\.)?invideo\.[\w.-]+([/?#].*)?$ |

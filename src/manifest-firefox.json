@@ -15,11 +15,11 @@
   },
   "browser_action": {
     "default_icon": {
-			"16": "images/icon/default/icon16.png",
-      "32": "images/icon/default/icon32.png",
-      "48": "images/icon/default/icon48.png",
-      "128": "images/icon/default/icon128.png",
-      "512": "images/icon/default/icon512.png"
+			"16": "images/icon/unavailable/icon16.png",
+      "32": "images/icon/unavailable/icon32.png",
+      "48": "images/icon/unavailable/icon48.png",
+      "128": "images/icon/unavailable/icon128.png",
+      "512": "images/icon/unavailable/icon512.png"
     }
   },
   "permissions": ["storage", "http://*/*", "https://*/*"],

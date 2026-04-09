@@ -2613,6 +2613,14 @@
                         "disabled": true
                     },
                     "disabled": false
+                },
+                "invideo": {
+                    "platformId": "invideo",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?invideo\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
                 }
             }
         `;

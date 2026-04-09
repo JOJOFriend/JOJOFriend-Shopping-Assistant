@@ -124,6 +124,12 @@
                     'data-model': `${$.attr.shadowNamePrefix}${name}`
                 }
             });
+
+            // Prevent wheel event from bubbling up to the document.documentElement.
+            // Scrolling is not possible on some websites like invideo.io/.
+            root.addEventListener('wheel', e => {
+                e.stopImmediatePropagation();
+            }, { passive: false, capture: true });
             insertRootElement.appendChild(root);
 
             const outerDIV = this.createElement("div", {
