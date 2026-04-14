@@ -36,7 +36,7 @@
         },
         {
             "js": ["js/others/partner.js"],
-            "matches": [ "https://www.tool77.com/*"],
+            "matches": [ "https://www.tool77.com/*", "https://www.grabshorts.com/*"],
             "run_at": "document_end"
         }
     ],

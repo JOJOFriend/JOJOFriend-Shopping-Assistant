@@ -2630,7 +2630,8 @@
         * If it's a partner website, the toolbar icon will display the normal logo instead of being grayed out.
         */
         const partnerPlatforms = [
-            "https:\\/\\/www\\.tool77\\.com\\/.*"
+            "https:\\/\\/www\\.tool77\\.com\\/.*",
+            "https:\\/\\/www\\.grabshorts\\.com\\/.*"
         ];
 
         let cachedPlatformConfigs = null;

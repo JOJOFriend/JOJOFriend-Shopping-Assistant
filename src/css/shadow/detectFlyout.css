@@ -131,6 +131,30 @@
   .jox-acq-flyout-body {
     padding: 18px 15px 15px;
     text-align: center;
+    max-height: 60vh;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    outline: none;
+    -webkit-background-clip: text;
+    transition: background-color 0.3s;
+  }
+
+  .jox-acq-flyout-body::-webkit-scrollbar {
+    width: 4px;
+    background: transparent;
+  }
+  
+  .jox-acq-flyout-body::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+    background-color: inherit;
+    background-color: var(--color-scrollbar-thumb);
+  }
+  
+  .jox-acq-flyout-body::-webkit-scrollbar-track {
+    background: transparent !important;
+    border-radius: 3px;
   }
     
   .jox-acq-fade-out {

@@ -96,7 +96,6 @@
   overflow-y: scroll;
   overflow-x: hidden;
   outline: none;
-  background-color: var(--color-scrollbar-thumb);
   -webkit-background-clip: text;
   transition: background-color 0.3s;
 }
@@ -111,6 +110,7 @@
   border: 1px solid transparent;
   background-clip: content-box;
   background-color: inherit;
+  background-color: var(--color-scrollbar-thumb);
 }
 
 .scroll-box::-webkit-scrollbar-track {
