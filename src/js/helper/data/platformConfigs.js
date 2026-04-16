@@ -2621,6 +2621,30 @@
                         "disabled": true
                     },
                     "disabled": false
+                },
+                "traveloka": {
+                    "platformId": "traveloka",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?traveloka\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "asos": {
+                    "platformId": "asos",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?asos\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "nordpass": {
+                    "platformId": "nordpass",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?nordpass\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
                 }
             }
         `;

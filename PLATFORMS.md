@@ -309,3 +309,6 @@ JOJOFriend only supports the following platforms and matches URLs using the "Per
 | points | ^https:\/\/(storefront\.)?points\.[\w.-]+([/?#].*)?$ |
 | goldenline | ^https:\/\/(storefront\.)?golden-line\.[\w.-]+([/?#].*)?$ |
 | invideo | ^https:\/\/([\w-]+\.)?invideo\.[\w.-]+([/?#].*)?$ |
+| traveloka | ^https:\/\/([\w-]+\.)?traveloka\.[\w.-]+([/?#].*)?$ |
+| asos | ^https:\/\/([\w-]+\.)?asos\.[\w.-]+([/?#].*)?$ |
+| nordpass | ^https:\/\/([\w-]+\.)?nordpass\.[\w.-]+([/?#].*)?$ |
