@@ -290,7 +290,6 @@
                 //Ensure the wrapper's style is set to absolute or fixed.
                 if (window.getComputedStyle(wrapper).position !== 'absolute' &&
                     window.getComputedStyle(wrapper).position !== 'fixed') {
-                    console.error('The wrapper element must have position set to "absolute" or "fixed".');
                     return;
                 }
                 isDragging = true;

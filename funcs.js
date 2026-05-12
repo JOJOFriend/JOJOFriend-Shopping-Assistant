@@ -37,6 +37,7 @@
             request: requireModule("request"),
             zip: requireModule("zip-dir"),
             babel: require("@babel/core"),
+            babelPluginRemoveConsole: require("babel-plugin-transform-remove-console"),
             exec: require("child_process").exec
         };
 
@@ -360,6 +361,41 @@
                 configFile: false,
                 comments: false
             }).then(result => result.code);
+        };
+
+        /**
+         * Strips console.* statements from the JavaScript file at `src` and
+         * writes the result to `dest` (defaults to `src`, i.e. in-place).
+         *
+         * Uses @babel/core + babel-plugin-transform-remove-console so console
+         * references inside strings/comments are left alone and entire calls
+         * (with nested args, multi-line, template literals, ...) are removed.
+         * `retainLines` keeps original line numbers so the released bundle is
+         * still trivially mappable back to the merged source.
+         *
+         * `exclude` lists console methods to KEEP. Defaults to `["error"]` so
+         * error reporting still surfaces in production builds.
+         *
+         * @param {string} src path to the source JavaScript file to read
+         * @param {string} [dest=src] path to write the stripped content to
+         * @param {string[]} [exclude=["error"]] console methods to preserve
+         * @returns {Promise}
+         */
+        this.stripConsole = (src, dest = src, exclude = ["error"]) => {
+            return readFile(src).then((content) => {
+                const result = module.babel.transformSync(content, {
+                    plugins: [[module.babelPluginRemoveConsole, { exclude }]],
+                    babelrc: false,
+                    configFile: false,
+                    compact: false,
+                    retainLines: true,
+                    comments: true,
+                    parserOpts: { sourceType: "script", allowReturnOutsideFunction: true },
+                    generatorOpts: { retainLines: true, comments: true }
+                });
+                const stripped = result && result.code != null ? result.code : content;
+                return this.createFile(dest, stripped);
+            });
         };
 
         /**

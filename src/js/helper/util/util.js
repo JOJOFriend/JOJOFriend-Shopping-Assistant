@@ -113,7 +113,6 @@
                 }
                 return hostname;
             } catch (error) {
-                console.error("Invalid URL:", error);
                 return null;
             }
         };

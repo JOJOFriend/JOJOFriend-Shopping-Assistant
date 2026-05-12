@@ -262,7 +262,7 @@
             const language = await getStorageData(languageStorageKey, navigator.language);
             const currency = await getStorageData(currencyStorageKey, "USD");
             const marketplace = await this.getMarketplace();
-            // console.log("currency=",currency, "marketplace=", marketplace);
+            console.log("currency=",currency, "marketplace=", marketplace);
         
             const ids = ext.helper.util.getSearchParameter(window.location.search, "objectId")
                 || ext.helper.util.getSearchParameter(window.location.search, "availableProductShopcartIds")

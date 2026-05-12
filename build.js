@@ -174,10 +174,10 @@
     
     /**
      * Unified JS concat config pipeline (runs in series)
-     * Each task: 1. concat to path.tmp (random name) 2. rename to output (default path.tmp + filename) 3. regex replace 4. minify and output to distPath
+     * Each task: 1. concat to path.tmp (random name) 2. rename to output (default path.tmp + filename) 3. regex replace 4. strip console statements when release 5. copy to distPath
      *
      * @param {Array<{concat: string[], distPath: string}>} configs concat config list, distPath is the final output path (including filename)
-     * @param {boolean} isRelease whether to minify
+     * @param {boolean} isRelease whether to strip console statements (and, if re-enabled, minify)
      * @returns {Promise}
      */
     const runJsConcatTasks = (configs, isRelease) => {
@@ -194,12 +194,11 @@
                 return Func.concat(concatPaths, tmpFile)
                     .then(() => fs.move(tmpFile, output, { overwrite: true }))
                     .then(() => Func.replace({ [output]: output }, replaceRules))
-                    .then(() => {
-                        // if (isRelease) {
-                        //     return Func.minify([output], pathModule.dirname(distPath) + pathModule.sep, true, packageJson.preamble);
-                        // }
-                        return Func.powerfulCopy(output, distPath);
-                    });
+                    .then(() => isRelease ? Func.stripConsole(output) : null)
+                    // if (isRelease) {
+                    //     return Func.minify([output], pathModule.dirname(distPath) + pathModule.sep, true, packageJson.preamble);
+                    // }
+                    .then(() => Func.powerfulCopy(output, distPath));
             });
         }, Promise.resolve());
     };
