@@ -166,28 +166,9 @@
                     },
                     "disabled": false
                 },
-                "fewodirekt": {
-                    "platformId": "fewodirekt",
-                    "keywords": [
-                        "fewo-direkt"
-                    ],
-                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?fewo-direkt\\\\.[\\\\w.-]+([/?#].*)?$",
-                    "historyRecord": {
-                        "disabled": true
-                    },
-                    "disabled": false
-                },
                 "hoteis": {
                     "platformId": "hoteis",
                     "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?hoteis\\\\.[\\\\w.-]+([/?#].*)?$",
-                    "historyRecord": {
-                        "disabled": true
-                    },
-                    "disabled": false
-                },
-                "hoteles": {
-                    "platformId": "hoteles",
-                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?hoteles\\\\.[\\\\w.-]+([/?#].*)?$",
                     "historyRecord": {
                         "disabled": true
                     },
@@ -244,14 +225,6 @@
                 "skyscanner": {
                     "platformId": "skyscanner",
                     "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?skyscanner\\\\.[\\\\w.-]+([/?#].*)?$",
-                    "historyRecord": {
-                        "disabled": true
-                    },
-                    "disabled": false
-                },
-                "stayz": {
-                    "platformId": "stayz",
-                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?stayz\\\\.[\\\\w.-]+([/?#].*)?$",
                     "historyRecord": {
                         "disabled": true
                     },
@@ -332,19 +305,6 @@
                 "expedia": {
                     "platformId": "expedia",
                     "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?expedia\\\\.[\\\\w.-]+([/?#].*)?$",
-                    "historyRecord": {
-                        "disabled": true
-                    },
-                    "disabled": false
-                },
-                "hotels": {
-                    "platformId": "hotels",
-                    "keywords": [
-                        "hotels",
-                        "hoteis",
-                        "hoteles"
-                    ],
-                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(hotels|hoteles|hoteis)\\\\.[\\\\w.-]+([/?#].*)?$",
                     "historyRecord": {
                         "disabled": true
                     },
@@ -576,11 +536,7 @@
                 },
                 "iherb": {
                     "platformId": "iherb",
-                    "keywords": [
-                        "iherb",
-                        "iherbgroup"
-                    ],
-                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(iherb|iherbgroup)\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(iherb)\\\\.[\\\\w.-]+([/?#].*)?$",
                     "historyRecord": {
                         "disabled": true
                     },
@@ -2641,6 +2597,1015 @@
                 "nordpass": {
                     "platformId": "nordpass",
                     "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?nordpass\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "airindia": {
+                    "platformId": "airindia",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?airindia\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "elightup": {
+                    "platformId": "elightup",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?elightup\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "gitmind": {
+                    "platformId": "gitmind",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?gitmind\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "justflowers": {
+                    "platformId": "justflowers",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?justflowers\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "corel": {
+                    "platformId": "corel",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?corel\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "zchocolat": {
+                    "platformId": "zchocolat",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?zchocolat\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "flowerdelivery": {
+                    "platformId": "flowerdelivery",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?flowerdelivery\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "roxio": {
+                    "platformId": "roxio",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?roxio\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "tenergy": {
+                    "platformId": "tenergy",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?tenergy\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "trampolinepartsandsupply": {
+                    "platformId": "trampolinepartsandsupply",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?trampolinepartsandsupply\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "parallels": {
+                    "platformId": "parallels",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?parallels\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "peoplefinders": {
+                    "platformId": "peoplefinders",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?peoplefinders\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "trustedtours": {
+                    "platformId": "trustedtours",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?trustedtours\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "diecastmodelswholesale": {
+                    "platformId": "diecastmodelswholesale",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?diecastmodelswholesale\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "winebasket": {
+                    "platformId": "winebasket",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?winebasket\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "personalabs": {
+                    "platformId": "personalabs",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?personalabs\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "fewodirekt": {
+                    "platformId": "fewodirekt",
+                    "keywords": [
+                        "fewo-direkt"
+                    ],
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(fewo-direkt)\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "wristbandexpress": {
+                    "platformId": "wristbandexpress",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?wristbandexpress\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "trinityroad": {
+                    "platformId": "trinityroad",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?trinityroad\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "247pressrelease": {
+                    "platformId": "247pressrelease",
+                    "keywords": [
+                        "24-7pressrelease"
+                    ],
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(24-7pressrelease)\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "amiclubwear": {
+                    "platformId": "amiclubwear",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?amiclubwear\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "getresponse": {
+                    "platformId": "getresponse",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?getresponse\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "wondershare": {
+                    "platformId": "wondershare",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?wondershare\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "silvergoldbull": {
+                    "platformId": "silvergoldbull",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?silvergoldbull\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "intego": {
+                    "platformId": "intego",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?intego\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "jalbum": {
+                    "platformId": "jalbum",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?jalbum\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "silverrushstyle": {
+                    "platformId": "silverrushstyle",
+                    "urlMatch": "^https?:\\\\/\\\\/([\\\\w-]+\\\\.)?silverrushstyle\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "greatergood": {
+                    "platformId": "greatergood",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?greatergood\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "beckett": {
+                    "platformId": "beckett",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?beckett\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "stdcheck": {
+                    "platformId": "stdcheck",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?stdcheck\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "canadapetcare": {
+                    "platformId": "canadapetcare",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?canadapetcare\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "bestvetcare": {
+                    "platformId": "bestvetcare",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?bestvetcare\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "pandahall": {
+                    "platformId": "pandahall",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?pandahall\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "clickandgrow": {
+                    "platformId": "clickandgrow",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?clickandgrow\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "lawdepot": {
+                    "platformId": "lawdepot",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?lawdepot\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "hoteles": {
+                    "platformId": "hoteles",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?hoteles\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "emcklein": {
+                    "platformId": "emcklein",
+                    "keywords": [
+                        "e-mcklein"
+                    ],
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(e-mcklein)\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "stayz": {
+                    "platformId": "stayz",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?stayz\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "turbopass": {
+                    "platformId": "turbopass",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?turbopass\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "ashampoo": {
+                    "platformId": "ashampoo",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?ashampoo\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "healthlabs": {
+                    "platformId": "healthlabs",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?healthlabs\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "proton": {
+                    "platformId": "proton",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?proton\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "restoro": {
+                    "platformId": "restoro",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?restoro\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "magzter": {
+                    "platformId": "magzter",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?magzter\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "sleepandbeyond": {
+                    "platformId": "sleepandbeyond",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?sleepandbeyond\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "theluxurycloset": {
+                    "platformId": "theluxurycloset",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?theluxurycloset\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "expondo": {
+                    "platformId": "expondo",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?expondo\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "rexing": {
+                    "platformId": "rexing",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?rexing\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "mobilepixels": {
+                    "platformId": "mobilepixels",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?mobilepixels\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "landsend": {
+                    "platformId": "landsend",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?landsend\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "nicksboots": {
+                    "platformId": "nicksboots",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?nicksboots\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "mrkeyshop": {
+                    "platformId": "mrkeyshop",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?mrkeyshop\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "hide": {
+                    "platformId": "hide",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?hide\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "karaca": {
+                    "platformId": "karaca",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?karaca\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "privatevpn": {
+                    "platformId": "privatevpn",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?privatevpn\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "empowerdxlab": {
+                    "platformId": "empowerdxlab",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?empowerdxlab\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "ravincrossbows": {
+                    "platformId": "ravincrossbows",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?ravincrossbows\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "gamivo": {
+                    "platformId": "gamivo",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?gamivo\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "paternitylab": {
+                    "platformId": "paternitylab",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?paternitylab\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "bluettipower": {
+                    "platformId": "bluettipower",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?bluettipower\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "vividstormscreen": {
+                    "platformId": "vividstormscreen",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?vividstormscreen\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "travelup": {
+                    "platformId": "travelup",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?travelup\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "abelssoft": {
+                    "platformId": "abelssoft",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?abelssoft\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "directdeals": {
+                    "platformId": "directdeals",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?directdeals\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "aiper": {
+                    "platformId": "aiper",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?aiper\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "minitool": {
+                    "platformId": "minitool",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?minitool\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "dermelect": {
+                    "platformId": "dermelect",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?dermelect\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "netart": {
+                    "platformId": "netart",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?netart\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "stylekorean": {
+                    "platformId": "stylekorean",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?stylekorean\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "arangrant": {
+                    "platformId": "arangrant",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?arangrant\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "mfimedical": {
+                    "platformId": "mfimedical",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?mfimedical\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "trodo": {
+                    "platformId": "trodo",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?trodo\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "fragranceshop": {
+                    "platformId": "fragranceshop",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?fragranceshop\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "onebioshop": {
+                    "platformId": "onebioshop",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?onebioshop\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "corroshop": {
+                    "platformId": "corroshop",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?corroshop\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "garvee": {
+                    "platformId": "garvee",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?garvee\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "trendingcustom": {
+                    "platformId": "trendingcustom",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?trendingcustom\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "fabfinds": {
+                    "platformId": "fabfinds",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?fabfinds\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "wadiz": {
+                    "platformId": "wadiz",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?wadiz\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "mowrator": {
+                    "platformId": "mowrator",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?mowrator\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "honiture": {
+                    "platformId": "honiture",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?honiture\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "gabiona": {
+                    "platformId": "gabiona",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?gabiona\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "wrapitstorage": {
+                    "platformId": "wrapitstorage",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?wrapitstorage\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "swanwicksleep": {
+                    "platformId": "swanwicksleep",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?swanwicksleep\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "ecosmetics": {
+                    "platformId": "ecosmetics",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?ecosmetics\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "switchbot": {
+                    "platformId": "switchbot",
+                    "keywords": [
+                        "switch-bot"
+                    ],
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(switch-bot)\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "chowsangsang": {
+                    "platformId": "chowsangsang",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?chowsangsang\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "wowangel": {
+                    "platformId": "wowangel",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?wowangel\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "elementor": {
+                    "platformId": "elementor",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?elementor\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "mavis": {
+                    "platformId": "mavis",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?mavis\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "oojo": {
+                    "platformId": "oojo",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?oojo\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "ovago": {
+                    "platformId": "ovago",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?ovago\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "avidlove": {
+                    "platformId": "avidlove",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?avidlove\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "kingscamo": {
+                    "platformId": "kingscamo",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?kingscamo\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "treatmyuti": {
+                    "platformId": "treatmyuti",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?treatmyuti\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "freecash": {
+                    "platformId": "freecash",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?freecash\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "macorner": {
+                    "platformId": "macorner",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?macorner\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "turbify": {
+                    "platformId": "turbify",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?turbify\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "yuplay": {
+                    "platformId": "yuplay",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?yuplay\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "zepter": {
+                    "platformId": "zepter",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?zepter\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "neogenesis": {
+                    "platformId": "neogenesis",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?neogenesis\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "kinship": {
+                    "platformId": "kinship",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?kinship\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "legendz": {
+                    "platformId": "legendz",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?legendz\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "qathu": {
+                    "platformId": "qathu",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?qathu\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "papique": {
+                    "platformId": "papique",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?papique\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "fanttik": {
+                    "platformId": "fanttik",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?fanttik\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "mycorneacare": {
+                    "platformId": "mycorneacare",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?mycorneacare\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "lefeet": {
+                    "platformId": "lefeet",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?lefeet\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "infimobile": {
+                    "platformId": "infimobile",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?infimobile\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "mureandgrand": {
+                    "platformId": "mureandgrand",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?mureandgrand\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "oedro": {
+                    "platformId": "oedro",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?oedro\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "vyjewelry": {
+                    "platformId": "vyjewelry",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?vyjewelry\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "rentcarla": {
+                    "platformId": "rentcarla",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?rentcarla\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "amoremall": {
+                    "platformId": "amoremall",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?amoremall\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "aomeitech": {
+                    "platformId": "aomeitech",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?aomeitech\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "adblockultimate": {
+                    "platformId": "adblockultimate",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?adblockultimate\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "instantfunding": {
+                    "platformId": "instantfunding",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?instantfunding\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "auras": {
+                    "platformId": "auras",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?auras\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "groundluxe": {
+                    "platformId": "groundluxe",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?groundluxe\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "kspmotor": {
+                    "platformId": "kspmotor",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?kspmotor\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "pandaoffice": {
+                    "platformId": "pandaoffice",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?pandaoffice\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "iseehair": {
+                    "platformId": "iseehair",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?iseehair\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "hotels": {
+                    "platformId": "hotels",
+                    "keywords": [
+                        "hotels",
+                        "hoteis",
+                        "hoteles"
+                    ],
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?(hotels|hoteles|hoteis)\\\\.[\\\\w.-]+([/?#].*)?$",
+                    "historyRecord": {
+                        "disabled": true
+                    },
+                    "disabled": false
+                },
+                "budgetpetcare": {
+                    "platformId": "budgetpetcare",
+                    "urlMatch": "^https:\\\\/\\\\/([\\\\w-]+\\\\.)?budgetpetcare\\\\.[\\\\w.-]+([/?#].*)?$",
                     "historyRecord": {
                         "disabled": true
                     },
