@@ -402,7 +402,9 @@
 
         this.run = async () => {
             try {
-                if (platformConfig.historyRecord.disabled) return;
+                if (ext.helper.coupon.historyRecordControl.disabled()){
+                    return;
+                }
 
                 const files = ["shadow/base", "shadow/itemsHistory"];
                 const styleObj = await api.styleHelper().readCssContent(files);

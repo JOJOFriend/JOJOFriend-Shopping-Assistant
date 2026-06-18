@@ -3,10 +3,12 @@
 
     $.ItemsRecordHelper = function (ext, platformConfig) {
         this.run = () => {
+            if (ext.helper.coupon.historyRecordControl.disabled()){
+                return;
+            }
+            
             const href = window.location.href;
             const platform = platformConfig.platformId;
-            if (platformConfig.historyRecord.disabled) return;
-
             const { title, price, cover } = platformConfig.historyRecord.elements;
             if (!platformConfig.detailUrlPattern.test(href)) return;
 

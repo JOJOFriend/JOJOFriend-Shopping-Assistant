@@ -13,7 +13,6 @@
         const baseUrl = $.opts.baseUrl;
         const urls = {
             exchangeInfo: { method: "GET", url: baseUrl + "/ext/deep/link" },
-            getLangue: { method: "POST", url: baseUrl + "/ext/locales/lang" },
             couponExistConf: { method: "GET", url: baseUrl + "/ext/conf/load" },
             couponExist: { method: "GET", url: baseUrl + "/ext/c/e" },
             couponQrCode: { method: "GET", url: baseUrl + "/ext/c/c" },

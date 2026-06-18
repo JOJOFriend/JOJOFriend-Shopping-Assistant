@@ -57,6 +57,7 @@
                 featureToggle: new $.FeatureToggleHelper(this, platformConfig),
                 coupon: {
                     couponInspectHelper: new $.CouponInspectHelper(this, platformConfig, platformConfigs),
+                    historyRecordControl: new $.HistoryRecordControl(this, platformConfig),
                     itemsHistory: new $.ItemsHistoryHelper(this, platformConfig),
                     itemsRecord: new $.ItemsRecordHelper(this, platformConfig)
                 }
