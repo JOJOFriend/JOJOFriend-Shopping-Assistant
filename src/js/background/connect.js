@@ -4,11 +4,14 @@
     $.ConnectHelper = function (b) {
 
         /**
-         * Initializes message handling between content scripts and the background.
-         * The method must return a promise (for the caller) while the internal
-         * listener itself relies on Chrome's callback-based contract.
+         * Registers the unified runtime.onMessage listener (sync; must run before content scripts rely on it).
+         *
+         * @param {object} [actionHandlers]
+         * @param {function(number, object): void} [actionHandlers.onUpdateToolbar]
+         * @param {function(number): void} [actionHandlers.onIconAvailable]
+         * @param {function(number): void} [actionHandlers.onIconUnavailable]
          */
-        this.init = async () => {
+        this.registerMessageListener = (actionHandlers = {}) => {
             const mapping = {
                 langvars: b.helper.language.getLangVars,
                 rtlLangs: b.helper.language.getRtlLanguages,
@@ -26,41 +29,53 @@
                 getEid: b.helper.dao.getEid
             };
 
-            const handleKnownType = (message, sender, callback) => {
-                const handler = mapping[message.type];
-                if (!handler) {
+            const handleActionMessage = (message, sender) => {
+                const tabId = sender.tab?.id;
+                const { action, value } = message;
+                const actions = $.opts.messageActions;
+
+                if (action === actions.updateToolbar) {
+                    actionHandlers.onUpdateToolbar?.(tabId, value);
+                } else if (action === actions.iconAvailable) {
+                    actionHandlers.onIconAvailable?.(tabId);
+                } else if (action === actions.iconUnavailable) {
+                    actionHandlers.onIconUnavailable?.(tabId);
+                }
+            };
+
+            $.api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+                if (message.action) {
+                    handleActionMessage(message, sender);
                     return false;
                 }
 
-                message.tabId = sender.tab ? sender.tab.id : null;
+                if (message.type) {
+                    const handler = mapping[message.type];
+                    if (!handler) {
+                        b.log("Unknown message type:" + message.type);
+                        return false;
+                    }
 
-                handler(message)
-                    .then((result) => {
-                        callback(result);
-                    })
-                    .catch((error) => {
-                        b.log(error);
-                        callback();
-                    });
+                    message.tabId = sender.tab ? sender.tab.id : null;
 
-                return true;
-            };
+                    handler(message)
+                        .then((result) => {
+                            sendResponse(result);
+                        })
+                        .catch((error) => {
+                            b.log(error);
+                            sendResponse();
+                        });
 
-            const handleSpecialCases = (message) => {
-                b.log("Unknown message type:" + message.type);
-            };
-
-            // Retrieve data or notification information from the background.
-            $.api.runtime.onMessage.addListener((message, sender, callback) => {
-                if (!handleKnownType(message, sender, callback)) {
-                    handleSpecialCases(message);
-                    callback();
+                    return true;
                 }
 
-                // Return true to indicate an asynchronous response is used.
-                return true;
+                return false;
             });
         };
+
+        /** @returns {Promise<void>} */
+        this.init = async () => Promise.resolve();
     };
 
 })(jsu);

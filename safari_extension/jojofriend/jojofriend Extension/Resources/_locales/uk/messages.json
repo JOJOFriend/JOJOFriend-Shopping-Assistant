@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Помічник з покупок JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Розумний покупковий асистент для купонів, порівняння цін та кешбеку."
+  },
+  "setting_modal_title": {
+    "message": "Налаштування"
+  },
+  "setting_modal_language_title": {
+    "message": "Мова"
+  },
+  "setting_modal_language_description": {
+    "message": "Оберіть мову:"
+  },
+  "setting_modal_history_title": {
+    "message": "Ліміт історії"
+  },
+  "setting_modal_history_description": {
+    "message": "Макс. записів (мін.: {1}, макс.: {2}. Збереження автоматичне.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Введіть число в діапазоні, напр. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Очистити кеш"
+  },
+  "setting_modal_clear_description": {
+    "message": "Очистити кеш та історію. Дію не можна скасувати."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Очистити"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Очистити всю історію? Дію не можна скасувати."
+  },
+  "history_box_title": {
+    "message": "Історія переглядів"
+  },
+  "history_bar_hint": {
+    "message": "Історія"
+  },
+  "history_box_hit_today": {
+    "message": "—— Сьогодні ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Вчора ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Повторити"
+  },
+  "inspect_couponList_copied": {
+    "message": "Скопійовано"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Пошук вигідних пропозицій…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Коди перевіряються автоматично, щоб заощадити."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend нагадує: у вас вже найкраща пропозиція."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Код застосовано автоматично. Добре заощадили!"
+  },
+  "setting_window_display_title": {
+    "message": "Відображення"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Приховати на {1} хв"
+  },
+  "setting_window_display_session": {
+    "message": "Приховати на цю сесію"
+  },
+  "setting_window_display_all": {
+    "message": "Показати все"
+  },
+  "setting_window_general_title": {
+    "message": "Загальні"
+  },
+  "setting_window_general_label": {
+    "message": "Мова, історія та інше"
+  }
+}

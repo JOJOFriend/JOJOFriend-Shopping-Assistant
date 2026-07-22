@@ -8,19 +8,8 @@
 	
     $.isDev = manifest.version_name.trim() === "Dev"; //isDev, standalone version
 
-    $.browserName = "chrome";
-    const userAgent = navigator.userAgent;
-    if (/Edg\//.test(userAgent)) {
-        $.browserName = 'edge';
-    }else if (/Chrome\//.test(userAgent) && !/Edg\//.test(userAgent) && !/OPR\//.test(userAgent)) {
-        $.browserName = 'chrome';
-    }else if (/Safari\//.test(userAgent) && !/Chrome\//.test(userAgent) && !/Edg\//.test(userAgent) && !/OPR\//.test(userAgent)) {
-        $.browserName = 'safari';
-    }else if (/Firefox\//.test(userAgent)) {
-        $.browserName = 'firefox';
-    }else {
-        $.browserName = 'unknown';
-    }
+    // Replaced at build time by build.js (__BUILD_PLATFORM__ -> chrome | firefox | safari)
+    $.browserName = "__BUILD_PLATFORM__";
 	
 	//Configuration file
     $.opts = {

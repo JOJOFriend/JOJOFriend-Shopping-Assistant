@@ -57,39 +57,20 @@
             }
         };
 
-        const chromeOrFirefox = () => {
+        const setupBrowserListeners = () => {
             $.api.runtime.onInstalled.addListener((details) => {
                 callOnInstalledCallback(details);
             });
-        };
 
-        const safari = () => {
-            // All websites are popping up permission requests.
-            $.api.tabs.onActivated.addListener(() => {
-                $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
-            });
-            $.api.tabs.onUpdated.addListener(() => {
-                $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
-            });
-        };
-
-        /**
-         * Monitor messages from content scripts
-         */
-        const addMessageListener = () => {
-            $.api.runtime.onMessage.addListener((message, sender) => {
-                const { action } = message;
-                
-                if (action === $.opts.messageActions.updateToolbar) {
-                    updateBadgeAndAnimateIcon(sender.tab?.id, message.value);
-
-                } else if (action === $.opts.messageActions.iconAvailable) {
-                    updateIconAvailable(sender.tab?.id);
-                    
-                } else if (action === $.opts.messageActions.iconUnavailable) {
-                    updateIconUnavailable(sender.tab?.id);
-                }
-            });
+            if ($.browserName === "safari") {
+                // Safari may prompt for site access; keep tab queries warm on navigation.
+                $.api.tabs.onActivated.addListener(() => {
+                    $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
+                });
+                $.api.tabs.onUpdated.addListener(() => {
+                    $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
+                });
+            }
         };
 
         /**
@@ -270,19 +251,19 @@
         this.run = () => {
             const startTime = Date.now();
 
-            // Browser-specific setup
-            if ($.browserName === "safari") {
-                safari();
-            } else {
-                chromeOrFirefox();
-            }
+            setupBrowserListeners();
 
             // Initialize helpers
             initHelpers();
 
+            this.helper.connect.registerMessageListener({
+                onUpdateToolbar: updateBadgeAndAnimateIcon,
+                onIconAvailable: updateIconAvailable,
+                onIconUnavailable: updateIconUnavailable
+            });
+
             // Setup event listeners
             setupIconClickListener();
-            addMessageListener();
 
             // Initialize dependencies
             initDependencies().then(() => {

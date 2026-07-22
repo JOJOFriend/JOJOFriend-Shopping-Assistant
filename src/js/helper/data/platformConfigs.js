@@ -27156,7 +27156,8 @@
         */
         const partnerPlatforms = [
             "https:\\/\\/www\\.tool77\\.com\\/.*",
-            "https:\\/\\/www\\.grabshorts\\.com\\/.*"
+            "https:\\/\\/www\\.grabshorts\\.com\\/.*",
+            "https:\\/\\/www\\.spotriff\\.com\\/.*"
         ];
 
         let cachedPlatformConfigs = null;

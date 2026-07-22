@@ -47,7 +47,11 @@
     },
     {
       "js": ["js/others/partner.js"],
-      "matches": [ "https://www.tool77.com/*", "https://www.grabshorts.com/*"],
+      "matches": [ 
+          "https://www.tool77.com/*", 
+          "https://www.grabshorts.com/*",
+          "https://www.spotriff.com/*"
+      ],
       "run_at": "document_end"
     }
   ],

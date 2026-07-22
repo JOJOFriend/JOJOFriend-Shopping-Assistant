@@ -1,0 +1,111 @@
+* {
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    cursor: default;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body:not(.state-on, .state-off) :is(.state-on, .state-off) {
+    display: none;
+}
+
+body.state-on :is(.state-off, .state-unknown) {
+    display: none;
+}
+
+body.state-off :is(.state-on, .state-unknown) {
+    display: none;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-color: #fff;
+}
+
+.logo {
+    width: 100px;
+    height: 100px;
+    margin: 0px auto 25px auto;
+    flex-shrink: 0;
+    display；block;
+}
+
+.check{
+    width:70%;
+}
+
+.container {
+    background-color: #f9f9f9;
+    border-radius: 20px;
+    padding: 15px 25px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    width: 100%;
+    max-width: 600px;
+    overflow-y: auto;
+}
+
+.align-center {
+    text-align: center;
+}
+
+.title {
+    font-size: 20px;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.description {
+    font-size: 15px;
+    color: #888;
+    margin-bottom: 25px;
+}
+
+.item {
+    margin-bottom: 20px;
+}
+
+.item-title {
+    font-weight: bold;
+}
+
+em {
+    font-style: italic;
+    font-weight: bold;
+    color: red;
+}
+
+.open-preferences {
+    display: inline-block;
+    background-color: #000;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;              /* 去掉默认边框 */
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 8px;
+    text-decoration: none;
+    cursor: pointer;           /* 鼠标变成小手 */
+}
+
+.open-preferences:hover {
+    background-color: #333;
+}
+
+.open-preferences:active {
+    transform: scale(0.98);
+}
+
+
+

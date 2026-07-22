@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "JOJOFriend Shopping Assistent"
+  },
+  "extension_description": {
+    "message": "Een slimme winkelassistent voor kortingscodes, prijsvergelijking en cashback."
+  },
+  "setting_modal_title": {
+    "message": "Instellingen"
+  },
+  "setting_modal_language_title": {
+    "message": "Taal"
+  },
+  "setting_modal_language_description": {
+    "message": "Kies je voorkeurstaal:"
+  },
+  "setting_modal_history_title": {
+    "message": "Limiet geschiedenis"
+  },
+  "setting_modal_history_description": {
+    "message": "Max. items (min: {1}, max: {2}. Wijzigingen worden automatisch opgeslagen.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Voer een getal in het bereik in, bijv. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Cache wissen"
+  },
+  "setting_modal_clear_description": {
+    "message": "Cache en browsegeschiedenis wissen. Dit kan niet ongedaan worden gemaakt."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Wissen"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Alle browsegeschiedenis wissen? Dit kan niet ongedaan worden gemaakt."
+  },
+  "history_box_title": {
+    "message": "Browsegeschiedenis"
+  },
+  "history_bar_hint": {
+    "message": "Geschiedenis"
+  },
+  "history_box_hit_today": {
+    "message": "—— Vandaag ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Gisteren ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Opnieuw proberen"
+  },
+  "inspect_couponList_copied": {
+    "message": "Gekopieerd"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Zoeken naar goede aanbiedingen…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Codes automatisch proberen om je geld te besparen."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend herinnert je: je hebt al de beste deal."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Code automatisch toegepast. Mooi meegenomen!"
+  },
+  "setting_window_display_title": {
+    "message": "Weergave"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Verbergen voor {1} minuten"
+  },
+  "setting_window_display_session": {
+    "message": "Verbergen voor deze sessie"
+  },
+  "setting_window_display_all": {
+    "message": "Alles tonen"
+  },
+  "setting_window_general_title": {
+    "message": "Algemeen"
+  },
+  "setting_window_general_label": {
+    "message": "Taal, geschiedenis en meer"
+  }
+}

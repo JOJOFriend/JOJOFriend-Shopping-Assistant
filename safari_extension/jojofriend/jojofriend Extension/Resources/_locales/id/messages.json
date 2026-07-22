@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Asisten Belanja JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Asisten belanja pintar untuk kupon, perbandingan harga, dan cashback."
+  },
+  "setting_modal_title": {
+    "message": "Pengaturan"
+  },
+  "setting_modal_language_title": {
+    "message": "Bahasa"
+  },
+  "setting_modal_language_description": {
+    "message": "Pilih bahasa yang Anda inginkan:"
+  },
+  "setting_modal_history_title": {
+    "message": "Batas riwayat"
+  },
+  "setting_modal_history_description": {
+    "message": "Maks. item (min: {1}, maks: {2}. Perubahan disimpan otomatis.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Masukkan angka dalam rentang, mis. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Hapus cache"
+  },
+  "setting_modal_clear_description": {
+    "message": "Hapus cache dan riwayat penjelajahan. Tindakan ini tidak dapat dibatalkan."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Hapus"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Hapus semua riwayat penjelajahan? Tindakan ini tidak dapat dibatalkan."
+  },
+  "history_box_title": {
+    "message": "Riwayat penjelajahan"
+  },
+  "history_bar_hint": {
+    "message": "Riwayat"
+  },
+  "history_box_hit_today": {
+    "message": "—— Hari Ini ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Kemarin ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Coba Lagi"
+  },
+  "inspect_couponList_copied": {
+    "message": "Disalin"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Mencari penawaran hebat…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Mencoba kode secara otomatis untuk menghemat uang Anda."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend mengingatkan: Anda sudah dapat penawaran terbaik."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Kode diterapkan otomatis. Hemat!"
+  },
+  "setting_window_display_title": {
+    "message": "Tampilan"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Sembunyikan {1} menit"
+  },
+  "setting_window_display_session": {
+    "message": "Sembunyikan untuk sesi ini"
+  },
+  "setting_window_display_all": {
+    "message": "Tampilkan semua"
+  },
+  "setting_window_general_title": {
+    "message": "Umum"
+  },
+  "setting_window_general_label": {
+    "message": "Bahasa, riwayat & lainnya"
+  }
+}

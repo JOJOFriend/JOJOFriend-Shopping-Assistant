@@ -7,7 +7,7 @@
 
     global.modulePath = __dirname + "/node_modules/";
 	
-	const release = true;
+	const release = false;
 	const platform = "chrome";   //chrome firefox safari
     
     try {
@@ -184,7 +184,10 @@
         const crypto = require("crypto");
         const pathModule = require("path");
         const fs = require("fs-extra");
-        const replaceRules = [[/}\)\(jsu\);[\s\S]*?\(\$\s*=>\s*{[\s\S]*?"use strict";/mig, ""]];
+        const replaceRules = [
+            [/}\)\(jsu\);[\s\S]*?\(\$\s*=>\s*{[\s\S]*?"use strict";/mig, ""],
+            [/["']__BUILD_PLATFORM__["']/g, `"${platform}"`]
+        ];
 
         return configs.reduce((promise, { concat: concatPaths, distPath }) => {
             return promise.then(() => {

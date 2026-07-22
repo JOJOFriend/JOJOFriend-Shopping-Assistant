@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "مساعد التسوق JOJOFriend"
+  },
+  "extension_description": {
+    "message": "مساعد تسوق ذكي للقسائم ومقارنة الأسعار والاسترداد النقدي."
+  },
+  "setting_modal_title": {
+    "message": "الإعدادات"
+  },
+  "setting_modal_language_title": {
+    "message": "اللغة"
+  },
+  "setting_modal_language_description": {
+    "message": "اختر لغتك المفضلة:"
+  },
+  "setting_modal_history_title": {
+    "message": "حد السجل"
+  },
+  "setting_modal_history_description": {
+    "message": "الحد الأقصى للعناصر (الحد الأدنى: {1}، الأقصى: {2}. يُحفظ تلقائياً.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "أدخل رقماً في النطاق، مثلاً 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "مسح الذاكرة المؤقتة"
+  },
+  "setting_modal_clear_description": {
+    "message": "مسح الذاكرة المؤقتة وسجل التصفح. لا يمكن التراجع عن هذا الإجراء."
+  },
+  "setting_modal_clear_btn": {
+    "message": "مسح"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "مسح كل سجل التصفح؟ لا يمكن التراجع عن هذا الإجراء."
+  },
+  "history_box_title": {
+    "message": "سجل التصفح"
+  },
+  "history_bar_hint": {
+    "message": "السجل"
+  },
+  "history_box_hit_today": {
+    "message": "—— اليوم ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— أمس ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "إعادة المحاولة"
+  },
+  "inspect_couponList_copied": {
+    "message": "تم النسخ"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "جارٍ البحث عن عروض رائعة…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "تجربة الرموز تلقائياً لتوفير المال."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend يذكرك: أنت بالفعل على أفضل عرض."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "تم تطبيق الرمز تلقائياً. توفير جميل!"
+  },
+  "setting_window_display_title": {
+    "message": "العرض"
+  },
+  "setting_window_display_hide30m": {
+    "message": "إخفاء لمدة {1} دقيقة"
+  },
+  "setting_window_display_session": {
+    "message": "إخفاء لهذه الجلسة"
+  },
+  "setting_window_display_all": {
+    "message": "إظهار الكل"
+  },
+  "setting_window_general_title": {
+    "message": "عام"
+  },
+  "setting_window_general_label": {
+    "message": "اللغة، السجل والمزيد"
+  }
+}

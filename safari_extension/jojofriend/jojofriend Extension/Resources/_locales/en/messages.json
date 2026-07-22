@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "JOJOFriend Shopping Assistant"
+  },
+  "extension_description": {
+    "message": "A smart shopping assistant for coupons, price comparison, and cashback."
+  },
+  "setting_modal_title": {
+    "message": "Settings"
+  },
+  "setting_modal_language_title": {
+    "message": "Language"
+  },
+  "setting_modal_language_description": {
+    "message": "Select your preferred language:"
+  },
+  "setting_modal_history_title": {
+    "message": "History limit"
+  },
+  "setting_modal_history_description": {
+    "message": "Max items to keep (min: {1}, max: {2}. Changes save automatically.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Enter a number in range, e.g. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Clear cache"
+  },
+  "setting_modal_clear_description": {
+    "message": "Clear cache and browsing history. This cannot be undone."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Clear"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Clear all browsing history? This cannot be undone."
+  },
+  "history_box_title": {
+    "message": "Browsing history"
+  },
+  "history_bar_hint": {
+    "message": "History"
+  },
+  "history_box_hit_today": {
+    "message": "—— Today ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Yesterday ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Retry"
+  },
+  "inspect_couponList_copied": {
+    "message": "Copied"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Finding great deals…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Trying codes automatically to save you money."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend reminds you: you're already on the best deal."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Code applied automatically. Nice save!"
+  },
+  "setting_window_display_title": {
+    "message": "Display"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Hide for {1} minutes"
+  },
+  "setting_window_display_session": {
+    "message": "Hide for this session"
+  },
+  "setting_window_display_all": {
+    "message": "Show all"
+  },
+  "setting_window_general_title": {
+    "message": "General"
+  },
+  "setting_window_general_label": {
+    "message": "Language, history & more"
+  }
+}

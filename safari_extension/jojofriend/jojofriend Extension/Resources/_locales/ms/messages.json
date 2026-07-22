@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "Pembantu Beli-belah JOJOFriend"
+  },
+  "extension_description": {
+    "message": "Penolong belanja pintar untuk kupon, perbandingan harga dan cashback."
+  },
+  "setting_modal_title": {
+    "message": "Tetapan"
+  },
+  "setting_modal_language_title": {
+    "message": "Bahasa"
+  },
+  "setting_modal_language_description": {
+    "message": "Pilih bahasa pilihan anda:"
+  },
+  "setting_modal_history_title": {
+    "message": "Had sejarah"
+  },
+  "setting_modal_history_description": {
+    "message": "Maks. item (min: {1}, maks: {2}. Perubahan disimpan automatik.):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "Masukkan nombor dalam julat, cth. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "Kosongkan cache"
+  },
+  "setting_modal_clear_description": {
+    "message": "Kosongkan cache dan sejarah pelayaran. Tindakan ini tidak boleh dibatalkan."
+  },
+  "setting_modal_clear_btn": {
+    "message": "Kosongkan"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "Kosongkan semua sejarah pelayaran? Tindakan ini tidak boleh dibatalkan."
+  },
+  "history_box_title": {
+    "message": "Sejarah pelayaran"
+  },
+  "history_bar_hint": {
+    "message": "Sejarah"
+  },
+  "history_box_hit_today": {
+    "message": "—— Hari Ini ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— Semalam ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "Cuba Semula"
+  },
+  "inspect_couponList_copied": {
+    "message": "Disalin"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "Mencari tawaran hebat…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "Mencuba kod secara automatik untuk menjimatkan wang anda."
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend mengingatkan: anda sudah dapat tawaran terbaik."
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "Kod digunakan secara automatik. Jimat!"
+  },
+  "setting_window_display_title": {
+    "message": "Paparan"
+  },
+  "setting_window_display_hide30m": {
+    "message": "Sembunyikan selama {1} minit"
+  },
+  "setting_window_display_session": {
+    "message": "Sembunyikan untuk sesi ini"
+  },
+  "setting_window_display_all": {
+    "message": "Tunjukkan semua"
+  },
+  "setting_window_general_title": {
+    "message": "Umum"
+  },
+  "setting_window_general_label": {
+    "message": "Bahasa, sejarah & lagi"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "extension_short_name": {
+    "message": "JOJOFriend"
+  },
+  "extension_name": {
+    "message": "JOJOFriend शॉपिंग असिस्टेंट"
+  },
+  "extension_description": {
+    "message": "कूपन, कीमत तुलना और कैशबैक के लिए एक स्मार्ट शॉपिंग सहायक।"
+  },
+  "setting_modal_title": {
+    "message": "सेटिंग्स"
+  },
+  "setting_modal_language_title": {
+    "message": "भाषा"
+  },
+  "setting_modal_language_description": {
+    "message": "अपनी पसंदीदा भाषा चुनें:"
+  },
+  "setting_modal_history_title": {
+    "message": "इतिहास सीमा"
+  },
+  "setting_modal_history_description": {
+    "message": "रखने के लिए अधिकतम आइटम (न्यूनतम: {1}, अधिकतम: {2}. परिवर्तन स्वचालित रूप से सहेजे जाते हैं।):"
+  },
+  "setting_modal_history_max_placeholder": {
+    "message": "सीमा में संख्या दर्ज करें, उदा. 30"
+  },
+  "setting_modal_clear_title": {
+    "message": "कैश साफ़ करें"
+  },
+  "setting_modal_clear_description": {
+    "message": "कैश और ब्राउज़िंग इतिहास साफ़ करें। इसे पूर्ववत नहीं किया जा सकता।"
+  },
+  "setting_modal_clear_btn": {
+    "message": "साफ़ करें"
+  },
+  "setting_modal_clear_confirm": {
+    "message": "सभी ब्राउज़िंग इतिहास साफ़ करें? इसे पूर्ववत नहीं किया जा सकता।"
+  },
+  "history_box_title": {
+    "message": "ब्राउज़िंग इतिहास"
+  },
+  "history_bar_hint": {
+    "message": "इतिहास"
+  },
+  "history_box_hit_today": {
+    "message": "—— आज ——"
+  },
+  "history_box_hit_yesterday": {
+    "message": "—— कल ——"
+  },
+  "inspect_couponList_retry": {
+    "message": "पुनः प्रयास करें"
+  },
+  "inspect_couponList_copied": {
+    "message": "कॉपी किया गया"
+  },
+  "inspect_autoDetect_modal_description": {
+    "message": "बेहतरीन डील ढूंढ रहे हैं…"
+  },
+  "inspect_autoDetect_modal_secondary_description": {
+    "message": "आपके पैसे बचाने के लिए कोड स्वचालित रूप से आज़मा रहे हैं।"
+  },
+  "inspect_autoDetect_alert_error": {
+    "message": "JOJOFriend आपको याद दिलाता है: आप पहले से सर्वोत्तम डील पर हैं।"
+  },
+  "inspect_autoDetect_alert_success": {
+    "message": "कोड स्वचालित रूप से लागू। अच्छी बचत!"
+  },
+  "setting_window_display_title": {
+    "message": "प्रदर्शन"
+  },
+  "setting_window_display_hide30m": {
+    "message": "{1} मिनट के लिए छिपाएं"
+  },
+  "setting_window_display_session": {
+    "message": "इस सत्र के लिए छिपाएं"
+  },
+  "setting_window_display_all": {
+    "message": "सभी दिखाएं"
+  },
+  "setting_window_general_title": {
+    "message": "सामान्य"
+  },
+  "setting_window_general_label": {
+    "message": "भाषा, इतिहास और अधिक"
+  }
+}
