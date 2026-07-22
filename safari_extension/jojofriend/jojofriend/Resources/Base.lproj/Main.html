@@ -1,54 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
-
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>JOJOFriend</title>
     <link rel="stylesheet" href="../Style.css">
 </head>
 <body>
-    <img class="logo"  src="../Icon.png"/>
-    <div class="container state-off">
-      <div class="title align-center">Enable Coupongogo in Safari</div>
-      <div class="description">
-          Automatically finds and applies the best coupon codes while you shop online — save time and money effortlessly!
-      </div>
-      <div class="items">
-          <div class="item">
-              <div class="item-title">1、Open the Safari preferences</div>
-              <div class="item-operat align-center">
-                  <button class="open-preferences">Open Safari Settings</button>
-              </div>
-          </div>
-          
-          <div class="item">
-              <div class="item-title">2、Enable Coupongogo by using the checkbox</div>
-              <div class="item-operat align-center">
-                  <img class="check"  src="../Check.png"/>
-              </div>
-          </div>
-          
-          <div class="item">
-            <div class="item-title">3、Click "<em>Always Allow On Every Website</em>":</div>
-          </div>
-      </div>
-    </div>
-    
-    <div class="container state-on">
-      <div class="title align-center">Congratulations!</div>
-        <div class="description">
-            Coupongogo is currently on.✅<br> You can turn it off in the Extensions section of Safari Settings.
-      </div>
-        <div class="items">
-            <div class="item">
-                <div class="item-operat align-center">
-                    <button class="open-preferences">Open Safari Settings</button>
+    <div class="app">
+        <main class="panel state-off">
+            <img class="brand-logo" src="../icon.png" alt="JOJOFriend" width="56" height="56">
+
+            <h1 class="headline">Almost done!</h1>
+            <p class="subhead">Complete these steps to start using JOJOFriend:</p>
+
+            <ol class="steps-list">
+                <li class="step-item">
+                    <span class="step-num" aria-hidden="true">1</span>
+                    <p class="step-text">Go to <button type="button" class="text-link open-preferences">Extension Settings</button>. Check the box next to JOJOFriend to enable it.</p>
+                </li>
+                <li class="step-item">
+                    <span class="step-num" aria-hidden="true">2</span>
+                    <p class="step-text">Select <strong>Always Allow on Every Website</strong> so we can find coupons everywhere you shop.</p>
+                </li>
+            </ol>
+
+            <div class="visual-guide" aria-hidden="true">
+                <div class="settings-window">
+                    <div class="settings-toolbar">
+                        <span class="toolbar-dot red"></span>
+                        <span class="toolbar-dot yellow"></span>
+                        <span class="toolbar-dot green"></span>
+                    </div>
+                    <div class="settings-body">
+                        <aside class="settings-sidebar">
+                            <div class="ext-row is-selected">
+                                <span class="mock-checkbox animate-check"></span>
+                                <img class="ext-icon" src="../icon.png" alt="">
+                                <span class="ext-name">JOJOFriend Shopping Assistant</span>
+                            </div>
+                        </aside>
+                        <div class="settings-detail">
+                            <div class="detail-header">JOJOFriend Shopping Assistant</div>
+                            <div class="detail-spacer"></div>
+                            <div class="allow-btn">Always Allow on Every Website...</div>
+                        </div>
+                    </div>
                 </div>
+                <span class="highlight-box highlight-allow"></span>
             </div>
-        </div>
+
+            <button type="button" class="btn btn-primary open-preferences">Go to Extension Settings</button>
+        </main>
+
+        <main class="panel state-on">
+            <div class="success-panel">
+                <img class="brand-logo brand-logo-sm" src="../icon.png" alt="JOJOFriend" width="48" height="48">
+
+                <div class="status-badge">
+                    <span class="status-icon" aria-hidden="true">✓</span>
+                    Extension enabled
+                </div>
+
+                <h1 class="headline headline-sm">You're all set!</h1>
+                <p class="subhead subhead-sm">JOJOFriend is active in Safari. Start shopping and we'll help you save.</p>
+
+                <ul class="status-features">
+                    <li>Auto-find coupons at checkout</li>
+                    <li>Apply the best code in one click</li>
+                    <li>Works across supported stores</li>
+                </ul>
+
+                <button type="button" class="btn btn-secondary open-preferences">Manage in Safari Settings</button>
+            </div>
+        </main>
     </div>
     <script src="../Script.js" defer></script>
 </body>
 </html>
-

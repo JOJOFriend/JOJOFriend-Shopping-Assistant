@@ -15,7 +15,7 @@ function openPreferences() {
     webkit.messageHandlers.controller.postMessage("open-preferences");
 }
 
-document.querySelectorAll("button.open-preferences").forEach(button => {
-    button.addEventListener("click", openPreferences);
+document.querySelectorAll(".open-preferences").forEach(el => {
+    el.addEventListener("click", openPreferences);
 });
 

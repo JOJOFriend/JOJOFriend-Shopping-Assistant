@@ -2,1562 +2,1551 @@
  * jsu - Javascript Utilities
  */
 (() => {
-  "use strict";
+    "use strict";
 
-  if (window.jsu) {// already initialized
-    return false;
-  }
-
-  const runningFetch = [];
-  const d = document;
-  const eventHandlerMap = new WeakMap();
-  const dataMap = new WeakMap();
-  const nodes = Symbol();
-
-  /**
-   * jsuTools
-   */
-  const jsuTools = {
-    /**
-     * Promise for a delay of the given duration
-     *
-     * @param {int} t
-     * @returns {Promise}
-     */
-    delay: (t = 0) => {
-      return new Promise((resolve) => {
-        setTimeout(resolve, t);
-      });
-    },
-
-    /**
-     * Returns the basic system information
-     * - OS without version
-     * - Browser + version
-     * @returns {{os: string, browser: string}}
-     */
-    ua: () => {
-      let os = "Other";
-      let browser = "Other";
-
-      try {
-        os = navigator.userAgentData.platform;
-      } catch (e) {
-
-        //
-      }
-      try {
-        let list = navigator.userAgentData.brands.filter((b) => {
-          return !/^[^a-z]*NOT[^a-z]/i.test(b.brand);
-        });
-        list = list.filter((b) => {// ignore Chromium if there is at least one other option to pick from
-          return b.brand.toUpperCase() !== "CHROMIUM" || list.length === 1;
-        });
-
-        if (list.length > 0) {
-          browser = list[0].brand + " " + (list[0].version || "");
-        }
-      } catch (e) {
-
-        //
-      }
-      return {
-        os: os.trim(),
-        browser: browser.trim()
-      };
-    },
-
-    fetch: (url, opts = {}, timeout = null) => {
-
-      if (JSON.stringify(opts) === '{}') {opts['method'] = "post";};
-
-      const controller = new AbortController();
-      let signal = controller.signal;
-
-      //promise
-      const promise = new Promise((resolve, reject) => {
-        fetch(url, { signal: signal, ...opts }).then((response) => {
-          if (response.status < 400) {
-            resolve(response);
-          } else {
-            reject(response); //Refuse, enter catch, catch returns error to upper layer
-          }
-        }).
-        catch((e) => {
-          runningFetch.push({ url: url }); //Preparing to abort.
-          reject(null);
-        });
-      });
-
-      let out = null;
-      if (timeout != null) {
-        if (signal) {
-          signal.addEventListener("abort", () => controller.abort());
-        }
-        out = setTimeout(() => controller.abort(), timeout);
-      }
-      return promise.finally(() => {if (out != null) {clearTimeout(out);}});
-    },
-
-
-    /**
-     * Cancels all FetchRequests or only the ones with the given url
-     *
-     * @param {string} url
-     */
-    cancelFetch: (url = null) => {
-      runningFetch.forEach((obj) => {
-        if (url === null || obj.url === url) {
-          const controller = new AbortController();
-          controller.abort();
-          obj = null;
-        }
-      });
-    },
-
-    onPageLoad: (callback) => {
-      if (document.readyState !== "loading") {
-        callback();
-      } else {
-        document.addEventListener("DOMContentLoaded", callback, { once: true });
-      }
-    },
-
-    /**
-     * @param {*} selector 
-     * @param {*} param1 
-     * @returns 
-     * const controller = new AbortController();
-     * jsuTools.waitForSelector(".my-class", {timeout: 5000, signal: controller.signal})
-     */
-    waitForSelector: (selector, {
-      target = document.body,
-      allowEmpty = true,
-      timeout = 10000,
-      signal
-    } = {}) => {
-      return new Promise((resolve, reject) => {
-        if (!target) return resolve(null);
-
-        const check = () => {
-          const el = target.querySelector(selector);
-          if (!el) return null;
-          if (!allowEmpty && !el.innerHTML) return null;
-          return el;
-        };
-
-        // immediate check
-        const found = check();
-        if (found) {
-          return resolve(found);
-        }
-
-        // timeout check
-        const timer = setTimeout(() => {
-          observer.disconnect();
-          resolve(null);
-        }, timeout);
-
-        // cancel support
-        if (signal) {
-          signal.addEventListener("abort", () => {
-            clearTimeout(timer);
-            observer.disconnect();
-            reject(new Error("Aborted"));
-          });
-        }
-
-        const observer = new MutationObserver(() => {
-          const el = check();
-          if (el) {
-            clearTimeout(timer);
-            observer.disconnect();
-            resolve(el);
-          }
-        });
-        observer.observe(target, {
-          childList: true,
-          subtree: true
-        });
-      });
-    },
-
-    /**
-     * Resolve one element from handler string (e.g. "selector1@selector2@body").
-     * Uses Promise.race; retries every 2s if none found.
-     * @param {string} handler - Selectors or "body"/"html" joined by "@"
-     * @returns {Promise<Element|null>}
-     */
-    forceGetElement: async function (handler) {
-      const self = this;
-      const getElements = async (h) => {
-        const names = h.split("@").filter((s) => s.length);
-        const promises = names.map((eleName) => {
-          if (eleName === "body") return Promise.resolve(document.body);
-          if (eleName === "html") return Promise.resolve(document.documentElement);
-          return self.waitForSelector(eleName, {
-            target: document.body,
-            allowEmpty: true,
-            timeout: 1500
-          });
-        });
-        return promises.length ? Promise.race(promises) : null;
-      };
-
-      let element = await getElements(handler);
-      if (element) return element;
-
-      return new Promise((resolve) => {
-        const waitInterval = setInterval(async () => {
-          const el = await getElements(handler);
-          if (el) {
-            clearInterval(waitInterval);
-            resolve(el);
-          }
-        }, 2000);
-      });
-    }
-  };
-
-
-  /**
-   * jsuNode
-   */
-  class jsuNode {
-
-    /**
-     * Constructor
-     *
-     * @param param
-     * @param asSelector
-     */
-    constructor(param, asSelector = true) {
-      let s = param;
-
-      if (typeof param === "string" && (asSelector === false || param.indexOf("<") > -1)) {
-        const div = d.createElement("div");
-        div.innerHTML = param;
-        s = div.childNodes;
-      }
-
-      this._fillNodeList(s);
+    if (window.jsu) { // already initialized
+        return false;
     }
 
-    static _isDefined(v) {
-      return typeof v !== "undefined" && v !== null;
-    }
-
-    static _forEach(list, callback, reverse = false) {
-      const listLength = list.length;
-
-      if (reverse) {
-        for (let i = listLength - 1; i >= 0; i--) {
-          if (jsuNode._isDefined(list[i].forEach)) {
-            jsuNode._forEach(list[i], callback, reverse);
-          } else if (callback(list[i], i) === false) {
-            break;
-          }
-        }
-      } else {
-        for (let i = 0; i < listLength; i++) {
-          if (jsuNode._isDefined(list[i].forEach)) {
-            jsuNode._forEach(list[i], callback, reverse);
-          } else if (callback(list[i], i) === false) {
-            break;
-          }
-        }
-      }
-    }
+    const runningFetch=[];
+    const d = document;
+    const eventHandlerMap = new WeakMap();
+    const dataMap = new WeakMap();
+    const nodes = Symbol();
 
     /**
-     *
-     * @param s
+     * jsuTools
      */
-    _fillNodeList(s) {
-      if (!jsuNode._isDefined(s)) {
-        this[nodes] = [];
-      } else if (s instanceof jsuNode) {
-        this[nodes] = s.get();
-      } else if (typeof s === "string") {
-        this[nodes] = d.querySelectorAll(s);
-      } else if (s instanceof Node || s instanceof HTMLDocument || s instanceof Window) {
-        this[nodes] = [s];
-      } else if (s instanceof NodeList || s instanceof HTMLCollection) {
-        this[nodes] = s;
-      } else if (typeof s === "object") {
-        this[nodes] = [];
+    const jsuTools = {
+        /**
+         * Promise for a delay of the given duration
+         *
+         * @param {int} t
+         * @returns {Promise}
+         */
+        delay: (t = 0) => {
+            return new Promise((resolve) => {
+                setTimeout(resolve, t);
+            });
+        },
 
-        if (!jsuNode._isDefined(s.forEach)) {
-          s = [s];
-        }
+        /**
+         * Returns the basic system information
+         * - OS without version
+         * - Browser + version
+         * @returns {{os: string, browser: string}}
+         */
+        ua: () => {
+            let os = "Other";
+            let browser = "Other";
 
-        s.forEach((entry) => {
-          if (entry !== null) {
-            const eachCallback = (node) => {
-              if (this[nodes].indexOf(node) === -1) {
-                this[nodes].push(node);
-              }
+            try {
+                os = navigator.userAgentData.platform;
+            } catch (e) {
+                //
+            }
+
+            try {
+                let list = navigator.userAgentData.brands.filter(b => {
+                    return !/^[^a-z]*NOT[^a-z]/i.test(b.brand);
+                });
+                list = list.filter(b => { // ignore Chromium if there is at least one other option to pick from
+                    return b.brand.toUpperCase() !== "CHROMIUM" || list.length === 1;
+                });
+
+                if (list.length > 0) {
+                    browser = list[0].brand + " " + (list[0].version || "");
+                }
+            } catch (e) {
+                //
+            }
+
+            return {
+                os: os.trim(),
+                browser: browser.trim()
+            };
+        },
+
+        fetch: (url, opts = {}, timeout=null) => {
+        	
+        	if(JSON.stringify(opts) === '{}') {opts['method']="post"};
+        	
+        	const controller = new AbortController();
+        	let signal = controller.signal;
+        	
+        	//promise
+        	const promise = new Promise((resolve, reject)=>{
+        		fetch(url, { signal:signal, ...opts }).then((response)=>{
+	        		if (response.status < 400) {
+	      				resolve(response);
+	      			}else{
+                        reject(response);//Refuse, enter catch, catch returns error to upper layer
+                    }
+	        	})
+	        	.catch(e=>{
+	      			runningFetch.push({url: url});//Preparing to abort.
+	      			reject(null);
+	      		});
+        	});
+
+        	let out = null;
+        	if(timeout!=null){
+        		if (signal){
+                    signal.addEventListener("abort", () => controller.abort());
+                }
+        		out = setTimeout(() => controller.abort(), timeout);
+        	}
+        	return promise.finally(() => {if(out!=null) {clearTimeout(out)} });
+        },
+
+
+        /**
+         * Cancels all FetchRequests or only the ones with the given url
+         *
+         * @param {string} url
+         */
+        cancelFetch: (url = null) => {
+            runningFetch.forEach((obj) => {
+                if (url === null || obj.url === url) {
+                    const controller = new AbortController();
+                    controller.abort();
+                    obj = null;
+                }
+            });
+        },
+
+        onPageLoad:(callback)=>{
+            if (document.readyState !== "loading"){
+                callback();
+            } else {
+                document.addEventListener("DOMContentLoaded", callback, { once:true });
+            }
+        },
+
+        /**
+         * @param {*} selector 
+         * @param {*} param1 
+         * @returns 
+         * const controller = new AbortController();
+         * jsuTools.waitForSelector(".my-class", {timeout: 5000, signal: controller.signal})
+         */
+        waitForSelector:(selector, {
+            target = document.body,
+            allowEmpty = true,
+            timeout = 10000,
+            signal
+        } = {})=>{
+            return new Promise((resolve, reject) => {
+                if (!target) return resolve(null);
+
+                const check = () => {
+                    const el = target.querySelector(selector);
+                    if (!el) return null;
+                    if (!allowEmpty && !el.innerHTML) return null;
+                    return el;
+                };
+
+                // immediate check
+                const found = check();
+                if (found){
+                    return resolve(found);
+                }
+
+                // timeout check
+                const timer = setTimeout(() => {
+                    observer.disconnect();
+                    resolve(null);
+                }, timeout);
+
+                // cancel support
+                if (signal) {
+                    signal.addEventListener("abort", () => {
+                        clearTimeout(timer);
+                        observer.disconnect();
+                        reject(new Error("Aborted"));
+                    });
+                }
+
+                const observer = new MutationObserver(() => {
+                    const el = check();
+                    if (el) {
+                        clearTimeout(timer);
+                        observer.disconnect();
+                        resolve(el);
+                    }
+                });
+                observer.observe(target, {
+                    childList: true,
+                    subtree: true
+                });
+            });
+        },
+
+        /**
+         * Resolve one element from handler string (e.g. "selector1@selector2@body").
+         * Uses Promise.race; retries every 2s if none found.
+         * @param {string} handler - Selectors or "body"/"html" joined by "@"
+         * @returns {Promise<Element|null>}
+         */
+        forceGetElement: async function (handler) {
+            const self = this;
+            const getElements = async (h) => {
+                const names = h.split("@").filter((s) => s.length);
+                const promises = names.map((eleName) => {
+                    if (eleName === "body") return Promise.resolve(document.body);
+                    if (eleName === "html") return Promise.resolve(document.documentElement);
+                    return self.waitForSelector(eleName, {
+                        target: document.body,
+                        allowEmpty: true,
+                        timeout: 1500
+                    });
+                });
+                return promises.length ? Promise.race(promises) : null;
             };
 
-            if (entry instanceof jsuNode) {
-              entry.forEach(eachCallback);
-            } else if (Array.isArray(entry) || entry instanceof NodeList || entry instanceof HTMLCollection || /^\[object (HTMLCollection|NodeList|Object)\]$/.test(entry.toString())) {
-              jsuNode._forEach(entry, eachCallback);
+            let element = await getElements(handler);
+            if (element) return element;
+
+            return new Promise((resolve) => {
+                const waitInterval = setInterval(async () => {
+                    const el = await getElements(handler);
+                    if (el) {
+                        clearInterval(waitInterval);
+                        resolve(el);
+                    }
+                }, 2000);
+            });
+        }
+    };
+
+
+    /**
+     * jsuNode
+     */
+    class jsuNode {
+
+        /**
+         * Constructor
+         *
+         * @param param
+         * @param asSelector
+         */
+        constructor(param, asSelector = true) {
+            let s = param;
+
+            if (typeof param === "string" && (asSelector === false || param.indexOf("<") > -1)) {
+                const div = d.createElement("div");
+                div.innerHTML = param;
+                s = div.childNodes;
+            }
+
+            this._fillNodeList(s);
+        }
+
+        static _isDefined(v) {
+            return typeof v !== "undefined" && v !== null;
+        }
+
+        static _forEach(list, callback, reverse = false) {
+            const listLength = list.length;
+
+            if (reverse) {
+                for (let i = listLength - 1; i >= 0; i--) {
+                    if (jsuNode._isDefined(list[i].forEach)) {
+                        jsuNode._forEach(list[i], callback, reverse);
+                    } else if (callback(list[i], i) === false) {
+                        break;
+                    }
+                }
             } else {
-              this[nodes].push(entry);
-            }
-          }
-        });
-
-      } else {
-        throw new DOMException("invalid parameter for jsu");
-      }
-
-      this.forEach((node, idx) => {
-        this[idx] = node;
-      });
-    }
-
-
-    /**
-     * [ ForEach ]
-     *
-     * @param callback
-     * @param reverse
-     * @returns {jsuNode}
-     */
-    forEach(callback, reverse = false) {
-      jsuNode._forEach(this[nodes], callback, reverse);
-      return this;
-    }
-
-
-    /**
-     * [ Css ]
-     *
-     * @param opts
-     * @param val
-     * @returns {*|jsuNode}
-     */
-    css(opts, val) {
-      let isSetter = false;
-      const hasOpts = jsuNode._isDefined(opts);
-      const hasVal = jsuNode._isDefined(val);
-      const ret = [];
-
-      this.forEach((node) => {
-        if (hasOpts && hasVal && typeof opts === "string") {// set
-          node.style[opts] = val;
-          isSetter = true;
-        } else if (hasOpts) {
-          if (typeof opts === "string") {// get specific
-            ret.push(window.getComputedStyle(node)[opts]);
-          } else if (typeof opts === "object") {// set by object
-            isSetter = true;
-            Object.keys(opts).forEach((key) => {
-              if (typeof key === "string") {
-                node.style[key] = opts[key];
-              }
-            });
-          }
-        }
-      });
-
-      if (isSetter) {
-        return this;
-      } else {
-        return this[nodes].length > 1 ? ret : ret[0];
-      }
-    }
-
-
-    /**
-     * [ Attr ]
-     *
-     * @param opts
-     * @param val
-     * @returns {*|jsuNode}
-     */
-    attr(opts, val) {
-      let isSetter = false;
-      const hasOpts = jsuNode._isDefined(opts);
-      const hasVal = jsuNode._isDefined(val);
-      const ret = [];
-
-      this.forEach((node) => {
-        const setAttr = (key, val) => {
-          isSetter = true;
-          if (jsuNode._isDefined(node[key])) {
-            node[key] = val;
-          } else {
-            node.setAttribute(key, val);
-          }
-        };
-
-        const getAttr = (key) => {
-          return jsuNode._isDefined(node[key]) ? node[key] : node.getAttribute(key);
-        };
-
-
-        if (hasOpts && hasVal && typeof opts === "string") {// set
-          setAttr(opts, val);
-        } else if (hasOpts) {
-          if (typeof opts === "string") {// get specific
-            ret.push(getAttr(opts));
-          } else if (typeof opts === "object") {// set by object
-            Object.keys(opts).forEach((key) => {
-              if (typeof key === "string") {
-                setAttr(key, opts[key]);
-              }
-            });
-          }
-        }
-      });
-
-      if (isSetter) {
-        return this;
-      } else {
-        return this[nodes].length > 1 ? ret : ret[0];
-      }
-    }
-
-
-    /**
-     * [ RemoveAttr ]
-     *
-     * @param key
-     * @returns {jsuNode}
-     */
-    removeAttr(key) {
-      this.forEach((node) => {
-        node.removeAttribute(key);
-      });
-
-      return this;
-    }
-
-
-    /**
-     *
-     * @param elm
-     * @param info
-     */
-    static _addEventListener(elm, info) {
-      let eventHandlerList = eventHandlerMap.get(elm);
-
-      if (!jsuNode._isDefined(eventHandlerList)) {
-        eventHandlerList = {};
-        eventHandlerMap.set(elm, eventHandlerList);
-      }
-
-      if (!eventHandlerList[info.event]) {
-        eventHandlerList[info.event] = [];
-      }
-
-      eventHandlerList[info.event].push({
-        fn: info.fn,
-        name: info.name || info.event + "_" + +new Date() + Math.random().toString(36).substring(2, 14),
-        opts: info.opts,
-        wantsUntrusted: info.wantsUntrusted
-      });
-
-      elm.addEventListener(info.event, info.fn, info.opts, info.wantsUntrusted);
-    }
-
-
-    /**
-     *
-     * @param elm
-     * @param newElm
-     */
-    static _cloneEventListener(elm, newElm) {
-      const eventHandlerList = eventHandlerMap.get(elm);
-
-      if (jsuNode._isDefined(eventHandlerList)) {
-        Object.keys(eventHandlerList).forEach((eventType) => {
-          eventHandlerList[eventType].forEach((event) => {
-            jsuNode._addEventListener(newElm, {
-              event: eventType,
-              fn: event.fn,
-              opts: event.opts,
-              wantsUntrusted: event.wantsUntrusted
-            });
-          });
-        });
-      }
-
-      if (newElm.children) {
-        jsuNode._forEach(newElm.children, (node, idx) => {
-          jsuNode._cloneEventListener(elm.children[idx], node);
-        });
-      }
-    }
-
-
-    /**
-     *
-     * @param elm
-     * @param key
-     * @param val
-     */
-    static _addData(elm, key, val) {
-      let dataList = dataMap.get(elm);
-
-      if (!jsuNode._isDefined(dataList)) {
-        dataList = {};
-        dataMap.set(elm, dataList);
-      }
-
-      dataList[key] = val;
-    }
-
-
-    /**
-     *
-     * @param elm
-     * @param newElm
-     */
-    static _cloneData(elm, newElm) {
-      const dataList = dataMap.get(elm);
-
-      if (jsuNode._isDefined(dataList)) {
-        Object.keys(dataList).forEach((k) => {
-          jsuNode._addData(newElm, k, dataList[k]);
-        });
-      }
-
-      if (newElm.children) {
-        jsuNode._forEach(newElm.children, (node, idx) => {
-          jsuNode._cloneData(elm.children[idx], node);
-        });
-      }
-    }
-
-
-    /**
-     *
-     * @param elmObj
-     * @returns {jsuNode}
-     */
-    static _cloneElement(elmObj) {
-      const clonedList = [];
-
-      elmObj.forEach((elm) => {
-        const clonedElm = elm.cloneNode(true);
-        jsuNode._cloneEventListener(elm, clonedElm);
-        jsuNode._cloneData(elm, clonedElm);
-        clonedList.push(clonedElm);
-      });
-
-      return new jsuNode(clonedList);
-    }
-
-
-    /**
-     * [ Clone ]
-     *
-     * @returns {jsuNode}
-     */
-    clone() {
-      return jsuNode._cloneElement(this);
-    }
-
-
-    /**
-     * [ Data ]
-     *
-     * @param key
-     * @param val
-     * @returns {*|jsuNode}
-     */
-    data(key, val) {
-      let isSetter = false;
-      const hasKey = jsuNode._isDefined(key);
-      const hasVal = jsuNode._isDefined(val);
-      const ret = [];
-
-      this.forEach((node) => {
-        const elmDataList = dataMap.get(node);
-        const hasData = jsuNode._isDefined(elmDataList);
-
-        if (hasKey && hasVal) {// set
-          isSetter = true;
-          jsuNode._addData(node, key, val);
-        } else if (hasKey) {
-          if (typeof key === "string") {// get specific
-            ret.push(hasData ? elmDataList[key] : undefined);
-
-          } else if (typeof key === "object") {// set by object
-            isSetter = true;
-            Object.keys(key).forEach((k) => {
-              if (typeof k === "string") {
-                jsuNode._addData(node, k, key[k]);
-              }
-            });
-          }
-        } else {// get all
-          ret.push(hasData ? elmDataList : {});
-        }
-      });
-
-      if (isSetter) {
-        return this;
-      } else {
-        return this[nodes].length > 1 ? ret : ret[0];
-      }
-    }
-
-
-    /**
-     * [ RemoveData ]
-     *
-     * @param key
-     * @returns {jsuNode}
-     */
-    removeData(key) {
-      const removeAll = !jsuNode._isDefined(key);
-
-      this.forEach((node) => {
-        const elmDataList = dataMap.get(node);
-
-        if (jsuNode._isDefined(elmDataList)) {
-          if (removeAll) {// remove all
-            dataMap["delete"](node);
-          } else if (jsuNode._isDefined(elmDataList[key])) {// remove specific
-            delete elmDataList[key];
-          }
-        }
-      });
-
-      return this;
-    }
-
-
-    /**
-     * [ On ]
-     *
-     * @param eventStr
-     * @param callbackOrElm
-     * @param callbackOrOpts
-     * @param optsOrWantsUntrusted
-     * @param wantsUntrusted
-     * @returns {jsuNode}
-     */
-    on(eventStr, callbackOrElm, callbackOrOpts, optsOrWantsUntrusted, wantsUntrusted) {
-      const updateEventObject = (e, overrideObj) => {
-        Object.keys(overrideObj).forEach((key) => {
-          try {
-            Object.defineProperty(e, key, {
-              value: overrideObj[key]
-            });
-          } catch (ex) {
-
-            //
-          }});
-      };
-
-      let opts = callbackOrOpts;
-
-      if (typeof callbackOrOpts === "function") {
-        opts = optsOrWantsUntrusted;
-      } else {
-        wantsUntrusted = optsOrWantsUntrusted;
-      }
-
-      if (typeof opts === "undefined") {
-        opts = null;
-      }
-
-      if (typeof wantsUntrusted === "undefined") {
-        wantsUntrusted = null;
-      }
-
-      const eventDelegation = typeof callbackOrElm === "string";
-
-      this.forEach((node) => {
-        const events = eventStr.split(/\s+/g);
-        events.forEach((event) => {
-          const eventInfo = event.split(/\./);
-
-          const fn = (e) => {
-            updateEventObject(e, { type: eventInfo[0] });
-
-            if (eventDelegation) {// event delegation
-              const opts = {
-                preventDefault: () => {
-                  e.preventDefault();
-                },
-                stopPropagation: () => {
-                  e.stopPropagation();
+                for (let i = 0; i < listLength; i++) {
+                    if (jsuNode._isDefined(list[i].forEach)) {
+                        jsuNode._forEach(list[i], callback, reverse);
+                    } else if (callback(list[i], i) === false) {
+                        break;
+                    }
                 }
-              };
+            }
+        }
 
-              jsuNode._forEach(node.querySelectorAll(":scope " + callbackOrElm), (element) => {
-                let el = e.target;
-                while (el && el !== node) {
-                  if (el === element) {
-                    const clonedEventObj = eventInfo[0].startsWith("key") ? new KeyboardEvent(eventInfo[0], e) : new MouseEvent(eventInfo[0], e);
-                    updateEventObject(clonedEventObj, {
-                      preventDefault: opts.preventDefault,
-                      stopPropagation: opts.stopPropagation,
-                      currentTarget: el,
-                      target: e.target
+        /**
+         *
+         * @param s
+         */
+        _fillNodeList(s) {
+            if (!jsuNode._isDefined(s)) {
+                this[nodes] = [];
+            } else if (s instanceof jsuNode) {
+                this[nodes] = s.get();
+            } else if (typeof s === "string") {
+                this[nodes] = d.querySelectorAll(s);
+            } else if (s instanceof Node || s instanceof HTMLDocument || s instanceof Window) {
+                this[nodes] = [s];
+            } else if (s instanceof NodeList || s instanceof HTMLCollection) {
+                this[nodes] = s;
+            } else if (typeof s === "object") {
+                this[nodes] = [];
+
+                if (!jsuNode._isDefined(s.forEach)) {
+                    s = [s];
+                }
+
+                s.forEach((entry) => {
+                    if (entry !== null) {
+                        const eachCallback = (node) => {
+                            if (this[nodes].indexOf(node) === -1) {
+                                this[nodes].push(node);
+                            }
+                        };
+
+                        if (entry instanceof jsuNode) {
+                            entry.forEach(eachCallback);
+                        } else if (Array.isArray(entry) || entry instanceof NodeList || entry instanceof HTMLCollection || /^\[object (HTMLCollection|NodeList|Object)\]$/.test(entry.toString())) {
+                            jsuNode._forEach(entry, eachCallback);
+                        } else {
+                            this[nodes].push(entry);
+                        }
+                    }
+                });
+
+            } else {
+                throw new DOMException("invalid parameter for jsu");
+            }
+
+            this.forEach((node, idx) => {
+                this[idx] = node;
+            });
+        }
+
+
+        /**
+         * [ ForEach ]
+         *
+         * @param callback
+         * @param reverse
+         * @returns {jsuNode}
+         */
+        forEach(callback, reverse = false) {
+            jsuNode._forEach(this[nodes], callback, reverse);
+            return this;
+        }
+
+
+        /**
+         * [ Css ]
+         *
+         * @param opts
+         * @param val
+         * @returns {*|jsuNode}
+         */
+        css(opts, val) {
+            let isSetter = false;
+            const hasOpts = jsuNode._isDefined(opts);
+            const hasVal = jsuNode._isDefined(val);
+            const ret = [];
+
+            this.forEach((node) => {
+                if (hasOpts && hasVal && typeof opts === "string") { // set
+                    node.style[opts] = val;
+                    isSetter = true;
+                } else if (hasOpts) {
+                    if (typeof opts === "string") { // get specific
+                        ret.push(window.getComputedStyle(node)[opts]);
+                    } else if (typeof opts === "object") { // set by object
+                        isSetter = true;
+                        Object.keys(opts).forEach((key) => {
+                            if (typeof key === "string") {
+                                node.style[key] = opts[key];
+                            }
+                        });
+                    }
+                }
+            });
+
+            if (isSetter) {
+                return this;
+            } else {
+                return this[nodes].length > 1 ? ret : ret[0];
+            }
+        }
+
+
+        /**
+         * [ Attr ]
+         *
+         * @param opts
+         * @param val
+         * @returns {*|jsuNode}
+         */
+        attr(opts, val) {
+            let isSetter = false;
+            const hasOpts = jsuNode._isDefined(opts);
+            const hasVal = jsuNode._isDefined(val);
+            const ret = [];
+
+            this.forEach((node) => {
+                const setAttr = (key, val) => {
+                    isSetter = true;
+                    if (jsuNode._isDefined(node[key])) {
+                        node[key] = val;
+                    } else {
+                        node.setAttribute(key, val);
+                    }
+                };
+
+                const getAttr = (key) => {
+                    return jsuNode._isDefined(node[key]) ? node[key] : node.getAttribute(key);
+                };
+
+
+                if (hasOpts && hasVal && typeof opts === "string") { // set
+                    setAttr(opts, val);
+                } else if (hasOpts) {
+                    if (typeof opts === "string") { // get specific
+                        ret.push(getAttr(opts));
+                    } else if (typeof opts === "object") { // set by object
+                        Object.keys(opts).forEach((key) => {
+                            if (typeof key === "string") {
+                                setAttr(key, opts[key]);
+                            }
+                        });
+                    }
+                }
+            });
+
+            if (isSetter) {
+                return this;
+            } else {
+                return this[nodes].length > 1 ? ret : ret[0];
+            }
+        }
+
+
+        /**
+         * [ RemoveAttr ]
+         *
+         * @param key
+         * @returns {jsuNode}
+         */
+        removeAttr(key) {
+            this.forEach((node) => {
+                node.removeAttribute(key);
+            });
+
+            return this;
+        }
+
+
+        /**
+         *
+         * @param elm
+         * @param info
+         */
+        static _addEventListener(elm, info) {
+            let eventHandlerList = eventHandlerMap.get(elm);
+
+            if (!jsuNode._isDefined(eventHandlerList)) {
+                eventHandlerList = {};
+                eventHandlerMap.set(elm, eventHandlerList);
+            }
+
+            if (!eventHandlerList[info.event]) {
+                eventHandlerList[info.event] = [];
+            }
+
+            eventHandlerList[info.event].push({
+                fn: info.fn,
+                name: info.name || (info.event + "_" + (+new Date()) + Math.random().toString(36).substring(2, 14)),
+                opts: info.opts,
+                wantsUntrusted: info.wantsUntrusted
+            });
+
+            elm.addEventListener(info.event, info.fn, info.opts, info.wantsUntrusted);
+        }
+
+
+        /**
+         *
+         * @param elm
+         * @param newElm
+         */
+        static _cloneEventListener(elm, newElm) {
+            const eventHandlerList = eventHandlerMap.get(elm);
+
+            if (jsuNode._isDefined(eventHandlerList)) {
+                Object.keys(eventHandlerList).forEach((eventType) => {
+                    eventHandlerList[eventType].forEach((event) => {
+                        jsuNode._addEventListener(newElm, {
+                            event: eventType,
+                            fn: event.fn,
+                            opts: event.opts,
+                            wantsUntrusted: event.wantsUntrusted
+                        });
                     });
-                    callbackOrOpts(clonedEventObj);
-                  }
-                  el = el.parentNode;
-                }
-              });
-            } else if (typeof callbackOrElm === "function") {// normal eventListener
-              callbackOrElm(e);
+                });
             }
-          };
 
-          jsuNode._addEventListener(node, {
-            event: eventInfo[0],
-            name: eventInfo[1],
-            fn: fn,
-            opts: opts,
-            wantsUntrusted: wantsUntrusted
-          });
-        });
-      }, true);
-
-      return this;
-    }
-
-
-    /**
-     * [ Off ]
-     *
-     * @param eventStr
-     * @returns {jsuNode}
-     */
-    off(eventStr) {
-      this.forEach((node) => {
-        const eventHandlerList = eventHandlerMap.get(node);
-
-        if (jsuNode._isDefined(eventHandlerList)) {
-          const events = eventStr.split(/\s+/g);
-          events.forEach((event) => {
-            const eventInfo = event.split(/\./);
-
-            if (eventInfo[0] === "*") {// remove all eventlisteners
-              Object.entries(eventHandlerList).forEach(([eventName, entries]) => {
-                jsuNode._forEach(entries, (info, idx) => {
-                  if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
-                    node.removeEventListener(eventName, info.fn);
-                    eventHandlerList[eventName].splice(idx, 1);
-                  }
-                }, true);
-              });
-            } else if (eventHandlerList[eventInfo[0]]) {// remove specific eventlisteners (e.g. click, mouseover, ...)
-              jsuNode._forEach(eventHandlerList[eventInfo[0]], (info, idx) => {
-                if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
-                  node.removeEventListener(eventInfo[0], info.fn);
-                  eventHandlerList[eventInfo[0]].splice(idx, 1);
-                }
-              }, true);
+            if (newElm.children) {
+                jsuNode._forEach(newElm.children, (node, idx) => {
+                    jsuNode._cloneEventListener(elm.children[idx], node);
+                });
             }
-          });
-        }
-      });
-
-      return this;
-    }
-
-
-    /**
-     * [ Trigger ]
-     *
-     * @param eventStr
-     * @param opts
-     * @returns {jsuNode}
-     */
-    trigger(eventStr, opts) {
-      const events = eventStr.split(/\s+/g);
-      events.forEach((event) => {
-        const eventInfo = event.split(/\./);
-        const eventObj = new CustomEvent(eventInfo[0], opts);
-        this.forEach((node) => {
-          node.dispatchEvent(eventObj);
-        });
-      });
-
-      return this;
-    }
-
-
-    /**
-     * [ AddClass ]
-     *
-     * @param cl
-     * @returns {jsuNode}
-     */
-    addClass(cl) {
-      if (typeof cl !== "object") {
-        cl = [cl];
-      }
-
-      this.forEach((node) => {
-        cl.forEach((c) => {
-          if (!node.classList.contains(c)) {
-            node.classList.add(c);
-          }
-        });
-      });
-      return this;
-    }
-
-
-    /**
-     * [ RemoveClass ]
-     *
-     * @param cl
-     * @returns {jsuNode}
-     */
-    removeClass(cl) {
-      if (typeof cl !== "object") {
-        cl = [cl];
-      }
-
-      this.forEach((node) => {
-        cl.forEach((c) => {
-          if (node.classList.contains(c)) {
-            node.classList.remove(c);
-          }
-        });
-      });
-      return this;
-    }
-
-
-    /**
-     * [ ToggleClass ]
-     *
-     * @param cl
-     * @returns {jsuNode}
-     */
-    toggleClass(cl) {
-      this.forEach((node) => {
-        node.classList.toggle(cl);
-      });
-      return this;
-    }
-
-
-    /**
-     * [ HasClass ]
-     *
-     * @param cl
-     * @returns {boolean|array}
-     */
-    hasClass(cl) {
-      const ret = [];
-      this.forEach((node) => {
-        ret.push(node.classList.contains(cl));
-      });
-      return this[nodes].length > 1 ? ret : ret[0];
-    }
-
-
-    /**
-     *
-     * @param dim
-     * @param includeMargins
-     * @returns {int|Array}
-     */
-    _realDimension(dim, includeMargins = false) {
-      const ret = [];
-      let type = "width";
-      let margins = ["left", "right"];
-
-      if (dim === "h") {
-        type = "height";
-        margins = ["top", "bottom"];
-      }
-
-      this.forEach((node) => {
-        const boundClientRect = node.getBoundingClientRect();
-        const computedStyle = window.getComputedStyle(node);
-
-        let dim = parseFloat((boundClientRect[type] + "").replace(/,/g, "."));
-
-        if (includeMargins) {
-          margins.forEach((margin) => {
-            const value = computedStyle.getPropertyValue("margin-" + margin);
-            dim += parseFloat((value + "").replace(/,/g, "."));
-          });
         }
 
-        ret.push(dim);
-      });
 
-      return this[nodes].length > 1 ? ret : ret[0];
-    }
+        /**
+         *
+         * @param elm
+         * @param key
+         * @param val
+         */
+        static _addData(elm, key, val) {
+            let dataList = dataMap.get(elm);
 
-
-    /**
-     * [ RealWidth ]
-     *
-     * @param includeMargins
-     * @returns {int|Array}
-     */
-    realWidth(includeMargins = false) {
-      return this._realDimension("w", includeMargins);
-    }
-
-
-    /**
-     * [ RealHeight ]
-     *
-     * @param includeMargins
-     * @returns {int|Array}
-     */
-    realHeight(includeMargins = false) {
-      return this._realDimension("h", includeMargins);
-    }
-
-
-    /**
-     * [ Find ]
-     *
-     * @param selector
-     * @returns {jsuNode}
-     */
-    find(selector) {
-      const ret = [];
-      this.forEach((node) => {
-        if (node instanceof HTMLIFrameElement) {
-          ret.push(node.contentDocument.querySelectorAll(":scope " + selector));
-        } else {
-          ret.push(node.querySelectorAll(":scope " + selector));
-        }
-
-      });
-
-      return new jsuNode(ret);
-    }
-
-
-    /**
-     * [ Children ]
-     *
-     * @param selector
-     * @returns {jsuNode}
-     */
-    children(selector) {
-      const ret = [];
-      if (!selector) {
-        selector = "*";
-      }
-
-      this.forEach((node) => {
-        ret.push(node.querySelectorAll(":scope > " + selector));
-      });
-
-      return new jsuNode(ret);
-    }
-
-
-    /**
-     *
-     * @param content
-     * @param methodName
-     * @returns {string|jsuNode}
-     */
-    _htmlText(content, methodName) {
-      const hasContent = jsuNode._isDefined(content);
-      let ret = hasContent ? this : "";
-
-      this.forEach((node) => {
-        if (hasContent) {
-          node[methodName] = content;
-        } else {
-          ret += node[methodName];
-        }
-      });
-
-      return ret;
-    }
-
-
-    /**
-     * [ Html ]
-     *
-     * @param content
-     * @returns {string|jsuNode}
-     */
-    html(content) {
-      return this._htmlText(content, "innerHTML");
-    }
-
-
-    /**
-     * [ Text ]
-     *
-     * @param content
-     * @returns {string|jsuNode}
-     */
-    text(content) {
-      return this._htmlText(content, "innerText");
-    }
-
-    /**
-     * [ Remove ]
-     */
-    remove() {
-      this.forEach((node) => {
-        if (node && node.parentElement) {
-          eventHandlerMap["delete"](node);
-          dataMap["delete"](node);
-          node.parentElement.removeChild(node);
-        }
-      });
-    }
-
-
-    /**
-     *
-     * @param s
-     * @param type
-     * @param asSelector
-     * @returns {jsuNode}
-     */
-    _moveElement(s, type, asSelector = true) {
-      if (Array.isArray(s)) {
-        s.forEach((s) => {
-          this._moveElement(s, type, asSelector);
-        });
-      } else {
-        if (typeof s === "string" && s.indexOf("<") > -1) {
-          asSelector = false;
-        }
-
-        const elmObj = new jsuNode(s, asSelector);
-
-        this.forEach((node) => {
-          const clonedElmObj = jsuNode._cloneElement(elmObj);
-          clonedElmObj.forEach((elm) => {
-            switch (type) {
-              case "append":{
-                  node.appendChild(elm);
-                  break;
-                }
-              case "prepend":{
-                  node.insertBefore(elm, node.firstChild);
-                  break;
-                }
-              case "before":{
-                  node.parentNode.insertBefore(elm, node);
-                  break;
-                }
-              case "after":{
-                  node.parentNode.insertBefore(elm, node.nextSibling);
-                  break;
-                }
+            if (!jsuNode._isDefined(dataList)) {
+                dataList = {};
+                dataMap.set(elm, dataList);
             }
-          });
+
+            dataList[key] = val;
+        }
+
+
+        /**
+         *
+         * @param elm
+         * @param newElm
+         */
+        static _cloneData(elm, newElm) {
+            const dataList = dataMap.get(elm);
+
+            if (jsuNode._isDefined(dataList)) {
+                Object.keys(dataList).forEach((k) => {
+                    jsuNode._addData(newElm, k, dataList[k]);
+                });
+            }
+
+            if (newElm.children) {
+                jsuNode._forEach(newElm.children, (node, idx) => {
+                    jsuNode._cloneData(elm.children[idx], node);
+                });
+            }
+        }
+
+
+        /**
+         *
+         * @param elmObj
+         * @returns {jsuNode}
+         */
+        static _cloneElement(elmObj) {
+            const clonedList = [];
+
+            elmObj.forEach((elm) => {
+                const clonedElm = elm.cloneNode(true);
+                jsuNode._cloneEventListener(elm, clonedElm);
+                jsuNode._cloneData(elm, clonedElm);
+                clonedList.push(clonedElm);
+            });
+
+            return new jsuNode(clonedList);
+        }
+
+
+        /**
+         * [ Clone ]
+         *
+         * @returns {jsuNode}
+         */
+        clone() {
+            return jsuNode._cloneElement(this);
+        }
+
+
+        /**
+         * [ Data ]
+         *
+         * @param key
+         * @param val
+         * @returns {*|jsuNode}
+         */
+        data(key, val) {
+            let isSetter = false;
+            const hasKey = jsuNode._isDefined(key);
+            const hasVal = jsuNode._isDefined(val);
+            const ret = [];
+
+            this.forEach((node) => {
+                const elmDataList = dataMap.get(node);
+                const hasData = jsuNode._isDefined(elmDataList);
+
+                if (hasKey && hasVal) { // set
+                    isSetter = true;
+                    jsuNode._addData(node, key, val);
+                } else if (hasKey) {
+                    if (typeof key === "string") { // get specific
+                        ret.push(hasData ? elmDataList[key] : undefined);
+
+                    } else if (typeof key === "object") { // set by object
+                        isSetter = true;
+                        Object.keys(key).forEach((k) => {
+                            if (typeof k === "string") {
+                                jsuNode._addData(node, k, key[k]);
+                            }
+                        });
+                    }
+                } else { // get all
+                    ret.push(hasData ? elmDataList : {});
+                }
+            });
+
+            if (isSetter) {
+                return this;
+            } else {
+                return this[nodes].length > 1 ? ret : ret[0];
+            }
+        }
+
+
+        /**
+         * [ RemoveData ]
+         *
+         * @param key
+         * @returns {jsuNode}
+         */
+        removeData(key) {
+            const removeAll = !jsuNode._isDefined(key);
+
+            this.forEach((node) => {
+                const elmDataList = dataMap.get(node);
+
+                if (jsuNode._isDefined(elmDataList)) {
+                    if (removeAll) { // remove all
+                        dataMap["delete"](node);
+                    } else if (jsuNode._isDefined(elmDataList[key])) { // remove specific
+                        delete elmDataList[key];
+                    }
+                }
+            });
+
+            return this;
+        }
+
+
+        /**
+         * [ On ]
+         *
+         * @param eventStr
+         * @param callbackOrElm
+         * @param callbackOrOpts
+         * @param optsOrWantsUntrusted
+         * @param wantsUntrusted
+         * @returns {jsuNode}
+         */
+        on(eventStr, callbackOrElm, callbackOrOpts, optsOrWantsUntrusted, wantsUntrusted) {
+            const updateEventObject = (e, overrideObj) => {
+                Object.keys(overrideObj).forEach((key) => {
+                    try {
+                        Object.defineProperty(e, key, {
+                            value: overrideObj[key]
+                        });
+                    } catch (ex) {
+                        //
+                    }
+                });
+            };
+
+            let opts = callbackOrOpts;
+
+            if (typeof callbackOrOpts === "function") {
+                opts = optsOrWantsUntrusted;
+            } else {
+                wantsUntrusted = optsOrWantsUntrusted;
+            }
+
+            if (typeof opts === "undefined") {
+                opts = null;
+            }
+
+            if (typeof wantsUntrusted === "undefined") {
+                wantsUntrusted = null;
+            }
+
+            const eventDelegation = typeof callbackOrElm === "string";
+
+            this.forEach((node) => {
+                const events = eventStr.split(/\s+/g);
+                events.forEach((event) => {
+                    const eventInfo = event.split(/\./);
+
+                    const fn = (e) => {
+                        updateEventObject(e, {type: eventInfo[0]});
+
+                        if (eventDelegation) { // event delegation
+                            const opts = {
+                                preventDefault: () => {
+                                    e.preventDefault();
+                                },
+                                stopPropagation: () => {
+                                    e.stopPropagation();
+                                }
+                            };
+
+                            jsuNode._forEach(node.querySelectorAll(":scope " + callbackOrElm), (element) => {
+                                let el = e.target;
+                                while (el && el !== node) {
+                                    if (el === element) {
+                                        const clonedEventObj = eventInfo[0].startsWith("key") ? new KeyboardEvent(eventInfo[0], e) : new MouseEvent(eventInfo[0], e);
+                                        updateEventObject(clonedEventObj, {
+                                            preventDefault: opts.preventDefault,
+                                            stopPropagation: opts.stopPropagation,
+                                            currentTarget: el,
+                                            target: e.target
+                                        });
+                                        callbackOrOpts(clonedEventObj);
+                                    }
+                                    el = el.parentNode;
+                                }
+                            });
+                        } else if (typeof callbackOrElm === "function") { // normal eventListener
+                            callbackOrElm(e);
+                        }
+                    };
+
+                    jsuNode._addEventListener(node, {
+                        event: eventInfo[0],
+                        name: eventInfo[1],
+                        fn: fn,
+                        opts: opts,
+                        wantsUntrusted: wantsUntrusted
+                    });
+                });
+            }, true);
+
+            return this;
+        }
+
+
+        /**
+         * [ Off ]
+         *
+         * @param eventStr
+         * @returns {jsuNode}
+         */
+        off(eventStr) {
+            this.forEach((node) => {
+                const eventHandlerList = eventHandlerMap.get(node);
+
+                if (jsuNode._isDefined(eventHandlerList)) {
+                    const events = eventStr.split(/\s+/g);
+                    events.forEach((event) => {
+                        const eventInfo = event.split(/\./);
+
+                        if (eventInfo[0] === "*") { // remove all eventlisteners
+                            Object.entries(eventHandlerList).forEach(([eventName, entries]) => {
+                                jsuNode._forEach(entries, (info, idx) => {
+                                    if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
+                                        node.removeEventListener(eventName, info.fn);
+                                        eventHandlerList[eventName].splice(idx, 1);
+                                    }
+                                }, true);
+                            });
+                        } else if (eventHandlerList[eventInfo[0]]) { // remove specific eventlisteners (e.g. click, mouseover, ...)
+                            jsuNode._forEach(eventHandlerList[eventInfo[0]], (info, idx) => {
+                                if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
+                                    node.removeEventListener(eventInfo[0], info.fn);
+                                    eventHandlerList[eventInfo[0]].splice(idx, 1);
+                                }
+                            }, true);
+                        }
+                    });
+                }
+            });
+
+            return this;
+        }
+
+
+        /**
+         * [ Trigger ]
+         *
+         * @param eventStr
+         * @param opts
+         * @returns {jsuNode}
+         */
+        trigger(eventStr, opts) {
+            const events = eventStr.split(/\s+/g);
+            events.forEach((event) => {
+                const eventInfo = event.split(/\./);
+                const eventObj = new CustomEvent(eventInfo[0], opts);
+                this.forEach((node) => {
+                    node.dispatchEvent(eventObj);
+                });
+            });
+
+            return this;
+        }
+
+
+        /**
+         * [ AddClass ]
+         *
+         * @param cl
+         * @returns {jsuNode}
+         */
+        addClass(cl) {
+            if (typeof cl !== "object") {
+                cl = [cl];
+            }
+
+            this.forEach((node) => {
+                cl.forEach((c) => {
+                    if (!node.classList.contains(c)) {
+                        node.classList.add(c);
+                    }
+                });
+            });
+            return this;
+        }
+
+
+        /**
+         * [ RemoveClass ]
+         *
+         * @param cl
+         * @returns {jsuNode}
+         */
+        removeClass(cl) {
+            if (typeof cl !== "object") {
+                cl = [cl];
+            }
+
+            this.forEach((node) => {
+                cl.forEach((c) => {
+                    if (node.classList.contains(c)) {
+                        node.classList.remove(c);
+                    }
+                });
+            });
+            return this;
+        }
+
+
+        /**
+         * [ ToggleClass ]
+         *
+         * @param cl
+         * @returns {jsuNode}
+         */
+        toggleClass(cl) {
+            this.forEach((node) => {
+                node.classList.toggle(cl);
+            });
+            return this;
+        }
+
+
+        /**
+         * [ HasClass ]
+         *
+         * @param cl
+         * @returns {boolean|array}
+         */
+        hasClass(cl) {
+            const ret = [];
+            this.forEach((node) => {
+                ret.push(node.classList.contains(cl));
+            });
+            return this[nodes].length > 1 ? ret : ret[0];
+        }
+
+
+        /**
+         *
+         * @param dim
+         * @param includeMargins
+         * @returns {int|Array}
+         */
+        _realDimension(dim, includeMargins = false) {
+            const ret = [];
+            let type = "width";
+            let margins = ["left", "right"];
+
+            if (dim === "h") {
+                type = "height";
+                margins = ["top", "bottom"];
+            }
+
+            this.forEach((node) => {
+                const boundClientRect = node.getBoundingClientRect();
+                const computedStyle = window.getComputedStyle(node);
+
+                let dim = parseFloat((boundClientRect[type] + "").replace(/,/g, "."));
+
+                if (includeMargins) {
+                    margins.forEach((margin) => {
+                        const value = computedStyle.getPropertyValue("margin-" + margin);
+                        dim += parseFloat((value + "").replace(/,/g, "."));
+                    });
+                }
+
+                ret.push(dim);
+            });
+
+            return this[nodes].length > 1 ? ret : ret[0];
+        }
+
+
+        /**
+         * [ RealWidth ]
+         *
+         * @param includeMargins
+         * @returns {int|Array}
+         */
+        realWidth(includeMargins = false) {
+            return this._realDimension("w", includeMargins);
+        }
+
+
+        /**
+         * [ RealHeight ]
+         *
+         * @param includeMargins
+         * @returns {int|Array}
+         */
+        realHeight(includeMargins = false) {
+            return this._realDimension("h", includeMargins);
+        }
+
+
+        /**
+         * [ Find ]
+         *
+         * @param selector
+         * @returns {jsuNode}
+         */
+        find(selector) {
+            const ret = [];
+            this.forEach((node) => {
+                if (node instanceof HTMLIFrameElement) {
+                    ret.push(node.contentDocument.querySelectorAll(":scope " + selector));
+                } else {
+                    ret.push(node.querySelectorAll(":scope " + selector));
+                }
+
+            });
+
+            return new jsuNode(ret);
+        }
+
+
+        /**
+         * [ Children ]
+         *
+         * @param selector
+         * @returns {jsuNode}
+         */
+        children(selector) {
+            const ret = [];
+            if (!selector) {
+                selector = "*";
+            }
+
+            this.forEach((node) => {
+                ret.push(node.querySelectorAll(":scope > " + selector));
+            });
+
+            return new jsuNode(ret);
+        }
+
+
+        /**
+         *
+         * @param content
+         * @param methodName
+         * @returns {string|jsuNode}
+         */
+        _htmlText(content, methodName) {
+            const hasContent = jsuNode._isDefined(content);
+            let ret = hasContent ? this : "";
+
+            this.forEach((node) => {
+                if (hasContent) {
+                    node[methodName] = content;
+                } else {
+                    ret += node[methodName];
+                }
+            });
+
+            return ret;
+        }
+
+
+        /**
+         * [ Html ]
+         *
+         * @param content
+         * @returns {string|jsuNode}
+         */
+        html(content) {
+            return this._htmlText(content, "innerHTML");
+        }
+
+
+        /**
+         * [ Text ]
+         *
+         * @param content
+         * @returns {string|jsuNode}
+         */
+        text(content) {
+            return this._htmlText(content, "innerText");
+        }
+
+        /**
+         * [ Remove ]
+         */
+        remove() {
+            this.forEach((node) => {
+                if (node && node.parentElement) {
+                    eventHandlerMap["delete"](node);
+                    dataMap["delete"](node);
+                    node.parentElement.removeChild(node);
+                }
+            });
+        }
+
+
+        /**
+         *
+         * @param s
+         * @param type
+         * @param asSelector
+         * @returns {jsuNode}
+         */
+        _moveElement(s, type, asSelector = true) {
+            if (Array.isArray(s)) {
+                s.forEach((s) => {
+                    this._moveElement(s, type, asSelector);
+                });
+            } else {
+                if (typeof s === "string" && s.indexOf("<") > -1) {
+                    asSelector = false;
+                }
+
+                const elmObj = new jsuNode(s, asSelector);
+
+                this.forEach((node) => {
+                    const clonedElmObj = jsuNode._cloneElement(elmObj);
+                    clonedElmObj.forEach((elm) => {
+                        switch (type) {
+                            case "append": {
+                                node.appendChild(elm);
+                                break;
+                            }
+                            case "prepend": {
+                                node.insertBefore(elm, node.firstChild);
+                                break;
+                            }
+                            case "before": {
+                                node.parentNode.insertBefore(elm, node);
+                                break;
+                            }
+                            case "after": {
+                                node.parentNode.insertBefore(elm, node.nextSibling);
+                                break;
+                            }
+                        }
+                    });
+                });
+
+                elmObj.remove();
+            }
+
+            return this;
+        }
+
+
+        /**
+         *
+         * @param s
+         * @param type
+         * @returns {jsuNode}
+         */
+        _moveElementTo(s, type) {
+            const ret = [];
+            const elmObj = new jsuNode(s);
+
+            elmObj.forEach((node) => {
+                const clonedThis = jsuNode._cloneElement(this);
+                clonedThis.forEach((elm) => {
+                    switch (type) {
+                        case "append": {
+                            node.appendChild(elm);
+                            break;
+                        }
+                        case "prepend": {
+                            node.insertBefore(elm, node.firstChild);
+                            break;
+                        }
+                        case "before": {
+                            node.parentNode.insertBefore(elm, node);
+                            break;
+                        }
+                        case "after": {
+                            node.parentNode.insertBefore(elm, node.nextSibling);
+                            break;
+                        }
+                    }
+                    ret.push(elm);
+                });
+            });
+
+            this.remove();
+
+            return new jsuNode(ret);
+        }
+
+        /**
+         * [ Append ]
+         *
+         * @param s
+         * @param asSelector
+         * @returns {jsuNode}
+         */
+        append(s, asSelector) {
+            return this._moveElement(s, "append", asSelector);
+        }
+
+
+        /**
+         * [ AppendTo ]
+         *
+         * @param s
+         * @returns {jsuNode}
+         */
+        appendTo(s) {
+            return this._moveElementTo(s, "append");
+        }
+
+
+        /**
+         * [ Prepend ]
+         *
+         * @param s
+         * @param asSelector
+         * @returns {jsuNode}
+         */
+        prepend(s, asSelector = true) {
+            return this._moveElement(s, "prepend", asSelector);
+        }
+
+
+        /**
+         * [ PrependTo ]
+         *
+         * @param s
+         * @returns {jsuNode}
+         */
+        prependTo(s) {
+            return this._moveElementTo(s, "prepend");
+        }
+
+
+        /**
+         * [ Before ]
+         *
+         * @param s
+         * @param asSelector
+         * @returns {jsuNode}
+         */
+        before(s, asSelector = true) {
+            return this._moveElement(s, "before", asSelector);
+        }
+
+
+        /**
+         * [ InsertBefore ]
+         *
+         * @param s
+         * @returns {jsuNode}
+         */
+        insertBefore(s) {
+            return this._moveElementTo(s, "before");
+        }
+
+
+        /**
+         * [ After ]
+         *
+         * @param s
+         * @param asSelector
+         * @returns {jsuNode}
+         */
+        after(s, asSelector = true) {
+            return this._moveElement(s, "after", asSelector);
+        }
+
+
+        /**
+         * [ InsertAfter ]
+         *
+         * @param s
+         * @returns {jsuNode}
+         */
+        insertAfter(s) {
+            return this._moveElementTo(s, "after");
+        }
+
+
+        /**
+         *
+         * @param s
+         * @param type
+         * @returns {jsuNode}
+         */
+        _nextPrev(s, type) {
+            const hasSelector = jsuNode._isDefined(s);
+            const ret = [];
+
+            this.forEach((node) => {
+                const siblingElm = type === "prev" ? node.previousElementSibling : node.nextElementSibling;
+
+                if (jsuNode._isDefined(siblingElm) &&
+                    (!hasSelector || (jsuNode._isDefined(siblingElm.matches) && siblingElm.matches(s)))) {
+                    ret.push(siblingElm);
+                }
+            });
+
+            return new jsuNode(ret);
+        }
+
+
+        /**
+         * [ Next ]
+         *
+         * @param s
+         * @returns {jsuNode}
+         */
+        next(s) {
+            return this._nextPrev(s, "next");
+        }
+
+
+        /**
+         * [ Prev ]
+         *
+         * @param s
+         * @returns {jsuNode}
+         */
+        prev(s) {
+            return this._nextPrev(s, "prev");
+        }
+
+
+        /**
+         *
+         * @param s
+         * @param type
+         * @returns {jsuNode|Array}
+         */
+        _siblings(s, type = "siblings") {
+            const hasSelector = jsuNode._isDefined(s);
+            const ret = [];
+
+            this.forEach((node) => {
+                let el = null;
+                const elmList = [];
+
+                if (type === "siblings" && node.parentNode.firstElementChild) {
+                    el = node.parentNode.firstElementChild;
+                    type = "next";
+                } else if (type === "previous" || type === "next") {
+                    el = node[type + "ElementSibling"];
+                }
+
+                while (el && el.matches) {
+                    if (el !== node && (!hasSelector || el.matches(s))) {
+                        elmList.push(el);
+                    }
+                    el = el[type + "ElementSibling"];
+                }
+
+                ret.push(new jsuNode(elmList));
+            });
+
+            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+        }
+
+
+        /**
+         * [ Siblings ]
+         *
+         * @param s
+         * @returns {jsuNode|Array}
+         */
+        siblings(s) {
+            return this._siblings(s);
+        }
+
+
+        /**
+         * [ NextAll ]
+         *
+         * @param s
+         * @returns {jsuNode|Array}
+         */
+        nextAll(s) {
+            return this._siblings(s, "next");
+        }
+
+
+        /**
+         * [ PrevAll ]
+         *
+         * @param s
+         * @returns {jsuNode|Array}
+         */
+        prevAll(s) {
+            return this._siblings(s, "previous");
+        }
+
+
+        /**
+         * [ Parent ]
+         *
+         * @param s
+         * @returns {jsuNode|Array}
+         */
+        parent(s) {
+            const hasSelector = jsuNode._isDefined(s);
+            const ret = [];
+
+            this.forEach((node) => {
+                let parentElm = node.parentNode;
+
+                if (hasSelector && (!jsuNode._isDefined(parentElm.matches) || !parentElm.matches(s))) {
+                    parentElm = null;
+                }
+
+                ret.push(new jsuNode(parentElm));
+            });
+
+            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+        }
+
+
+        /**
+         * [ Parents ]
+         *
+         * @param s
+         * @returns {jsuNode|Array}
+         */
+        parents(s) {
+            const hasSelector = jsuNode._isDefined(s);
+            const ret = [];
+
+            this.forEach((node) => {
+                const parentsList = [];
+                let el = node.parentNode;
+
+                while (el && el.matches && el !== this) {
+                    if (!hasSelector || el.matches(s)) {
+                        parentsList.push(el);
+                    }
+
+                    el = el.parentNode;
+                }
+
+                ret.push(new jsuNode(parentsList));
+            });
+
+            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+        }
+
+
+        /**
+         * [ Document ]
+         *
+         * @returns {jsuNode}
+         */
+        document() {
+            const ret = [];
+
+            this.forEach((node) => {
+                ret.push(new jsuNode(node.ownerDocument));
+            });
+
+            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+        }
+
+
+        /**
+         * [ Eq ]
+         *
+         * @param idx
+         * @returns {jsuNode}
+         */
+        eq(idx) {
+            if (idx < 0) {
+                idx = this[nodes].length + idx;
+            }
+            return new jsuNode(this[nodes][idx]);
+        }
+
+
+        /**
+         * [ Get ]
+         *
+         * @param idx
+         * @returns {Array}
+         */
+        get(idx) {
+            if (jsuNode._isDefined(idx)) {
+                if (idx < 0) {
+                    idx = this[nodes].length + idx;
+                }
+                return this[nodes][idx];
+            }
+
+            return this[nodes];
+        }
+
+
+        /**
+         * [ Length ]
+         *
+         * @returns {int}
+         */
+        length() {
+            return this[nodes].length;
+        }
+    }
+
+    /**
+     * Bind jsu to window object
+     */
+    (() => {
+        const obj = s => new jsuNode(s);
+
+        Object.entries(jsuTools).forEach(([name, func]) => { // append tools
+            obj[name] = func;
         });
 
-        elmObj.remove();
-      }
-
-      return this;
-    }
-
-
-    /**
-     *
-     * @param s
-     * @param type
-     * @returns {jsuNode}
-     */
-    _moveElementTo(s, type) {
-      const ret = [];
-      const elmObj = new jsuNode(s);
-
-      elmObj.forEach((node) => {
-        const clonedThis = jsuNode._cloneElement(this);
-        clonedThis.forEach((elm) => {
-          switch (type) {
-            case "append":{
-                node.appendChild(elm);
-                break;
-              }
-            case "prepend":{
-                node.insertBefore(elm, node.firstChild);
-                break;
-              }
-            case "before":{
-                node.parentNode.insertBefore(elm, node);
-                break;
-              }
-            case "after":{
-                node.parentNode.insertBefore(elm, node.nextSibling);
-                break;
-              }
-          }
-          ret.push(elm);
-        });
-      });
-
-      this.remove();
-
-      return new jsuNode(ret);
-    }
-
-    /**
-     * [ Append ]
-     *
-     * @param s
-     * @param asSelector
-     * @returns {jsuNode}
-     */
-    append(s, asSelector) {
-      return this._moveElement(s, "append", asSelector);
-    }
-
-
-    /**
-     * [ AppendTo ]
-     *
-     * @param s
-     * @returns {jsuNode}
-     */
-    appendTo(s) {
-      return this._moveElementTo(s, "append");
-    }
-
-
-    /**
-     * [ Prepend ]
-     *
-     * @param s
-     * @param asSelector
-     * @returns {jsuNode}
-     */
-    prepend(s, asSelector = true) {
-      return this._moveElement(s, "prepend", asSelector);
-    }
-
-
-    /**
-     * [ PrependTo ]
-     *
-     * @param s
-     * @returns {jsuNode}
-     */
-    prependTo(s) {
-      return this._moveElementTo(s, "prepend");
-    }
-
-
-    /**
-     * [ Before ]
-     *
-     * @param s
-     * @param asSelector
-     * @returns {jsuNode}
-     */
-    before(s, asSelector = true) {
-      return this._moveElement(s, "before", asSelector);
-    }
-
-
-    /**
-     * [ InsertBefore ]
-     *
-     * @param s
-     * @returns {jsuNode}
-     */
-    insertBefore(s) {
-      return this._moveElementTo(s, "before");
-    }
-
-
-    /**
-     * [ After ]
-     *
-     * @param s
-     * @param asSelector
-     * @returns {jsuNode}
-     */
-    after(s, asSelector = true) {
-      return this._moveElement(s, "after", asSelector);
-    }
-
-
-    /**
-     * [ InsertAfter ]
-     *
-     * @param s
-     * @returns {jsuNode}
-     */
-    insertAfter(s) {
-      return this._moveElementTo(s, "after");
-    }
-
-
-    /**
-     *
-     * @param s
-     * @param type
-     * @returns {jsuNode}
-     */
-    _nextPrev(s, type) {
-      const hasSelector = jsuNode._isDefined(s);
-      const ret = [];
-
-      this.forEach((node) => {
-        const siblingElm = type === "prev" ? node.previousElementSibling : node.nextElementSibling;
-
-        if (jsuNode._isDefined(siblingElm) && (
-        !hasSelector || jsuNode._isDefined(siblingElm.matches) && siblingElm.matches(s))) {
-          ret.push(siblingElm);
-        }
-      });
-
-      return new jsuNode(ret);
-    }
-
-
-    /**
-     * [ Next ]
-     *
-     * @param s
-     * @returns {jsuNode}
-     */
-    next(s) {
-      return this._nextPrev(s, "next");
-    }
-
-
-    /**
-     * [ Prev ]
-     *
-     * @param s
-     * @returns {jsuNode}
-     */
-    prev(s) {
-      return this._nextPrev(s, "prev");
-    }
-
-
-    /**
-     *
-     * @param s
-     * @param type
-     * @returns {jsuNode|Array}
-     */
-    _siblings(s, type = "siblings") {
-      const hasSelector = jsuNode._isDefined(s);
-      const ret = [];
-
-      this.forEach((node) => {
-        let el = null;
-        const elmList = [];
-
-        if (type === "siblings" && node.parentNode.firstElementChild) {
-          el = node.parentNode.firstElementChild;
-          type = "next";
-        } else if (type === "previous" || type === "next") {
-          el = node[type + "ElementSibling"];
-        }
-
-        while (el && el.matches) {
-          if (el !== node && (!hasSelector || el.matches(s))) {
-            elmList.push(el);
-          }
-          el = el[type + "ElementSibling"];
-        }
-
-        ret.push(new jsuNode(elmList));
-      });
-
-      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-    }
-
-
-    /**
-     * [ Siblings ]
-     *
-     * @param s
-     * @returns {jsuNode|Array}
-     */
-    siblings(s) {
-      return this._siblings(s);
-    }
-
-
-    /**
-     * [ NextAll ]
-     *
-     * @param s
-     * @returns {jsuNode|Array}
-     */
-    nextAll(s) {
-      return this._siblings(s, "next");
-    }
-
-
-    /**
-     * [ PrevAll ]
-     *
-     * @param s
-     * @returns {jsuNode|Array}
-     */
-    prevAll(s) {
-      return this._siblings(s, "previous");
-    }
-
-
-    /**
-     * [ Parent ]
-     *
-     * @param s
-     * @returns {jsuNode|Array}
-     */
-    parent(s) {
-      const hasSelector = jsuNode._isDefined(s);
-      const ret = [];
-
-      this.forEach((node) => {
-        let parentElm = node.parentNode;
-
-        if (hasSelector && (!jsuNode._isDefined(parentElm.matches) || !parentElm.matches(s))) {
-          parentElm = null;
-        }
-
-        ret.push(new jsuNode(parentElm));
-      });
-
-      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-    }
-
-
-    /**
-     * [ Parents ]
-     *
-     * @param s
-     * @returns {jsuNode|Array}
-     */
-    parents(s) {
-      const hasSelector = jsuNode._isDefined(s);
-      const ret = [];
-
-      this.forEach((node) => {
-        const parentsList = [];
-        let el = node.parentNode;
-
-        while (el && el.matches && el !== this) {
-          if (!hasSelector || el.matches(s)) {
-            parentsList.push(el);
-          }
-
-          el = el.parentNode;
-        }
-
-        ret.push(new jsuNode(parentsList));
-      });
-
-      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-    }
-
-
-    /**
-     * [ Document ]
-     *
-     * @returns {jsuNode}
-     */
-    document() {
-      const ret = [];
-
-      this.forEach((node) => {
-        ret.push(new jsuNode(node.ownerDocument));
-      });
-
-      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-    }
-
-
-    /**
-     * [ Eq ]
-     *
-     * @param idx
-     * @returns {jsuNode}
-     */
-    eq(idx) {
-      if (idx < 0) {
-        idx = this[nodes].length + idx;
-      }
-      return new jsuNode(this[nodes][idx]);
-    }
-
-
-    /**
-     * [ Get ]
-     *
-     * @param idx
-     * @returns {Array}
-     */
-    get(idx) {
-      if (jsuNode._isDefined(idx)) {
-        if (idx < 0) {
-          idx = this[nodes].length + idx;
-        }
-        return this[nodes][idx];
-      }
-
-      return this[nodes];
-    }
-
-
-    /**
-     * [ Length ]
-     *
-     * @returns {int}
-     */
-    length() {
-      return this[nodes].length;
-    }
-  }
-
-  /**
-   * Bind jsu to window object
-   */
-  (() => {
-    const obj = (s) => new jsuNode(s);
-
-    Object.entries(jsuTools).forEach(([name, func]) => {// append tools
-      obj[name] = func;
-    });
-
-    window.jsu = obj;
-  })();
+        window.jsu = obj;
+    })();
 
 })();
-(($) => {
-  "use strict";
+($ => {
+    "use strict";
 
-  //Firefox supports browsers and also supports Chrome.
-  //chrome only supports chrome
-  $.api = typeof browser !== "undefined" ? browser : chrome;
-  const manifest = $.api.runtime.getManifest();
+	//Firefox supports browsers and also supports Chrome.
+	//chrome only supports chrome
+    $.api = typeof browser !== "undefined" ? browser : chrome;
+	const manifest = $.api.runtime.getManifest();
+	
+    $.isDev = manifest.version_name.trim() === "Dev"; //isDev, standalone version
 
-  $.isDev = manifest.version_name.trim() === "Dev"; //isDev, standalone version
-
-  $.browserName = "chrome";
-  const userAgent = navigator.userAgent;
-  if (/Edg\//.test(userAgent)) {
-    $.browserName = 'edge';
-  } else if (/Chrome\//.test(userAgent) && !/Edg\//.test(userAgent) && !/OPR\//.test(userAgent)) {
-    $.browserName = 'chrome';
-  } else if (/Safari\//.test(userAgent) && !/Chrome\//.test(userAgent) && !/Edg\//.test(userAgent) && !/OPR\//.test(userAgent)) {
-    $.browserName = 'safari';
-  } else if (/Firefox\//.test(userAgent)) {
-    $.browserName = 'firefox';
-  } else {
-    $.browserName = 'unknown';
-  }
-
-  //Configuration file
-  $.opts = {
-    manifest: manifest,
-    apiVersion: "2.0.1",
-    number: "8000", //This is an identifier specific to the extension; once set, it cannot be changed.
-    baseUrl: "https://o.jiayoushichang.com",
-    // baseUrl:"http://127.0.0.1:8080/jojofriend",
-    urlAliases: {},
-    classes: {
-      page: {
-        style: "ws-be-style"
-      }
-    },
-    attr: {
-      name: "data-name",
-      style: "data-style",
-      couponProcessMark: "coup-mk",
-      shadowNamePrefix: "ac-el-"
-    },
-    website: {
-      installNotice: "https://www.jojofriend.com/ext/notice"
-    },
-    messageActions: {
-      updateToolbar: "update_toolbar",
-      iconAvailable: "iconAvailable",
-      iconUnavailable: "iconUnavailable",
-      toolbarIconClick: "toolbar_icon_click"
-    },
-    storageKeys: {
-      position: {
-        logoTop: "p/logoTop"
-      },
-      history: {
-        record: "h/record",
-        offset: "h/offset",
-        number: "h/number"
-      },
-      website: {
-        token: "w/userToken",
-        exchangeInfo: "w/exchangeInfo"
-      }
-    },
-    featureToggleKeys: {
-      windowShow: "window_show"
-    },
-    updateExchangeInfoDelay: 1000 * 60 * 10 //Updated every 10 minutes.
-  };
-
-  $.cl = $.opts.classes;
-  $.attr = $.opts.attr;
+    // Replaced at build time by build.js (__BUILD_PLATFORM__ -> chrome | firefox | safari)
+    $.browserName = "safari";
+	
+	//Configuration file
+    $.opts = {
+        manifest: manifest,
+        apiVersion:"2.0.1",
+        number:"8000",      //This is an identifier specific to the extension; once set, it cannot be changed.
+        baseUrl:"https://o.jiayoushichang.com",
+        // baseUrl:"http://127.0.0.1:8080/jojofriend",
+        urlAliases: {},
+        classes:{
+            page:{
+                style: "ws-be-style",
+            }
+        },
+        attr: {
+            name: "data-name",
+			style: "data-style",
+            couponProcessMark: "coup-mk",
+            shadowNamePrefix: "ac-el-"
+		},
+        website:{
+            installNotice:"https://www.jojofriend.com/ext/notice"
+		},
+        messageActions:{
+            updateToolbar:"update_toolbar",
+            iconAvailable:"iconAvailable",
+            iconUnavailable:"iconUnavailable",
+            toolbarIconClick:"toolbar_icon_click"
+        },
+        storageKeys:{
+            position:{
+                logoTop:"p/logoTop",
+            },
+            history:{
+                record:"h/record",
+                offset:"h/offset",
+                number:"h/number",
+            },
+            website:{
+                token:"w/userToken",
+                exchangeInfo:"w/exchangeInfo"
+            }
+        },
+        featureToggleKeys: {
+            windowShow: "window_show"
+        },
+        updateExchangeInfoDelay: 1000*60*10 //Updated every 10 minutes.
+    };
+    
+    $.cl = $.opts.classes;
+    $.attr = $.opts.attr;
 
 
-  /**
-   * Simple in-memory store for data items.
-   * @constructor
-   */
-  $.DataStoreHelper = function () {
-    const data = [];
+    /**
+     * Simple in-memory store for data items.
+     * @constructor
+     */
+    $.DataStoreHelper = function () {
+        const data = [];
 
-    this.add = function (item) {
-      data.push(item);
+        this.add = function (item) {
+            data.push(item);
+        };
+
+        this.remove = function (item) {
+            const index = data.indexOf(item);
+            if (index !== -1) {
+                data.splice(index, 1);
+            }
+        };
+
+        this.clear = function () {
+            data.length = 0;
+        };
+
+        /** 
+         * @returns {Array} Shallow copy of all items (prevents external mutation). 
+         * */
+        this.getAll = function () {
+            return [...data];
+        };
+
+        this.getSize = function () {
+            return data.length;
+        };
     };
 
-    this.remove = function (item) {
-      const index = data.indexOf(item);
-      if (index !== -1) {
-        data.splice(index, 1);
-      }
-    };
 
-    this.clear = function () {
-      data.length = 0;
-    };
-
-    /** 
-     * @returns {Array} Shallow copy of all items (prevents external mutation). 
-     * */
-    this.getAll = function () {
-      return [...data];
-    };
-
-    this.getSize = function () {
-      return data.length;
-    };
-  };
-
-
-  /**
-   * All supported websites must be defined here.
-   * @constructor
-   */
-  $.PlatformConfigsHelper = function () {
-    // In the string \\ becomes \ after JSON.parse(), valid in regex.
-    // disabled: whether the entire feature is enabled
-    // record.disabled: whether the history record is enabled
-    // On the matched website, the toolbar icon will display the normal logo instead of being grayed out.
-    const defaultPlatformConfigsString = `
+    /**
+     * All supported websites must be defined here.
+     * @constructor
+     */
+    $.PlatformConfigsHelper = function () {
+        // In the string \\ becomes \ after JSON.parse(), valid in regex.
+        // disabled: whether the entire feature is enabled
+        // record.disabled: whether the history record is enabled
+        // On the matched website, the toolbar icon will display the normal logo instead of being grayed out.
+        const defaultPlatformConfigsString = `
             {
                 "366": {
                     "platformId": "366",
@@ -28697,209 +28686,210 @@
             }
         `;
 
-    /***
-    * This is a partner website.
-    * If it's a partner website, the toolbar icon will display the normal logo instead of being grayed out.
-    */
-    const partnerPlatforms = [
-    "https:\\/\\/www\\.tool77\\.com\\/.*",
-    "https:\\/\\/www\\.grabshorts\\.com\\/.*"];
+        /***
+        * This is a partner website.
+        * If it's a partner website, the toolbar icon will display the normal logo instead of being grayed out.
+        */
+        const partnerPlatforms = [
+            "https:\\/\\/www\\.tool77\\.com\\/.*",
+            "https:\\/\\/www\\.grabshorts\\.com\\/.*",
+            "https:\\/\\/www\\.spotriff\\.com\\/.*"
+        ];
 
-
-    let cachedPlatformConfigs = null;
-    const getParsedPlatformConfigs = () => {
-      if (!cachedPlatformConfigs) {
-        cachedPlatformConfigs = JSON.parse(defaultPlatformConfigsString);
-      }
-      return cachedPlatformConfigs;
-    };
-
-    const ensurePlatformConfigDecorated = (item, matchReg) => {
-      if (item.urlMatch instanceof RegExp) {
-        return;
-      }
-      item.urlMatch = matchReg;
-      if (item.detailUrlPattern) {
-        item.detailUrlPattern = item.detailUrlPattern instanceof RegExp ? item.detailUrlPattern : new RegExp(item.detailUrlPattern);
-      }
-      if (item.tradeUrlPatterns) {
-        item.tradeUrlPatterns = item.tradeUrlPatterns.map((p) => p instanceof RegExp ? p : new RegExp(p));
-      }
-    };
-
-    this.getConfigForUrl = (currentUrl = window.location.href) => {
-      const platformConfigs = getParsedPlatformConfigs();
-      let platformConfig = null;
-      if (currentUrl) {
-        for (const key in platformConfigs) {
-          const item = platformConfigs[key];
-          const { disabled } = item;
-          const matchReg = item.urlMatch instanceof RegExp ? item.urlMatch : new RegExp(item.urlMatch);
-          if (matchReg.test(currentUrl) && !disabled) {
-            ensurePlatformConfigDecorated(item, matchReg);
-            platformConfig = item;
-            break;
-          }
+        let cachedPlatformConfigs = null;
+        const getParsedPlatformConfigs = () => {
+            if (!cachedPlatformConfigs) {
+                cachedPlatformConfigs = JSON.parse(defaultPlatformConfigsString);
+            }
+            return cachedPlatformConfigs;
         }
-      }
-      return { platformConfig, platformConfigs };
+
+        const ensurePlatformConfigDecorated = (item, matchReg) => {
+            if (item.urlMatch instanceof RegExp) {
+                return;
+            }
+            item.urlMatch = matchReg;
+            if (item.detailUrlPattern) {
+                item.detailUrlPattern = item.detailUrlPattern instanceof RegExp ? item.detailUrlPattern : new RegExp(item.detailUrlPattern);
+            }
+            if (item.tradeUrlPatterns) {
+                item.tradeUrlPatterns = item.tradeUrlPatterns.map((p) => (p instanceof RegExp ? p : new RegExp(p)));
+            }
+        }
+
+        this.getConfigForUrl = (currentUrl = window.location.href) => {
+            const platformConfigs = getParsedPlatformConfigs();
+            let platformConfig = null;
+            if (currentUrl) {
+                for (const key in platformConfigs) {
+                    const item = platformConfigs[key];
+                    const { disabled } = item;
+                    const matchReg = item.urlMatch instanceof RegExp ? item.urlMatch : new RegExp(item.urlMatch);
+                    if (matchReg.test(currentUrl) && !disabled) {
+                        ensurePlatformConfigDecorated(item, matchReg);
+                        platformConfig = item;
+                        break;
+                    }
+                }
+            }
+            return { platformConfig, platformConfigs };
+        };
+
+        this.isPartnerPlatform = (currentUrl = window.location.href) => {
+            return partnerPlatforms.some((partnerPlatform) => new RegExp(partnerPlatform).test(currentUrl));
+        };
     };
 
-    this.isPartnerPlatform = (currentUrl = window.location.href) => {
-      return partnerPlatforms.some((partnerPlatform) => new RegExp(partnerPlatform).test(currentUrl));
-    };
-  };
 
 
-
-  /**
-   * @param {object} ext
-   * @constructor
-   */
-  $.HistoryRecordControl = function (ext, platformConfig) {
-    this.forceDisabled = () => {
-      const host = window.location.host;
-      const regexs = [
-      /^(?:music|developer|affiliate-program|advertising|aws|photos|gaming|sellercentral|sellercentral-europe|primevideo|read|pay|vendorcentral|audible|account|ads|associates|kdp|luna|skills|brandregistry|supply|devices|jobs)\.amazon\.|^console\.aws\.amazon\./,
-      /^(?:portals|ds|seller|service|gsp|open|login|trade|csp|fuwu)\.aliexpress\./,
-      /^(?:developer|edp|community|sellercenter|export|advertising|auth|signin|mesg)\.ebay\./,
-      /^(?:open|developer|sellercenter|affiliate|university|advertising|login|member)\.lazada\./,
-      /^(?:open|seller|edu|affiliate|careers|help|banhang|partner|business)\.shopee\./];
-
-      return regexs.some((regex) => regex.test(host));
-    };
-    this.disabled = () => {
-      return platformConfig.historyRecord.disabled || this.forceDisabled();
-    };
-  };
-
-
-
-  /**
-   * @param {object} ext
-   * @constructor
-   */
-  $.ItemsHistoryHelper = function (ext, platformConfig) {
-    const keys = $.opts.storageKeys;
-
-    /** 
-     * Unified API: access dao/util via ext.helper on each call to avoid failures from capturing references before dao.init()
-     * @type {object}
+    /**
+     * @param {object} ext
+     * @constructor
      */
-    const api = {
-      getRecord: () => ext.helper.dao.getData(keys.history.record, ext.helper.dao.getDefaults().h.record),
-      getNumber: () => ext.helper.dao.getData(keys.history.number, ext.helper.dao.getDefaults().h.number),
-      getOffset: () => ext.helper.dao.getData(keys.history.offset, ext.helper.dao.getDefaults().h.offset),
-      getOffsetDefault: () => ext.helper.dao.getDefaults().h.offset,
-      getToolbarNumber: () => ext.helper.dao.getDefaults().h.toolbar_number,
-      getExchangeInfo: () => ext.helper.dao.getData(keys.website.exchangeInfo, ext.helper.dao.getDefaults().w.exchangeInfo),
-      saveRecord: (record) => ext.helper.dao.setDataByKey(keys.history.record, record),
-      saveOffset: (offset) => ext.helper.dao.setDataByKey(keys.history.offset, offset),
-      openLink: (encryptedHref) => ext.helper.util.openInTab(ext.helper.util.decryptStr(encryptedHref)),
-      dateFormat: (date, format) => ext.helper.util.dateFormat(date, format),
-      encryptStr: (str) => ext.helper.util.encryptStr(str),
-      i18n: {
-        get: (k) => ext.helper.i18n.get(k),
-        getDir: () => ext.helper.i18n.getDir()
-      },
-      logger: (level, ...args) => ext.logger(level, ...args),
-      file: () => ext.helper.file,
-      styleHelper: () => ext.helper.styleHelper,
-      elementUtil: () => ext.helper.elementUtil
+    $.HistoryRecordControl = function (ext, platformConfig) {
+        this.forceDisabled = () => {
+            const host = window.location.host;
+            const regexs = [
+                /^(?:music|developer|affiliate-program|advertising|aws|photos|gaming|sellercentral|sellercentral-europe|primevideo|read|pay|vendorcentral|audible|account|ads|associates|kdp|luna|skills|brandregistry|supply|devices|jobs)\.amazon\.|^console\.aws\.amazon\./,
+                /^(?:portals|ds|seller|service|gsp|open|login|trade|csp|fuwu)\.aliexpress\./,
+                /^(?:developer|edp|community|sellercenter|export|advertising|auth|signin|mesg)\.ebay\./,
+                /^(?:open|developer|sellercenter|affiliate|university|advertising|login|member)\.lazada\./,
+                /^(?:open|seller|edu|affiliate|careers|help|banhang|partner|business)\.shopee\./
+            ];
+            return regexs.some((regex) => regex.test(host));
+        };
+        this.disabled = () => {
+            return platformConfig.historyRecord.disabled || this.forceDisabled();
+        };
     };
 
-    const models = { history: "history-model" };
-    this._container = null;
 
-    this.push = (platform, obj) => {
-      try {
-        const record = api.getRecord();
-        const number = api.getNumber();
-        const histories = record[platform] ?? [];
-        if (histories.length >= number) {
-          histories.splice(0, parseInt(number / 5, 10)); // remove forward 1/5
-        }
-        const newArr = histories.filter((item) => item.id !== obj.id);
-        newArr.push(obj);
-        record[platform] = newArr;
-        api.saveRecord(record);
-      } catch (error) {
-        api.logger("error", "ItemsHistoryHelper", "push", "historyGood push item has exception", error);
-      }
-    };
 
-    this.get = (platform, num = -1) => {
-      const record = api.getRecord();
-      const histories = record[platform] ?? [];
-      if (num > 0) return histories.slice(-num).reverse();
-      return histories;
-    };
+    /**
+     * @param {object} ext
+     * @constructor
+     */
+    $.ItemsHistoryHelper = function (ext, platformConfig) {
+        const keys = $.opts.storageKeys;
 
-    this.remove = (platform, id) => {
-      const record = api.getRecord();
-      const histories = record[platform] ?? [];
-      const newArr = histories.filter((item) => item.id !== id);
-      record[platform] = newArr;
-      api.saveRecord(record);
-    };
+        /** 
+         * Unified API: access dao/util via ext.helper on each call to avoid failures from capturing references before dao.init()
+         * @type {object}
+         */
+        const api = {
+            getRecord: () => ext.helper.dao.getData(keys.history.record, ext.helper.dao.getDefaults().h.record),
+            getNumber: () => ext.helper.dao.getData(keys.history.number, ext.helper.dao.getDefaults().h.number),
+            getOffset: () => ext.helper.dao.getData(keys.history.offset, ext.helper.dao.getDefaults().h.offset),
+            getOffsetDefault: () => ext.helper.dao.getDefaults().h.offset,
+            getToolbarNumber: () => ext.helper.dao.getDefaults().h.toolbar_number,
+            getExchangeInfo: () => ext.helper.dao.getData(keys.website.exchangeInfo, ext.helper.dao.getDefaults().w.exchangeInfo),
+            saveRecord: (record) => ext.helper.dao.setDataByKey(keys.history.record, record),
+            saveOffset: (offset) => ext.helper.dao.setDataByKey(keys.history.offset, offset),
+            openLink: (encryptedHref) => ext.helper.util.openInTab(ext.helper.util.decryptStr(encryptedHref)),
+            dateFormat: (date, format) => ext.helper.util.dateFormat(date, format),
+            encryptStr: (str) => ext.helper.util.encryptStr(str),
+            i18n: {
+                get: (k) => ext.helper.i18n.get(k),
+                getDir: () => ext.helper.i18n.getDir()
+            },
+            logger: (level, ...args) => ext.logger(level, ...args),
+            file: () => ext.helper.file,
+            styleHelper: () => ext.helper.styleHelper,
+            elementUtil: () => ext.helper.elementUtil
+        };
 
-    this.getGoodsByDateGroup = function (platform) {
-      const histories = this.get(platform).reverse();
-      const group = [];
-      const today = new Date();
-      const yesterday = new Date(today);
-      const format = "dd/MM";
-      yesterday.setDate(today.getDate() - 1);
+        const models = { history: "history-model" };
+        this._container = null;
 
-      const todayStr = api.dateFormat(today, format);
-      const yesterdayStr = api.dateFormat(yesterday, format);
-      const showDateFormat = (todayStr, yesterdayStr, current) => {
-        if (current === todayStr) {
-          return { str: api.i18n.get("history_box_hit_today"), langueKey: "history_box_hit_today" };
-        }
-        if (current === yesterdayStr) {
-          return { str: api.i18n.get("history_box_hit_yesterday"), langueKey: "history_box_hit_yesterday" };
-        }
-        return { str: " —— " + current + " —— ", langueKey: "" };
-      };
+        this.push = (platform, obj) => {
+            try {
+                const record = api.getRecord();
+                const number = api.getNumber();
+                const histories = record[platform] ?? [];
+                if (histories.length >= number) {
+                    histories.splice(0, parseInt(number / 5, 10)); // remove forward 1/5
+                }
+                const newArr = histories.filter((item) => item.id !== obj.id);
+                newArr.push(obj);
+                record[platform] = newArr;
+                api.saveRecord(record);
+            } catch (error) {
+                api.logger("error", "ItemsHistoryHelper", "push", "historyGood push item has exception", error);
+            }
+        };
 
-      let items = [];
-      let cacheDateStr = null;
-      let currentDateStr = null;
-      for (let i = 0; i < histories.length; i++) {
-        today.setTime(histories[i].date);
-        currentDateStr = api.dateFormat(today, format);
-        if (cacheDateStr != null) {
-          if (cacheDateStr !== currentDateStr) {
-            const langueFormat = showDateFormat(todayStr, yesterdayStr, cacheDateStr);
-            group.push({ str: langueFormat.str, langueKey: langueFormat.langueKey, items });
-            items = [];
-            cacheDateStr = currentDateStr;
-          }
-        } else {
-          cacheDateStr = currentDateStr;
-        }
-        items.push(histories[i]);
-      }
-      if (items.length !== 0) {
-        const langueFormat = showDateFormat(todayStr, yesterdayStr, cacheDateStr);
-        group.push({ str: langueFormat.str, langueKey: langueFormat.langueKey, items });
-      }
-      return group;
-    };
+        this.get = (platform, num = -1) => {
+            const record = api.getRecord();
+            const histories = record[platform] ?? [];
+            if (num > 0) return histories.slice(-num).reverse();
+            return histories;
+        };
 
-    this.showOrHideHistoryBox = (platform) => {
-      const { outerDIV, shadowRoot } = this._container;
-      const self = this;
-      const group = this.getGoodsByDateGroup(platform);
-      const contentElement = outerDIV.querySelector(".history-panel-aside-main .panel-aside-main-content");
-      contentElement.innerHTML = "";
+        this.remove = (platform, id) => {
+            const record = api.getRecord();
+            const histories = record[platform] ?? [];
+            const newArr = histories.filter((item) => item.id !== id);
+            record[platform] = newArr;
+            api.saveRecord(record);
+        };
 
-      const historiesBoxHtml = group.map((g) => {
-        const itemsHtml = g.items.map((item) => {
-          const jumpUrl = this.pretreatmentJumpUrl(item.url, platform);
-          const imgUrl = this.pretreatmentImageUrl(item.pic, platform);
-          return `
+        this.getGoodsByDateGroup = function (platform) {
+            const histories = this.get(platform).reverse();
+            const group = [];
+            const today = new Date();
+            const yesterday = new Date(today);
+            const format = "dd/MM";
+            yesterday.setDate(today.getDate() - 1);
+
+            const todayStr = api.dateFormat(today, format);
+            const yesterdayStr = api.dateFormat(yesterday, format);
+            const showDateFormat = (todayStr, yesterdayStr, current) => {
+                if (current === todayStr) {
+                    return { str: api.i18n.get("history_box_hit_today"), langueKey: "history_box_hit_today" };
+                }
+                if (current === yesterdayStr) {
+                    return { str: api.i18n.get("history_box_hit_yesterday"), langueKey: "history_box_hit_yesterday" };
+                }
+                return { str: " —— " + current + " —— ", langueKey: "" };
+            };
+
+            let items = [];
+            let cacheDateStr = null;
+            let currentDateStr = null;
+            for (let i = 0; i < histories.length; i++) {
+                today.setTime(histories[i].date);
+                currentDateStr = api.dateFormat(today, format);
+                if (cacheDateStr != null) {
+                    if (cacheDateStr !== currentDateStr) {
+                        const langueFormat = showDateFormat(todayStr, yesterdayStr, cacheDateStr);
+                        group.push({ str: langueFormat.str, langueKey: langueFormat.langueKey, items });
+                        items = [];
+                        cacheDateStr = currentDateStr;
+                    }
+                } else {
+                    cacheDateStr = currentDateStr;
+                }
+                items.push(histories[i]);
+            }
+            if (items.length !== 0) {
+                const langueFormat = showDateFormat(todayStr, yesterdayStr, cacheDateStr);
+                group.push({ str: langueFormat.str, langueKey: langueFormat.langueKey, items });
+            }
+            return group;
+        };
+
+        this.showOrHideHistoryBox = (platform) => {
+            const { outerDIV, shadowRoot } = this._container;
+            const self = this;
+            const group = this.getGoodsByDateGroup(platform);
+            const contentElement = outerDIV.querySelector(".history-panel-aside-main .panel-aside-main-content");
+            contentElement.innerHTML = "";
+
+            const historiesBoxHtml = group.map((g) => {
+                const itemsHtml = g.items.map((item) => {
+                    const jumpUrl = this.pretreatmentJumpUrl(item.url, platform);
+                    const imgUrl = this.pretreatmentImageUrl(item.pic, platform);
+                    return `
                     <div class="histories-box-review_item">
                         <a title="${item.title}" jump-tag="true" href="javascript:void(0);" jump-url="${jumpUrl}" target="_blank">
                         <div class="review-shadow">
@@ -28909,64 +28899,64 @@
                         <div class="review-text">${item.price}</div>
                         </a>
                     </div>`;
-        }).join("");
-        return `<div class="panel-aside-main-item">
+                }).join("");
+                return `<div class="panel-aside-main-item">
                 <div class="item-title" langue-extension-text="${g.langueKey}">${g.str}</div>
                 <div class="item-container">${itemsHtml}</div>
                 </div>`;
+                
+            }).join("");
+            contentElement.innerHTML = historiesBoxHtml;
 
-      }).join("");
-      contentElement.innerHTML = historiesBoxHtml;
+            outerDIV.querySelectorAll(".history-panel-aside-main .delete-btn").forEach((ele) => {
+                ele.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const id = this.getAttribute("data-id");
+                    this.parentNode.parentNode.parentNode.remove();
+                    self.remove(platform, id);
+                });
+            });
 
-      outerDIV.querySelectorAll(".history-panel-aside-main .delete-btn").forEach((ele) => {
-        ele.addEventListener("click", function (e) {
-          e.stopPropagation();
-          e.preventDefault();
-          const id = this.getAttribute("data-id");
-          this.parentNode.parentNode.parentNode.remove();
-          self.remove(platform, id);
-        });
-      });
+            const items = outerDIV.querySelectorAll(".history-panel-aside-main .histories-box-review_item > a");
+            items.forEach((ele) => {
+                ele.addEventListener("mouseover", function () {
+                    this.querySelector(".review-shadow").style.display = "block";
+                });
+                ele.addEventListener("mouseout", function () {
+                    this.querySelector(".review-shadow").style.display = "none";
+                });
+            });
 
-      const items = outerDIV.querySelectorAll(".history-panel-aside-main .histories-box-review_item > a");
-      items.forEach((ele) => {
-        ele.addEventListener("mouseover", function () {
-          this.querySelector(".review-shadow").style.display = "block";
-        });
-        ele.addEventListener("mouseout", function () {
-          this.querySelector(".review-shadow").style.display = "none";
-        });
-      });
+            outerDIV.querySelectorAll(".history-panel-aside-main a[jump-tag='true']").forEach((ele) => {
+                ele.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    api.openLink(this.getAttribute("jump-url"));
+                });
+            });
+        };
 
-      outerDIV.querySelectorAll(".history-panel-aside-main a[jump-tag='true']").forEach((ele) => {
-        ele.addEventListener("click", function (e) {
-          e.stopPropagation();
-          e.preventDefault();
-          api.openLink(this.getAttribute("jump-url"));
-        });
-      });
-    };
+        this.pretreatmentJumpUrl = (url, platform) => {
+            const { redirect } = api.getExchangeInfo();
+            return api.encryptStr(redirect + encodeURIComponent(url));
+        };
 
-    this.pretreatmentJumpUrl = (url, platform) => {
-      const { redirect } = api.getExchangeInfo();
-      return api.encryptStr(redirect + encodeURIComponent(url));
-    };
+        this.pretreatmentImageUrl = (imgUrl, platform) => {
+            if (platform === "aliexpress") {
+                return imgUrl.replace(/_\d+x\d+\./, "_150x150.");
+            }
+            return imgUrl;
+        };
 
-    this.pretreatmentImageUrl = (imgUrl, platform) => {
-      if (platform === "aliexpress") {
-        return imgUrl.replace(/_\d+x\d+\./, "_150x150.");
-      }
-      return imgUrl;
-    };
+        this.createHistoryBox = async (platform) => {
+            const { outerDIV } = this._container;
 
-    this.createHistoryBox = async (platform) => {
-      const { outerDIV } = this._container;
-
-      const wrapperOffset = api.getOffset();
-      const histories = this.get(platform, api.getToolbarNumber());
-      const goodsHtml = histories.map((h) => {
-        const jumpUrl = this.pretreatmentJumpUrl(h.url, platform);
-        return `
+            const wrapperOffset = api.getOffset();
+            const histories = this.get(platform, api.getToolbarNumber());
+            const goodsHtml = histories.map((h) => {
+                const jumpUrl = this.pretreatmentJumpUrl(h.url, platform);
+                return `
                     <div class="goods-review-item">
                         <a title="${h.title}" jump-tag="true" jump-url="${jumpUrl}" target="_blank">
                             <div class="review-shadow">
@@ -28975,15 +28965,15 @@
                             <img src="${h.pic}" />
                         </a>
                     </div>`;
-      }).join("");
+            }).join("");
 
-      const icons = await api.file().readContent("images/svg/", [
-      { name: "icon-settings", ext: "svg" },
-      { name: "icon-close", ext: "svg" },
-      { name: "icon-history", ext: "svg" }]
-      );
+            const icons = await api.file().readContent("images/svg/", [
+                { name: "icon-settings", ext: "svg" },
+                { name: "icon-close", ext: "svg" },
+                { name: "icon-history", ext: "svg" }
+            ]);
 
-      const html = `
+            const html = `
                 <div class="history-panel-wrapper" data-re-mark-tag="${platform}" style="bottom:${wrapperOffset.bottom}px; right:${wrapperOffset.right}px;">
                     <div class="history-panel-aside-main" data-extension-direction="${api.i18n.getDir()}" style="display:none;">
                     <div class="panel-aside-main-inner">
@@ -29015,866 +29005,866 @@
                     </div>
                 </div>
             `;
-
-      outerDIV.insertAdjacentHTML('beforeend', html);
-      this.addEventListener(platform);
-    };
-
-    this.addDragEventListener = () => {
-      const { outerDIV } = this._container;
-
-      //Add right-click to move
-      const draggable = outerDIV.querySelector(".history-panel-wrapper .wrapper-drag-handle");
-      const wrapper = outerDIV.querySelector(".history-panel-wrapper");
-
-      const offsetWrapper = Object.assign({}, api.getOffsetDefault());
-      let isDragging = false,startY,elementBottom;
-      let windowHeight = window.innerHeight;
-      let bottomMax = parseInt(windowHeight / 3, 10) * 2;
-      const bottomMin = api.getOffsetDefault().bottom;
-
-      //Update window height (when window size changes)
-      window.addEventListener('resize', () => {
-        windowHeight = window.innerHeight;
-        bottomMax = parseInt(windowHeight / 3, 10) * 2;
-      });
-      function onMouseUp() {//Mouse release event
-        if (!isDragging) return;
-        isDragging = false;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        api.saveOffset(offsetWrapper);
-      }
-      function onMouseMove(e) {//Mouse movement event
-        if (!isDragging) return;
-        const deltaY = e.clientY - startY; //Mouse Y-axis movement offset
-        let newBottom = elementBottom - deltaY; //Calculate the new bottom value
-        //Restrict the range of the bottom value
-        if (newBottom <= bottomMin) {
-          newBottom = bottomMin;
-        } else if (newBottom > bottomMax) {//Control the upward range
-          newBottom = bottomMax;
-        }
-        //Update component position and record values
-        wrapper.style.bottom = `${newBottom}px`;
-        offsetWrapper.bottom = newBottom;
-      }
-      draggable.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        //Ensure the wrapper's style is set to absolute or fixed.
-        if (window.getComputedStyle(wrapper).position !== 'absolute' &&
-        window.getComputedStyle(wrapper).position !== 'fixed') {
-          return;
-        }
-        isDragging = true;
-        startY = e.clientY; //Record the Y coordinate when the mouse is pressed.
-        //Get the current bottom value, ensuring it is parsed as a number.
-        elementBottom = parseInt(window.getComputedStyle(wrapper).bottom, 10) ||
-        api.getOffsetDefault().bottom;
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      });
-    };
-
-    this.addEventListener = (platform) => {
-      const { outerDIV, shadowRoot } = this._container;
-
-      const self = this;
-      const items = outerDIV.querySelectorAll(".goods-review >.goods-review-item >a");
-      items.forEach((ele) => {
-        ele.addEventListener('mouseover', function () {
-          this.querySelector(".review-shadow").style.display = "block";
-        });
-        ele.addEventListener('mouseout', function () {
-          this.querySelector(".review-shadow").style.display = "none";
-        });
-      });
-
-      // Expand bottom tool products
-      const goodsExpandEle = outerDIV.querySelector(".history-panel-wrapper .goods-expand");
-      if (goodsExpandEle) {
-        goodsExpandEle.addEventListener("click", function () {
-          const goodsReviewEle = this.nextElementSibling;
-          const svgEle = this.querySelector("svg");
-          svgEle.style.webkitTransition = "transform 0.3s";
-          svgEle.style.transition = "transform 0.3s";
-          if (goodsReviewEle.style.width === "0px") {
-            goodsReviewEle.style.width = "auto";
-            svgEle.style.webkitTransform = "rotate(0deg)";
-            svgEle.style.transform = "rotate(0deg)";
-          } else {
-            goodsReviewEle.style.width = "0px";
-            svgEle.style.webkitTransform = "rotate(180deg)";
-            svgEle.style.transform = "rotate(180deg)";
-          }
-        });
-      }
-
-      // Large history box, close
-      const historyBoxExpandEles = [
-      outerDIV.querySelector(".history-panel-wrapper .history-box-expand"),
-      outerDIV.querySelector(".history-panel-wrapper .close")];
-
-      const asideMainEle = outerDIV.querySelector(".history-panel-wrapper >.history-panel-aside-main");
-      if (asideMainEle) {
-        historyBoxExpandEles.forEach((ele) => {
-          if (ele) {
-            ele.addEventListener("click", function () {
-              const computedDisplay = window.getComputedStyle(asideMainEle).display;
-              if (computedDisplay === "none") {
-                self.showOrHideHistoryBox(platform);
-                asideMainEle.style.display = "block";
-              } else {
-                asideMainEle.style.display = "none";
-              }
-            });
-          }
-        });
-      }
-
-      // Click outside the history record pop-up to hide the large history record box.
-      document.addEventListener("click", function (event) {
-        const path = event.composedPath();
-        const clickedInsideShadow = path.some((el) => el === outerDIV || el === shadowRoot);
-        if (!clickedInsideShadow && asideMainEle) {
-          asideMainEle.style.display = "none";
-        }
-      });
-
-      // Pop up settings window
-      const headerSettingElement = outerDIV.querySelector(".history-panel-wrapper .setting");
-      if (headerSettingElement) {
-        headerSettingElement.addEventListener("click", () => {
-          new $.SettingHelper(ext).showDialog(() => {
-            outerDIV.querySelector(".history-panel-aside-body .goods-review").innerHTML = "";
-            outerDIV.querySelector(".history-panel-aside-main .panel-aside-main-content").innerHTML = "";
-          });
-        });
-      }
-
-      // Bind click event
-      outerDIV.querySelectorAll(".history-panel-aside-body a[jump-tag='true']").forEach((ele) => {
-        ele.addEventListener("click", function (e) {
-          e.stopPropagation();
-          e.preventDefault();
-          api.openLink(this.getAttribute("jump-url"));
-        });
-      });
-
-      self.addDragEventListener();
-    };
-
-    this.show = () => {
-      const outerDIV = this._container?.outerDIV;
-      if (outerDIV) outerDIV.style.display = "block";
-    };
-
-    this.hide = () => {
-      const outerDIV = this._container?.outerDIV;
-      if (outerDIV) outerDIV.style.display = "none";
-    };
-
-    this.run = async () => {
-      try {
-        if (ext.helper.coupon.historyRecordControl.disabled()) {
-          return;
-        }
-
-        const files = ["shadow/base", "shadow/itemsHistory"];
-        const styleObj = await api.styleHelper().readCssContent(files);
-        const styles = files.map((file) => styleObj[file]).join("\n");
-
-        const container = api.elementUtil().generateShadowDomRoot(platformConfig.platformId + "-" + models.history, styles);
-        this._container = container;
-
-        this.createHistoryBox(platformConfig.platformId);
-      } catch (e) {
-        api.logger("error", "ItemsHistoryHelper", "run", "history is exception:" + e);
-      }
-    };
-  };
-
-
-
-  $.ItemsRecordHelper = function (ext, platformConfig) {
-    this.run = () => {
-      if (ext.helper.coupon.historyRecordControl.disabled()) {
-        return;
-      }
-
-      const href = window.location.href;
-      const platform = platformConfig.platformId;
-      const { title, price, cover } = platformConfig.historyRecord.elements;
-      if (!platformConfig.detailUrlPattern.test(href)) return;
-
-      const id = ext.helper.util.getGoodsIdByLink(href);
-      ext.logger("info", "ItemsRecordHelper", "record", "goods detail> title", title);
-      ext.logger("info", "ItemsRecordHelper", "record", "goods detail> price", price);
-      ext.logger("info", "ItemsRecordHelper", "record", "goods detail> cover", cover);
-
-      if (!title || !price || !cover) return;
-
-      Promise.all([
-      $.waitForSelector(cover, { target: document.body, allowEmpty: true }),
-      $.waitForSelector(price, { target: document.body, allowEmpty: false, timeout: 5000 })]
-      ).then((elements) => {
-        const coverElement = elements[0];
-        const priceElement = elements[1];
-        const titleElement = document.querySelector(title);
-
-        ext.logger("info", "ItemsRecordHelper", "record", "goods detail> titleElement", titleElement);
-        ext.logger("info", "ItemsRecordHelper", "record", "goods detail> priceElement", priceElement);
-        ext.logger("info", "ItemsRecordHelper", "record", "goods detail> coverElement", coverElement);
-
-        if (!coverElement) return;
-
-        let imgSrc = "";
-        if (coverElement.tagName === "IMG") {
-          imgSrc = coverElement.getAttribute("data-src") ||
-          coverElement.getAttribute("data-url") ||
-          coverElement.getAttribute("src");
-
-        } else if (coverElement.tagName === "SOURCE") {
-          imgSrc = coverElement.getAttribute("srcSet") || coverElement.getAttribute("src");
-        }
-
-        const priceText = priceElement ? priceElement.innerText : "Unknown";
-        const titleText = titleElement ? titleElement.innerText : "--";
-        const goods = {
-          id, url: href, pic: imgSrc,
-          date: Date.now(),
-          price: priceText,
-          title: titleText
+            
+            outerDIV.insertAdjacentHTML('beforeend', html);
+            this.addEventListener(platform);
         };
-        ext.logger("info", "ItemsRecordHelper", "record", "goods detail> goods", goods);
-        ext.helper.coupon.itemsHistory.push(platform, goods);
-      }).catch(() => {});
-    };
-  };
 
+        this.addDragEventListener = () => {
+            const { outerDIV } = this._container;
 
-  /**
-   * @param {*} ext
-   */
-  $.ActivateHelper = function (ext) {
-    const MIN_ACTIVATE_WIDGET_TOP = 50;
-    const toCssObject = (obj = {}) => {
-      const result = {};
-      for (const [key, value] of Object.entries(obj)) {
-        const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-        result[camelKey] = value;
-      }
-      return result;
-    };
+            //Add right-click to move
+            const draggable = outerDIV.querySelector(".history-panel-wrapper .wrapper-drag-handle");
+            const wrapper = outerDIV.querySelector(".history-panel-wrapper");
+        
+            const offsetWrapper = Object.assign({}, api.getOffsetDefault());
+            let isDragging = false, startY, elementBottom;
+            let windowHeight = window.innerHeight;
+            let bottomMax = parseInt(windowHeight / 3, 10) * 2;
+            const bottomMin = api.getOffsetDefault().bottom;
+        
+            //Update window height (when window size changes)
+            window.addEventListener('resize', () => {
+                windowHeight = window.innerHeight;
+                bottomMax = parseInt(windowHeight / 3, 10) * 2;
+            });
+            function onMouseUp() { //Mouse release event
+                if (!isDragging) return;
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                api.saveOffset(offsetWrapper);
+            }
+            function onMouseMove(e) { //Mouse movement event
+                if (!isDragging) return;
+                const deltaY = e.clientY - startY; //Mouse Y-axis movement offset
+                let newBottom = elementBottom - deltaY; //Calculate the new bottom value
+                //Restrict the range of the bottom value
+                if (newBottom <= bottomMin) {
+                    newBottom = bottomMin;
+                } else if (newBottom > bottomMax) { //Control the upward range
+                    newBottom = bottomMax;
+                }
+                //Update component position and record values
+                wrapper.style.bottom = `${newBottom}px`;
+                offsetWrapper.bottom = newBottom;
+            }
+            draggable.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                //Ensure the wrapper's style is set to absolute or fixed.
+                if (window.getComputedStyle(wrapper).position !== 'absolute' &&
+                    window.getComputedStyle(wrapper).position !== 'fixed') {
+                    return;
+                }
+                isDragging = true;
+                startY = e.clientY; //Record the Y coordinate when the mouse is pressed.
+                //Get the current bottom value, ensuring it is parsed as a number.
+                elementBottom = parseInt(window.getComputedStyle(wrapper).bottom, 10)
+                    || api.getOffsetDefault().bottom;
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        };
 
-    const getActivateTop = () => {
-      const defaultTop = ext.helper.dao.getDefaults().p.logoTop;
-      let top = ext.helper.dao.getData($.opts.storageKeys.position.logoTop, defaultTop);
-      const maxTop = window.innerHeight - MIN_ACTIVATE_WIDGET_TOP;
-      return Math.min(Math.max(top, 0), maxTop);
-    };
+        this.addEventListener = (platform) => {
+            const { outerDIV, shadowRoot } = this._container;
+            
+            const self = this;
+            const items = outerDIV.querySelectorAll(".goods-review >.goods-review-item >a");
+            items.forEach((ele)=>{
+                ele.addEventListener('mouseover', function() {
+                    this.querySelector(".review-shadow").style.display="block";
+                });
+                ele.addEventListener('mouseout', function() {
+                    this.querySelector(".review-shadow").style.display="none";
+                });
+            });
+        
+            // Expand bottom tool products
+            const goodsExpandEle = outerDIV.querySelector(".history-panel-wrapper .goods-expand");
+            if (goodsExpandEle) {
+                goodsExpandEle.addEventListener("click", function () {
+                    const goodsReviewEle = this.nextElementSibling;
+                    const svgEle = this.querySelector("svg");
+                    svgEle.style.webkitTransition = "transform 0.3s";
+                    svgEle.style.transition = "transform 0.3s";
+                    if (goodsReviewEle.style.width === "0px") {
+                        goodsReviewEle.style.width = "auto";
+                        svgEle.style.webkitTransform = "rotate(0deg)";
+                        svgEle.style.transform = "rotate(0deg)";
+                    } else {
+                        goodsReviewEle.style.width = "0px";
+                        svgEle.style.webkitTransform = "rotate(180deg)";
+                        svgEle.style.transform = "rotate(180deg)";
+                    }
+                });
+            }
+        
+            // Large history box, close
+            const historyBoxExpandEles = [
+                outerDIV.querySelector(".history-panel-wrapper .history-box-expand"),
+                outerDIV.querySelector(".history-panel-wrapper .close")
+            ];
+            const asideMainEle = outerDIV.querySelector(".history-panel-wrapper >.history-panel-aside-main");
+            if (asideMainEle) {
+                historyBoxExpandEles.forEach((ele) => {
+                    if (ele) {
+                        ele.addEventListener("click", function () {
+                            const computedDisplay = window.getComputedStyle(asideMainEle).display;
+                            if (computedDisplay === "none") {
+                                self.showOrHideHistoryBox(platform);
+                                asideMainEle.style.display = "block";
+                            } else {
+                                asideMainEle.style.display = "none";
+                            }
+                        });
+                    }
+                });
+            }
+        
+            // Click outside the history record pop-up to hide the large history record box.
+            document.addEventListener("click", function (event) {
+                const path = event.composedPath();
+                const clickedInsideShadow = path.some((el) => el === outerDIV || el === shadowRoot);
+                if (!clickedInsideShadow && asideMainEle) {
+                    asideMainEle.style.display = "none";
+                }
+            });
 
-    const updateActivateTop = (top) => {
-      ext.helper.dao.setDataByKey($.opts.storageKeys.position.logoTop, top);
-    };
+            // Pop up settings window
+            const headerSettingElement = outerDIV.querySelector(".history-panel-wrapper .setting");
+            if (headerSettingElement) {
+                headerSettingElement.addEventListener("click", () => {
+                    new $.SettingHelper(ext).showDialog(() => {
+                        outerDIV.querySelector(".history-panel-aside-body .goods-review").innerHTML = "";
+                        outerDIV.querySelector(".history-panel-aside-main .panel-aside-main-content").innerHTML = "";
+                    });
+                });
+            }
 
-    const addEventListenerDrag = (dragHandle, activateWidget) => {
-      let isDragging = false;
-      let startY, elementY;
-      const maxTop = () => window.innerHeight - MIN_ACTIVATE_WIDGET_TOP;
+            // Bind click event
+            outerDIV.querySelectorAll(".history-panel-aside-body a[jump-tag='true']").forEach((ele) => {
+                ele.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    api.openLink(this.getAttribute("jump-url"));
+                });
+            });
+        
+            self.addDragEventListener();
+        };
 
-      const onMouseMove = (e) => {
-        if (!isDragging) return;
-        const top = Math.min(Math.max(elementY + (e.clientY - startY), 0), maxTop());
-        activateWidget.style.top = `${top}px`;
-        updateActivateTop(top);
-      };
+        this.show = () => {
+            const outerDIV = this._container?.outerDIV;
+            if (outerDIV) outerDIV.style.display = "block";
+        };
 
-      const onMouseUp = () => {
-        if (!isDragging) return;
-        isDragging = false;
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
+        this.hide = () => {
+            const outerDIV = this._container?.outerDIV;
+            if (outerDIV) outerDIV.style.display = "none";
+        };
 
-      dragHandle.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        isDragging = true;
-        startY = e.clientY;
-        elementY = parseInt(activateWidget.style.top, 10) || 0;
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-      });
-    };
-
-    this.generate = (couponTotal, badgeData, dragData, interfaceData) => {
-      // Drag handle (right-side grip for vertical dragging)
-      const dragHandle = ext.helper.elementUtil.createElement("div", {
-        className: "activate-widget__drag-handle all-center",
-        style: toCssObject(dragData),
-        children: [ext.helper.elementUtil.createElement("img", {
-          attributes: { src: "data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='10'%20height='17'%20viewBox='0%200%2010%2017'%3e%3cg%20id='drag_icon'%20data-name='drag%20icon'%20transform='translate(-756.458%20-5682.563)'%3e%3ccircle%20id='Ellipse_277'%20data-name='Ellipse%20277'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(756.458%205682.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_280'%20data-name='Ellipse%20280'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(763.458%205682.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_281'%20data-name='Ellipse%20281'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(756.458%205689.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_283'%20data-name='Ellipse%20283'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(756.458%205696.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_282'%20data-name='Ellipse%20282'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(763.458%205689.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_284'%20data-name='Ellipse%20284'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(763.458%205696.563)'%20fill='%23fff'/%3e%3c/g%3e%3c/svg%3e", draggable: false }
-        })]
-      });
-
-      // Activate trigger (clickable logo/button area)
-      const triggerChildren = couponTotal ?
-      [ext.helper.elementUtil.createElement("div", {
-        className: "notification all-center pulse-reveal",
-        text: couponTotal,
-        style: toCssObject(badgeData)
-      })] :
-      [];
-      const trigger = ext.helper.elementUtil.createElement("div", {
-        className: "activate-widget__trigger",
-        children: triggerChildren,
-        style: toCssObject(interfaceData)
-      });
-      const content = ext.helper.elementUtil.createElement("div", {
-        className: "activate-widget__content",
-        children: [trigger, dragHandle]
-      });
-      const activateWidget = ext.helper.elementUtil.createElement("div", {
-        className: "activate-widget",
-        attributes: { style: `top:${getActivateTop()}px` },
-        children: [content]
-      });
-
-      addEventListenerDrag(dragHandle, activateWidget);
-      return { activateWidget, trigger };
-    };
-  };
-
-
-  /**
-   * @param {*} ext
-   * @param {*} platformConfig
-   * @param {*} platformConfigs
-   */
-  $.CouponInspectHelper = function (ext, platformConfig, platformConfigs) {
-
-    const platform = platformConfig ? platformConfig.platformId : "unknown";
-
-    const commonTemplate = new $.DetectCommonTemplateHelper(ext);
-    const detectCouponListTemplate = new $.DetectCouponListTemplateHelper(ext, commonTemplate);
-    const detectFlyoutTemplate = new $.DetectFlyoutTemplateHelper(ext, commonTemplate);
-
-    const activate = new $.ActivateHelper(ext); // Activate button
-    const couponListModal = new $.CouponListModalHelper(ext, platformConfigs, detectCouponListTemplate); // Coupon List Modal
-    const progressModal = new $.ProgressModalHelper(ext, platformConfigs);
-
-    const modelNames = {
-      flyout: "flyout-model",
-      detect: "detect-model"
-    };
-
-    let inspectData = null; // Basic data of HTML elements
-    this._container = null;
-
-    // Prepare the data needed for inspection.
-    const buildInspectDataFromInfo = (infoJson) => {
-      const iconJson = infoJson.icon;
-      const cggJson = infoJson.cgg;
-      const observerTime = cggJson.observer_time ?? 20 * 1000;
-      // If not returned, use the local one.
-      const logoBase64OrUrl = cggJson.logo || $.api.runtime.getURL("images/logo/logo.png");
-
-      return {
-        activate: {
-          show: infoJson.show, // Display activation button on the current page?
-          toolbarIconFlyout: infoJson.toolbar_icon_flyout, // Can it be displayed through the top menu icon?
-          toolbarIconFlash: infoJson.toolbar_icon_flash, // Whether to show the toolbar icon animation on load
-          historyShow: infoJson.history_show, // Whether to display the history record function
-          couponTotal: infoJson.coupon_total, // Number of badges in the upper left corner
-          modalPosition: infoJson.modal, // Modal box pop-up data
-          badgeData: iconJson.badge,
-          dragData: iconJson.drag,
-          interfaceData: iconJson.interface
-        },
-        couponListModal: {
-          autoOpen: cggJson.auto_open, // Open automatically?
-          modalTitle: cggJson.current_platform,
-          logoBase64OrUrl,
-          flyoutData: infoJson.flyoutData
-        },
-        elements: {
-          moveToEnd: cggJson.move_to_end,
-          observerTime,
-          container: { outerDIV: null, shadowRoot: null } // Outermost container
-        }
-      };
-    };
-
-    /**
-     * Initializing loading data
-     */
-    const initInspectData = async () => {
-      try {
-        if (inspectData) return; // If initialization is already complete, return directly.
-
-        const infoJson = await ext.helper.request.getDetectCtrlResult();
-        if (!infoJson) return;
-
-        ext.logger("info", "CouponInspectHelper", "initInspectData", "detect info=========>", infoJson);
-
-        // Send update message request
-        ext.sendBackgroundMessage($.opts.messageActions.updateToolbar, {
-          text: infoJson.toolbar_coupon_badge || "",
-          toolbarIconFlash: infoJson.toolbar_icon_flash
-        });
-
-        inspectData = buildInspectDataFromInfo(infoJson);
-      } catch (error) {
-        inspectData = null;
-        ext.logger("error", "CouponInspectHelper", "initInspectData", "req exception", error);
-      }
-    };
-
-    const showFlyout = async (container, flyoutData) => {
-      const { outerDIV, shadowRoot } = container;
-      const { css, html, conf } = await detectFlyoutTemplate.generate(flyoutData);
-      if (!css || !html || !conf) return;
-
-      ext.helper.elementUtil.addShadowRootStyle(shadowRoot, modelNames.detect, css); // Add css
-      outerDIV.insertAdjacentHTML("beforeend", html); // Add html
-
-      const { flyOutContainerName, flyOutCashbackBtnName, flyOutCouponApplyBtnName,
-        delay, closeAnimation, flyOutCloseBtnClassName } = conf;
-
-      const closeFlyout = () => {
-        const flyoutEl = outerDIV.querySelector(`[name='${flyOutContainerName}']`);
-        if (flyoutEl) {
-          if (closeAnimation) {
-            flyoutEl.classList.add(closeAnimation);
-          }
-          flyoutEl.addEventListener("animationend", () => flyoutEl.remove(), { once: true });
-        }
-      };
-      if (conf.delay > 0) {
-        setTimeout(closeFlyout, delay);
-      }
-
-      // Close button event
-      const closeButton = outerDIV.querySelector(flyOutCloseBtnClassName);
-      if (closeButton) {
-        closeButton.addEventListener("click", closeFlyout);
-      }
-
-      // // Add Activation Authorization Event
-      ext.helper.util.bindCustomEvent(outerDIV.querySelector(`[name='${flyOutCashbackBtnName}']`), (option) => {
-        if (!option) {
-          return;
-        }
-        if (option.dismissAfter) {
-          closeFlyout();
-        }
-        if (option.callbackEvent) {
-          ext.helper.util.addActivateCallbackEvent(outerDIV, option, detectFlyoutTemplate.getActivateEventConfig());
-        }
-      });
-
-      // Add automatic coupon verification event.
-      ext.helper.util.bindApplyCouponsEvent(outerDIV.querySelector(`[name='${flyOutCouponApplyBtnName}']`), (dataJson) => {
-        const { codes, check, open } = dataJson;
-        Promise.resolve().then(() => {
-          progressModal.generate(
-            inspectData.couponListModal.logoBase64OrUrl,
-            container, platform, codes, check
-          );
-        });
-        Promise.resolve().then(() => {
-          if (open) {
+        this.run = async () => {
             try {
-              ext.helper.util.openUrl(open);
+                if (ext.helper.coupon.historyRecordControl.disabled()){
+                    return;
+                }
+
+                const files = ["shadow/base", "shadow/itemsHistory"];
+                const styleObj = await api.styleHelper().readCssContent(files);
+                const styles = files.map((file) => styleObj[file]).join("\n");
+
+                const container = api.elementUtil().generateShadowDomRoot(platformConfig.platformId + "-" + models.history, styles);
+                this._container = container;
+
+                this.createHistoryBox(platformConfig.platformId);
             } catch (e) {
-              ext.logger("error", "CouponInspectHelper", "showFlyout", "detect error", e);
+                api.logger("error", "ItemsHistoryHelper", "run", "history is exception:" + e);
             }
-          }
-        });
-      });
+        };
     };
 
-    /**
-     * @returns {Promise<{outerDIV: HTMLElement, shadowRoot: ShadowRoot}>}
-     * outerDIV needs to be exposed, and all subsequent elements will be children of this element.
-     */
-    const generateOuterContainer = async () => {
-      const dir = ext.helper.i18n.getDir();
-      const { moveToEnd, observerTime } = inspectData.elements;
-      const styles = Object.values(
-        await ext.helper.styleHelper.readCssContent(["shadow/base", "shadow/inspect", "shadow/skeleton"])
-      ).join("\n");
-      return ext.helper.elementUtil.generateShadowDomRoot(
-        `${platformConfig.platformId}-${modelNames.detect}`, styles, dir, moveToEnd, observerTime);
-    };
-
-    /**
-     * @param {number} openedFrom 1: Activate from current page, 2: Activate from tool menu
-     */
-    const generate = async (openedFrom = 1) => {
-      const windowShow = await ext.helper.featureToggle.isEnabled($.opts.featureToggleKeys.windowShow);
-      await initInspectData();
-
-      // If there is no initial data, return directly.
-      if (!inspectData) return;
-
-      const { show, toolbarIconFlyout, historyShow, couponTotal, modalPosition, badgeData, dragData, interfaceData } = inspectData.activate;
-      const { autoOpen, modalTitle, logoBase64OrUrl, flyoutData } = inspectData.couponListModal;
-
-      if (historyShow && openedFrom === 1) {
-        ext.helper.coupon.itemsHistory.run().then(() => {
-          // Whether the history record is displayed is subject to the settings.
-          if (!windowShow) ext.helper.coupon.itemsHistory.hide();
-        });
-      }
-
-      // If not displayed, return directly.
-      if (!show && openedFrom === 1 || !toolbarIconFlyout && openedFrom === 2) return;
-
-      // Generate the outermost container
-      let container = inspectData.elements.container;
-      if (!container.outerDIV || !container.shadowRoot) {
-        container = await generateOuterContainer();
-        container.outerDIV.setAttribute("data-re-mark-tag", platform);
-        inspectData.elements.container = container;
-      }
-      this._container = container;
-
-      const { outerDIV } = container;
-      if (openedFrom === 1) {
-        const { activateWidget, trigger } = activate.generate(couponTotal, badgeData, dragData, interfaceData); // Generate activation button
-        outerDIV.append(activateWidget);
-        // The display of the right button and the automatic display of the coupon list should be affected by the settings.
-        activateWidget.style.display = windowShow ? "" : "none";
-        if (windowShow && autoOpen) {
-          couponListModal.generate(logoBase64OrUrl, container, modalTitle, modalPosition);
-        }
-        trigger.addEventListener("click", () => couponListModal.generate(logoBase64OrUrl, container, modalTitle, modalPosition)); // Click event
-      } else if (openedFrom === 2) {
-        couponListModal.generate(logoBase64OrUrl, container, modalTitle, modalPosition);
-      }
-
-      // Add flyout, ensure the right button is displayed first, then show the flyout.
-      if (openedFrom === 1) {
-        setTimeout(async () => {
-          await showFlyout(container, flyoutData);
-          outerDIV.setAttribute("status", "complete");
-        }, 1000);
-      }
-    };
-
-    // Show right activation button (used by couponListModal)
-    this.showRightWidget = () => {
-      const widget = this._container?.outerDIV?.querySelector(".activate-widget");
-      if (widget) widget.style.display = "block";
-    };
-
-    // Hide right activation button (used by couponListModal)
-    this.hideRightWidget = () => {
-      const widget = this._container?.outerDIV?.querySelector(".activate-widget");
-      if (widget) widget.style.display = "none";
-    };
-
-    this.run = async (openedFrom = 1) => {
-      await generate(openedFrom);
-    };
-  };
 
 
-  /**
-   * @param {*} ext
-   * @param {*} platformConfigs
-   */
-  $.CouponListModalHelper = function (ext, platformConfigs, detectCouponListTemplate) {
-
-    const HIDE_30_MINUTES = 30;
-    let hasModal = false; // Is there already a modal box?
-
-    const progressModal = new $.ProgressModalHelper(ext, platformConfigs);
-    const skeleton = new $.CouponListWidgetSkeleton(ext, 10);
-
-    const toCssString = (obj) => Object.entries(obj || {}).
-    map(([k, v]) => `${k.replace("_", "-")}:${v}`).
-    join(";");
-
-    /**
-     * Remove modal must call this method.
-     */
-    const removeModal = (modal) => {
-      modal.remove();
-      hasModal = false;
-    };
-
-    const addCloseEventListener = (button, modal) => {
-      button.addEventListener("click", () => removeModal(modal));
-    };
-
-    const addShowSettingEventListener = (modal) => {
-      const setting = modal.querySelector(".modal-header .btns > .setting");
-      const dropdown = modal.querySelector(".modal-header #settingsDropdown");
-      const settingsData = [
-      {
-        category: ext.helper.i18n.get("setting_window_display_title"),
-        items: [
-        { id: "hide30m", label: ext.helper.i18n.get("setting_window_display_hide30m", [HIDE_30_MINUTES]) },
-        { id: "hideSession", label: ext.helper.i18n.get("setting_window_display_session") },
-        { id: "showAll", label: ext.helper.i18n.get("setting_window_display_all") }]
-
-      },
-      {
-        category: ext.helper.i18n.get("setting_window_general_title"),
-        items: [
-        { id: "general", label: ext.helper.i18n.get("setting_window_general_label") }]
-
-      }];
-
-
-      const filterSettingsData = async () => {
-        const windowShow = await ext.helper.featureToggle.isEnabled(
-          $.opts.featureToggleKeys.windowShow
-        );
-        return settingsData.map((group) => ({
-          ...group,
-          items: group.items.
-          map((item) => ({ ...item })).
-          filter((item) => {
-            // unsupported sessionStorage
-            if (!$.api.storage.session && item.id === "hideSession") {
-              return false;
+    $.ItemsRecordHelper = function (ext, platformConfig) {
+        this.run = () => {
+            if (ext.helper.coupon.historyRecordControl.disabled()){
+                return;
             }
-            if (windowShow) {
-              return item.id !== "showAll";
-            }
+            
+            const href = window.location.href;
+            const platform = platformConfig.platformId;
+            const { title, price, cover } = platformConfig.historyRecord.elements;
+            if (!platformConfig.detailUrlPattern.test(href)) return;
 
-            return item.id === "showAll" || item.id === "general";
-          })
-        }));
-      };
+            const id = ext.helper.util.getGoodsIdByLink(href);
+            ext.logger("info", "ItemsRecordHelper", "record", "goods detail> title", title);
+            ext.logger("info", "ItemsRecordHelper", "record", "goods detail> price", price);
+            ext.logger("info", "ItemsRecordHelper", "record", "goods detail> cover", cover);
 
-      const generateSettingMenus = () => {
-        filterSettingsData().then((groups) => {
-          dropdown.innerHTML = '';
-          groups.forEach((group) => {
-            const categoryDiv = document.createElement('div');
-            categoryDiv.className = 'setting-category';
+            if (!title || !price || !cover) return;
 
-            const title = document.createElement('div');
-            title.className = 'setting-category-title';
-            title.textContent = group.category;
-            categoryDiv.appendChild(title);
+            Promise.all([
+                $.waitForSelector(cover, { target: document.body, allowEmpty: true }),
+                $.waitForSelector(price, { target: document.body, allowEmpty: false, timeout: 5000 })
+            ]).then((elements) => {
+                const coverElement = elements[0];
+                const priceElement =  elements[1];
+                const titleElement = document.querySelector(title);
 
-            group.items.forEach((item) => {
-              const opt = document.createElement('div');
-              opt.className = 'setting-option';
-              opt.textContent = item.label;
-              opt.dataset.id = item.id; //Set the data-id attribute
-              opt.addEventListener("click", () => {
-                if (item.id === "hide30m") {
-                  ext.helper.featureToggle.disableTemporarily($.opts.featureToggleKeys.windowShow, HIDE_30_MINUTES * 60 * 1000);
-                  hideAllComponents();
-                  removeModal(modal);
-                } else if (item.id === "hideSession") {
-                  ext.helper.featureToggle.disableForSession($.opts.featureToggleKeys.windowShow);
-                  hideAllComponents();
-                  removeModal(modal);
-                } else if (item.id === "showAll") {
-                  ext.helper.featureToggle.enable($.opts.featureToggleKeys.windowShow);
-                  showAllComponents();
-                } else if (item.id === "general") {
-                  removeModal(modal);
-                  new $.SettingHelper(ext).showDialog();
+                ext.logger("info", "ItemsRecordHelper", "record", "goods detail> titleElement", titleElement);
+                ext.logger("info", "ItemsRecordHelper", "record", "goods detail> priceElement", priceElement);
+                ext.logger("info", "ItemsRecordHelper", "record", "goods detail> coverElement", coverElement);
+
+                if (!coverElement) return;
+
+                let imgSrc = "";
+                if (coverElement.tagName === "IMG") {
+                    imgSrc = coverElement.getAttribute("data-src") ||
+                        coverElement.getAttribute("data-url") ||
+                        coverElement.getAttribute("src");
+                        
+                } else if (coverElement.tagName === "SOURCE") {
+                    imgSrc = coverElement.getAttribute("srcSet") || coverElement.getAttribute("src");
                 }
-                dropdown.classList.remove("active");
-              });
-              categoryDiv.appendChild(opt);
-            });
-            dropdown.appendChild(categoryDiv);
-          });
-        });
-      };
 
-      setting.addEventListener('click', () => {
-        dropdown.classList.toggle('active');
-        if (dropdown.classList.contains('active')) {
-          generateSettingMenus();
-        }
-      });
-      modal.addEventListener("click", (e) => {// Click outside the buttons to hide the settings box.
-        if (!modal.querySelector(".modal-header .btns").contains(e.target)) {
-          dropdown.classList.remove("active");
-        }
-      });
-    };
-
-    const generateRequestStateBox = (modalBody) => {
-      const requestState = ext.helper.elementUtil.createElement("div", {
-        className: "request-state"
-      });
-      modalBody.append(requestState);
-      return requestState;
-    };
-
-    const generateRequestLoadding = () => {
-      return skeleton.generate();
-    };
-
-    const generateRequestLoaddingError = (icons, callback) => {
-      const retry = ext.helper.elementUtil.createElement("div", {
-        className: "loading-error-retry",
-        text: ext.helper.i18n.get("inspect_couponList_retry"),
-        attributes: {
-          "langue-extension-text": "inspect_couponList_retry"
-        }
-      });
-      retry.addEventListener("click", () => {
-        callback();
-      });
-
-      const error = ext.helper.elementUtil.createElement("div", {
-        className: "loading-error",
-        children: [
-        ext.helper.elementUtil.createElement("div", {
-          className: "loading-error-image",
-          html: icons["icon-network-error"]
-        }),
-        retry]
-
-      });
-      return error;
-    };
-
-    const setCouponsHtml = async (modal, icons) => {
-      const { outerDIV } = this._container;
-      const modalBody = modal.querySelector("div[name='modalBody']");
-
-      //Generation status
-      const requestStateBox = generateRequestStateBox(modalBody);
-      const requestLoadding = generateRequestLoadding();
-      const requestLoaddingError = generateRequestLoaddingError(icons, () => {
-        requestStateBox.remove();
-        setCouponsHtml(modal, icons);
-      });
-      requestStateBox.append(requestLoadding);
-
-      try {
-        const dataJson = await ext.helper.request.getDetectDataResult();
-        if (!dataJson) {
-          requestLoadding.remove();
-          requestStateBox.append(requestLoaddingError);
-          return;
-        }
-        requestStateBox.remove(); //Success removes the entire prompt node.
-
-        ext.logger("info", "CouponListModalHelper", "getDetectDataResult", dataJson);
-        const { css, html, names } = await detectCouponListTemplate.generate(dataJson);
-
-        if (!!css && !!html) {
-          ext.helper.elementUtil.addShadowRootStyle(this._container.shadowRoot, "coupon-list-modal", css);
-          modalBody.innerHTML = html;
-
-          [`[name="${names.cashbackBtnName}"]`, `[name="${names.clickToJumpBtnName}"]`].flatMap((selector) => {
-            return Array.from(modalBody.querySelectorAll(selector));
-          }).forEach((button) => {
-            ext.helper.util.bindCustomEvent(button, (option) => {
-
-              //This is the activation of proprietary logic.
-              if (button.getAttribute("name") === names.cashbackBtnName) {
-                ext.helper.util.addActivateCallbackEvent(outerDIV, option, detectCouponListTemplate.getActivateEventConfig());
-              }
-            });
-          });
-
-
-          //Binding Switch
-          const tabs = modalBody.querySelectorAll("a[data-toggle='tab']");
-          const tabPanes = modalBody.querySelectorAll(".tab-pane");
-          tabs.forEach((element) => {
-            element.addEventListener("click", function (e) {
-              e.preventDefault();
-              e.stopPropagation();
-
-              tabs.forEach((tab) => tab.classList.remove("active"));
-              e.target.classList.add("active");
-
-              tabPanes.forEach((tab) => tab.classList.remove("fade-in", "active"));
-              const toggle = modalBody.querySelector(e.target.getAttribute("data-href") || e.target.getAttribute("href"));
-              toggle.classList.add("fade-in", "active");
-            });
-          });
-
-          //Move-in and move-out event binding
-          const items = modalBody.querySelectorAll('.jox-acq-store-item');
-          items.forEach((item) => {
-            item.addEventListener('mouseenter', (e) => {
-              e.target.querySelector("span").classList.add("underline-show");
-            });
-            item.addEventListener('mouseleave', (e) => {
-              e.target.querySelector("span").classList.remove("underline-show");
-            });
-          });
-
-          //Bind custom verification coupon function
-          const activateButton = modalBody.querySelector(`*[name='${names.couponApplyBtnName}']`);
-          ext.helper.util.bindApplyCouponsEvent(activateButton, (dataJson) => {
-            removeModal(modal);
-            const { platform, codes, check, open } = dataJson;
-            Promise.resolve().then(() => {
-              progressModal.generate(
-                this._logoBase64OrUrl,
-                this._container,
-                platform, codes, check);
-            });
-            Promise.resolve().then(() => {
-              if (!!open) {
-                try {
-                  ext.helper.util.openUrl(open);
-                } catch (error) {
-                  ext.logger("error", "CouponListModalHelper", "generateCouponList", "detect error", error);
-                }
-              }
-            });
-          });
-        }
-
-      } catch (error) {
-        requestLoadding.remove();
-        requestStateBox.append(requestLoaddingError);
-        ext.logger("info", "CouponListModalHelper", "generateCouponList", "generate coupon list error, ", error);
-      }
-    };
-
-    const showAllComponents = () => {
-      ext.helper.coupon.couponInspectHelper.showRightWidget();
-      ext.helper.coupon.itemsHistory.show();
-    };
-
-    const hideAllComponents = () => {
-      ext.helper.coupon.couponInspectHelper.hideRightWidget();
-      ext.helper.coupon.itemsHistory.hide();
+                const priceText = priceElement ? priceElement.innerText : "Unknown";
+                const titleText = titleElement ? titleElement.innerText : "--";
+                const goods = {
+                    id, url: href, pic: imgSrc,
+                    date: Date.now(),
+                    price: priceText,
+                    title: titleText
+                };
+                ext.logger("info", "ItemsRecordHelper", "record", "goods detail> goods", goods);
+                ext.helper.coupon.itemsHistory.push(platform, goods);
+            }).catch(() => {});
+        };
     };
 
 
-    this._container = null;
-    this._logoBase64OrUrl = null;
     /**
-     * @param {Object} container The outermost DIV that contains all elements.
-     * @param {Object} modalPosition The position information of this model
-     * @param {Object} openedFrom Where it was opened from
+     * @param {*} ext
      */
-    this.generate = async (logoBase64OrUrl, container, title, modalPosition) => {
-      if (hasModal) return;
+    $.ActivateHelper = function (ext) {
+        const MIN_ACTIVATE_WIDGET_TOP = 50;
+        const toCssObject = (obj={}) =>{
+            const result = {};
+            for (const [key, value] of Object.entries(obj)) {
+                const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+                result[camelKey] = value;
+            }
+            return result;
+        };
 
-      const { outerDIV } = container;
-      const icons = await ext.helper.file.readContent("images/svg/", [
-      { name: "icon-settings", ext: "svg" },
-      { name: "icon-close", ext: "svg" },
-      { name: "icon-network-error", ext: "svg" }]
-      );
+        const getActivateTop = () => {
+            const defaultTop = ext.helper.dao.getDefaults().p.logoTop;
+            let top = ext.helper.dao.getData($.opts.storageKeys.position.logoTop, defaultTop);
+            const maxTop = window.innerHeight - MIN_ACTIVATE_WIDGET_TOP;
+            return Math.min(Math.max(top, 0), maxTop);
+        };
 
-      this._container = container;
-      this._logoBase64OrUrl = logoBase64OrUrl;
+        const updateActivateTop = (top) => {
+            ext.helper.dao.setDataByKey($.opts.storageKeys.position.logoTop, top);
+        };
 
-      const contentHtml = `
+        const addEventListenerDrag = (dragHandle, activateWidget) => {
+            let isDragging = false;
+            let startY, elementY;
+            const maxTop = () => window.innerHeight - MIN_ACTIVATE_WIDGET_TOP;
+
+            const onMouseMove = (e) => {
+                if (!isDragging) return;
+                const top = Math.min(Math.max(elementY + (e.clientY - startY), 0), maxTop());
+                activateWidget.style.top = `${top}px`;
+                updateActivateTop(top);
+            };
+
+            const onMouseUp = () => {
+                if (!isDragging) return;
+                isDragging = false;
+                document.removeEventListener("mousemove", onMouseMove);
+                document.removeEventListener("mouseup", onMouseUp);
+            };
+
+            dragHandle.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                isDragging = true;
+                startY = e.clientY;
+                elementY = parseInt(activateWidget.style.top, 10) || 0;
+                document.addEventListener("mousemove", onMouseMove);
+                document.addEventListener("mouseup", onMouseUp);
+            });
+        };
+
+        this.generate = (couponTotal, badgeData, dragData, interfaceData) => {
+            // Drag handle (right-side grip for vertical dragging)
+            const dragHandle = ext.helper.elementUtil.createElement("div", {
+                className: "activate-widget__drag-handle all-center",
+                style: toCssObject(dragData),
+                children: [ext.helper.elementUtil.createElement("img", {
+                    attributes: { src: "data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='10'%20height='17'%20viewBox='0%200%2010%2017'%3e%3cg%20id='drag_icon'%20data-name='drag%20icon'%20transform='translate(-756.458%20-5682.563)'%3e%3ccircle%20id='Ellipse_277'%20data-name='Ellipse%20277'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(756.458%205682.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_280'%20data-name='Ellipse%20280'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(763.458%205682.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_281'%20data-name='Ellipse%20281'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(756.458%205689.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_283'%20data-name='Ellipse%20283'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(756.458%205696.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_282'%20data-name='Ellipse%20282'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(763.458%205689.563)'%20fill='%23fff'/%3e%3ccircle%20id='Ellipse_284'%20data-name='Ellipse%20284'%20cx='1.5'%20cy='1.5'%20r='1.5'%20transform='translate(763.458%205696.563)'%20fill='%23fff'/%3e%3c/g%3e%3c/svg%3e", draggable: false }
+                })]
+            });
+
+            // Activate trigger (clickable logo/button area)
+            const triggerChildren = couponTotal
+                ? [ext.helper.elementUtil.createElement("div", {
+                    className: "notification all-center pulse-reveal",
+                    text: couponTotal,
+                    style: toCssObject(badgeData)
+                })]
+                : [];
+            const trigger = ext.helper.elementUtil.createElement("div", {
+                className: "activate-widget__trigger",
+                children: triggerChildren,
+                style: toCssObject(interfaceData)
+            });
+            const content = ext.helper.elementUtil.createElement("div", {
+                className: "activate-widget__content",
+                children: [trigger, dragHandle]
+            });
+            const activateWidget = ext.helper.elementUtil.createElement("div", {
+                className: "activate-widget",
+                attributes: { style: `top:${getActivateTop()}px` },
+                children: [content]
+            });
+
+            addEventListenerDrag(dragHandle, activateWidget);
+            return { activateWidget, trigger };
+        };
+    };
+
+
+    /**
+     * @param {*} ext
+     * @param {*} platformConfig
+     * @param {*} platformConfigs
+     */
+    $.CouponInspectHelper = function (ext, platformConfig, platformConfigs) {
+
+        const platform = platformConfig ? platformConfig.platformId : "unknown";
+
+        const commonTemplate = new $.DetectCommonTemplateHelper(ext);
+        const detectCouponListTemplate = new $.DetectCouponListTemplateHelper(ext, commonTemplate);
+        const detectFlyoutTemplate = new $.DetectFlyoutTemplateHelper(ext, commonTemplate);
+        
+        const activate = new $.ActivateHelper(ext); // Activate button
+        const couponListModal = new $.CouponListModalHelper(ext, platformConfigs, detectCouponListTemplate); // Coupon List Modal
+        const progressModal = new $.ProgressModalHelper(ext, platformConfigs);
+        
+        const modelNames = {
+            flyout: "flyout-model",
+            detect: "detect-model"
+        };
+
+        let inspectData = null; // Basic data of HTML elements
+        this._container = null;
+
+        // Prepare the data needed for inspection.
+        const buildInspectDataFromInfo = (infoJson) => {
+            const iconJson = infoJson.icon;
+            const cggJson = infoJson.cgg;
+            const observerTime = cggJson.observer_time ?? 20 * 1000;
+            // If not returned, use the local one.
+            const logoBase64OrUrl = cggJson.logo || $.api.runtime.getURL("images/logo/logo.png");
+
+            return {
+                activate: {
+                    show: infoJson.show, // Display activation button on the current page?
+                    toolbarIconFlyout: infoJson.toolbar_icon_flyout, // Can it be displayed through the top menu icon?
+                    toolbarIconFlash: infoJson.toolbar_icon_flash, // Whether to show the toolbar icon animation on load
+                    historyShow: infoJson.history_show, // Whether to display the history record function
+                    couponTotal: infoJson.coupon_total, // Number of badges in the upper left corner
+                    modalPosition: infoJson.modal, // Modal box pop-up data
+                    badgeData: iconJson.badge,
+                    dragData: iconJson.drag,
+                    interfaceData: iconJson.interface
+                },
+                couponListModal: {
+                    autoOpen: cggJson.auto_open, // Open automatically?
+                    modalTitle: cggJson.current_platform,
+                    logoBase64OrUrl,
+                    flyoutData: infoJson.flyoutData
+                },
+                elements: {
+                    moveToEnd: cggJson.move_to_end,
+                    observerTime,
+                    container: { outerDIV: null, shadowRoot: null } // Outermost container
+                }
+            };
+        };
+
+        /**
+         * Initializing loading data
+         */
+        const initInspectData = async () => {
+            try {
+                if (inspectData) return; // If initialization is already complete, return directly.
+
+                const infoJson = await ext.helper.request.getDetectCtrlResult();
+                if (!infoJson) return;
+
+                ext.logger("info", "CouponInspectHelper", "initInspectData", "detect info=========>", infoJson);
+
+                // Send update message request
+                ext.sendBackgroundMessage($.opts.messageActions.updateToolbar, {
+                    text: infoJson.toolbar_coupon_badge || "",
+                    toolbarIconFlash: infoJson.toolbar_icon_flash
+                });
+
+                inspectData = buildInspectDataFromInfo(infoJson);
+            } catch (error) {
+                inspectData = null;
+                ext.logger("error", "CouponInspectHelper", "initInspectData", "req exception", error);
+            }
+        };
+
+        const showFlyout = async (container, flyoutData) => {
+            const { outerDIV, shadowRoot } = container;
+            const { css, html, conf } = await detectFlyoutTemplate.generate(flyoutData);
+            if (!css || !html || !conf) return;
+
+            ext.helper.elementUtil.addShadowRootStyle(shadowRoot, modelNames.detect, css); // Add css
+            outerDIV.insertAdjacentHTML("beforeend", html); // Add html
+
+            const { flyOutContainerName, flyOutCashbackBtnName, flyOutCouponApplyBtnName,
+                delay, closeAnimation, flyOutCloseBtnClassName} = conf;
+
+            const closeFlyout = () => {
+                const flyoutEl = outerDIV.querySelector(`[name='${flyOutContainerName}']`);
+                if (flyoutEl) {
+                    if(closeAnimation){
+                        flyoutEl.classList.add(closeAnimation);
+                    } 
+                    flyoutEl.addEventListener("animationend", () => flyoutEl.remove(), { once: true });
+                }
+            };
+            if (conf.delay > 0){
+                setTimeout(closeFlyout, delay);
+            }
+
+            // Close button event
+            const closeButton = outerDIV.querySelector(flyOutCloseBtnClassName);
+            if (closeButton){
+                closeButton.addEventListener("click", closeFlyout);
+            }
+
+            // // Add Activation Authorization Event
+            ext.helper.util.bindCustomEvent(outerDIV.querySelector(`[name='${flyOutCashbackBtnName}']`), (option) => {
+                if (!option) {
+                    return;
+                }
+                if (option.dismissAfter) {
+                    closeFlyout();
+                }
+                if (option.callbackEvent) {
+                    ext.helper.util.addActivateCallbackEvent(outerDIV, option, detectFlyoutTemplate.getActivateEventConfig());
+                }
+            });
+
+            // Add automatic coupon verification event.
+            ext.helper.util.bindApplyCouponsEvent(outerDIV.querySelector(`[name='${flyOutCouponApplyBtnName}']`), (dataJson) => {
+                const { codes, check, open } = dataJson;
+                Promise.resolve().then(() => {
+                    progressModal.generate(
+                        inspectData.couponListModal.logoBase64OrUrl,
+                        container, platform, codes, check
+                    );
+                });
+                Promise.resolve().then(() => {
+                    if (open) {
+                        try {
+                            ext.helper.util.openUrl(open); 
+                        } catch (e) { 
+                            ext.logger("error", "CouponInspectHelper", "showFlyout", "detect error", e); 
+                        }
+                    }
+                });
+            });
+        };
+
+        /**
+         * @returns {Promise<{outerDIV: HTMLElement, shadowRoot: ShadowRoot}>}
+         * outerDIV needs to be exposed, and all subsequent elements will be children of this element.
+         */
+        const generateOuterContainer = async () => {
+            const dir = ext.helper.i18n.getDir();
+            const { moveToEnd, observerTime } = inspectData.elements;
+            const styles = Object.values(
+                await ext.helper.styleHelper.readCssContent(["shadow/base", "shadow/inspect", "shadow/skeleton"])
+              ).join("\n");
+            return ext.helper.elementUtil.generateShadowDomRoot(
+                `${platformConfig.platformId}-${modelNames.detect}`, styles, dir, moveToEnd, observerTime);
+        };
+
+        /**
+         * @param {number} openedFrom 1: Activate from current page, 2: Activate from tool menu
+         */
+        const generate = async (openedFrom = 1) => {
+            const windowShow = await ext.helper.featureToggle.isEnabled($.opts.featureToggleKeys.windowShow);
+            await initInspectData();
+
+            // If there is no initial data, return directly.
+            if (!inspectData) return;
+
+            const { show, toolbarIconFlyout, historyShow, couponTotal, modalPosition, badgeData, dragData, interfaceData } = inspectData.activate;
+            const { autoOpen, modalTitle, logoBase64OrUrl, flyoutData } = inspectData.couponListModal;
+
+            if (historyShow && openedFrom === 1) {
+                ext.helper.coupon.itemsHistory.run().then(() => {
+                    // Whether the history record is displayed is subject to the settings.
+                    if (!windowShow) ext.helper.coupon.itemsHistory.hide();
+                });
+            }
+
+            // If not displayed, return directly.
+            if ((!show && openedFrom === 1) || (!toolbarIconFlyout && openedFrom === 2)) return;
+
+            // Generate the outermost container
+            let container = inspectData.elements.container;
+            if (!container.outerDIV || !container.shadowRoot) {
+                container = await generateOuterContainer();
+                container.outerDIV.setAttribute("data-re-mark-tag", platform);
+                inspectData.elements.container = container;
+            }
+            this._container = container;
+
+            const { outerDIV } = container;
+            if (openedFrom === 1) {
+                const { activateWidget, trigger } = activate.generate(couponTotal, badgeData, dragData, interfaceData); // Generate activation button
+                outerDIV.append(activateWidget);
+                // The display of the right button and the automatic display of the coupon list should be affected by the settings.
+                activateWidget.style.display = windowShow ? "" : "none";
+                if (windowShow && autoOpen) {
+                    couponListModal.generate(logoBase64OrUrl, container, modalTitle, modalPosition);
+                }
+                trigger.addEventListener("click", () => couponListModal.generate(logoBase64OrUrl, container, modalTitle, modalPosition)); // Click event
+            } else if (openedFrom === 2) {
+                couponListModal.generate(logoBase64OrUrl, container, modalTitle, modalPosition);
+            }
+
+            // Add flyout, ensure the right button is displayed first, then show the flyout.
+            if (openedFrom === 1) {
+                setTimeout( async () => {
+                    await showFlyout(container, flyoutData);
+                    outerDIV.setAttribute("status", "complete");
+                }, 1000);
+            }
+        };
+
+        // Show right activation button (used by couponListModal)
+        this.showRightWidget = () => {
+            const widget = this._container?.outerDIV?.querySelector(".activate-widget");
+            if (widget) widget.style.display = "block";
+        };
+
+        // Hide right activation button (used by couponListModal)
+        this.hideRightWidget = () => {
+            const widget = this._container?.outerDIV?.querySelector(".activate-widget");
+            if (widget) widget.style.display = "none";
+        };
+
+        this.run = async (openedFrom = 1) => {
+            await generate(openedFrom);
+        };
+    };
+
+
+    /**
+     * @param {*} ext
+     * @param {*} platformConfigs
+     */
+    $.CouponListModalHelper = function (ext, platformConfigs, detectCouponListTemplate) {
+
+        const HIDE_30_MINUTES = 30;
+        let hasModal = false; // Is there already a modal box?
+
+        const progressModal = new $.ProgressModalHelper(ext, platformConfigs);
+        const skeleton = new $.CouponListWidgetSkeleton(ext, 10);
+        
+        const toCssString = (obj) => Object.entries(obj || {})
+            .map(([k, v]) => `${k.replace("_", "-")}:${v}`)
+            .join(";");
+
+        /**
+         * Remove modal must call this method.
+         */
+        const removeModal = (modal) => {
+            modal.remove();
+            hasModal = false;
+        };
+
+        const addCloseEventListener = (button, modal) => {
+            button.addEventListener("click", () => removeModal(modal));
+        };
+
+        const addShowSettingEventListener = (modal) => {
+            const setting = modal.querySelector(".modal-header .btns > .setting");
+            const dropdown = modal.querySelector(".modal-header #settingsDropdown");
+            const settingsData = [
+                {
+                    category: ext.helper.i18n.get("setting_window_display_title"),
+                    items: [
+                        { id: "hide30m", label: ext.helper.i18n.get("setting_window_display_hide30m", [HIDE_30_MINUTES]) },
+                        { id: "hideSession", label: ext.helper.i18n.get("setting_window_display_session") },
+                        { id: "showAll", label: ext.helper.i18n.get("setting_window_display_all") }
+                    ]
+                },
+                {
+                    category: ext.helper.i18n.get("setting_window_general_title"),
+                    items: [
+                        { id: "general", label: ext.helper.i18n.get("setting_window_general_label") }
+                    ]
+                }
+            ];
+
+            const filterSettingsData = async () => {
+                const windowShow = await ext.helper.featureToggle.isEnabled(
+                    $.opts.featureToggleKeys.windowShow
+                );
+                return settingsData.map(group => ({
+                    ...group,
+                    items: group.items
+                        .map(item => ({ ...item }))
+                        .filter(item => {
+                            // unsupported sessionStorage
+                            if (!$.api.storage.session && item.id === "hideSession") {
+                                return false;
+                            }
+                            if (windowShow) {
+                                return item.id !== "showAll";
+                            }
+
+                            return item.id === "showAll" || item.id === "general";
+                        })
+                }));
+            };
+
+            const generateSettingMenus = () => {
+                filterSettingsData().then((groups) => {
+                    dropdown.innerHTML = '';
+                    groups.forEach(group => {
+                        const categoryDiv = document.createElement('div');
+                        categoryDiv.className = 'setting-category';
+
+                        const title = document.createElement('div');
+                        title.className = 'setting-category-title';
+                        title.textContent = group.category;
+                        categoryDiv.appendChild(title);
+
+                        group.items.forEach(item => {
+                            const opt = document.createElement('div');
+                            opt.className = 'setting-option';
+                            opt.textContent = item.label;
+                            opt.dataset.id = item.id;  //Set the data-id attribute
+                            opt.addEventListener("click", () => {
+                                if (item.id === "hide30m") {
+                                    ext.helper.featureToggle.disableTemporarily($.opts.featureToggleKeys.windowShow, HIDE_30_MINUTES * 60 * 1000);
+                                    hideAllComponents();
+                                    removeModal(modal);
+                                } else if (item.id === "hideSession") {
+                                    ext.helper.featureToggle.disableForSession($.opts.featureToggleKeys.windowShow);
+                                    hideAllComponents();
+                                    removeModal(modal);
+                                } else if (item.id === "showAll") {
+                                    ext.helper.featureToggle.enable($.opts.featureToggleKeys.windowShow);
+                                    showAllComponents();
+                                } else if (item.id === "general") {
+                                    removeModal(modal);
+                                    new $.SettingHelper(ext).showDialog();
+                                }
+                                dropdown.classList.remove("active");
+                            });
+                            categoryDiv.appendChild(opt);
+                        });
+                        dropdown.appendChild(categoryDiv);
+                    });
+                });
+            };
+
+            setting.addEventListener('click', () => {
+                dropdown.classList.toggle('active');
+                if (dropdown.classList.contains('active')) {
+                    generateSettingMenus();
+                }
+            });
+            modal.addEventListener("click", (e) => { // Click outside the buttons to hide the settings box.
+                if (!modal.querySelector(".modal-header .btns").contains(e.target)) {
+                    dropdown.classList.remove("active");
+                }
+            });
+        };
+
+        const generateRequestStateBox = (modalBody) => {
+            const requestState = ext.helper.elementUtil.createElement("div", {
+                className:"request-state"
+            });
+            modalBody.append(requestState);
+            return requestState;
+        };
+
+        const generateRequestLoadding = () => {
+            return skeleton.generate();
+        };
+
+        const generateRequestLoaddingError = (icons, callback) => {
+            const retry = ext.helper.elementUtil.createElement("div", {
+                className:"loading-error-retry",
+                text:ext.helper.i18n.get("inspect_couponList_retry"),
+                attributes:{
+                    "langue-extension-text":"inspect_couponList_retry"
+                }
+            });
+            retry.addEventListener("click", ()=>{
+                callback();
+            });
+            
+            const error = ext.helper.elementUtil.createElement("div", {
+                className:"loading-error",
+                children:[
+                    ext.helper.elementUtil.createElement("div", {
+                        className:"loading-error-image",
+                        html: icons["icon-network-error"]
+                    }),
+                    retry
+                ]
+            });
+            return error;
+        };
+
+        const setCouponsHtml =  async (modal, icons) => {
+            const {outerDIV} = this._container;
+            const modalBody = modal.querySelector("div[name='modalBody']");
+
+            //Generation status
+            const requestStateBox = generateRequestStateBox(modalBody);
+            const requestLoadding = generateRequestLoadding();
+            const requestLoaddingError = generateRequestLoaddingError(icons, () => {
+                requestStateBox.remove();
+                setCouponsHtml(modal, icons);
+            });
+            requestStateBox.append(requestLoadding);
+
+            try{
+                const dataJson = await ext.helper.request.getDetectDataResult();
+                if(!dataJson){
+                    requestLoadding.remove();
+                    requestStateBox.append(requestLoaddingError);
+                    return;
+                }
+                requestStateBox.remove();  //Success removes the entire prompt node.
+
+                ext.logger("info", "CouponListModalHelper", "getDetectDataResult", dataJson);
+                const { css, html, names } = await detectCouponListTemplate.generate(dataJson);
+
+                if(!!css && !!html){    
+                    ext.helper.elementUtil.addShadowRootStyle(this._container.shadowRoot, "coupon-list-modal", css);
+                    modalBody.innerHTML = html;
+            
+                    [`[name="${names.cashbackBtnName}"]`, `[name="${names.clickToJumpBtnName}"]`].flatMap(selector => {
+                        return Array.from(modalBody.querySelectorAll(selector));
+                    }).forEach((button) => {
+                        ext.helper.util.bindCustomEvent(button, (option)=>{
+
+                            //This is the activation of proprietary logic.
+                            if(button.getAttribute("name") === names.cashbackBtnName){ 
+                                ext.helper.util.addActivateCallbackEvent(outerDIV, option, detectCouponListTemplate.getActivateEventConfig());
+                            }
+                        });
+                    });
+
+            
+                    //Binding Switch
+                    const tabs = modalBody.querySelectorAll("a[data-toggle='tab']");
+                    const tabPanes = modalBody.querySelectorAll(".tab-pane");
+                    tabs.forEach((element)=>{
+                        element.addEventListener("click", function(e){
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        tabs.forEach(tab => tab.classList.remove("active"));
+                        e.target.classList.add("active");
+            
+                        tabPanes.forEach(tab => tab.classList.remove("fade-in","active"));
+                            const toggle = modalBody.querySelector(e.target.getAttribute("data-href") || e.target.getAttribute("href"));
+                            toggle.classList.add("fade-in","active");
+                        });
+                    });
+            
+                    //Move-in and move-out event binding
+                    const items = modalBody.querySelectorAll('.jox-acq-store-item');
+                    items.forEach(item => {
+                        item.addEventListener('mouseenter', (e) => {
+                            e.target.querySelector("span").classList.add("underline-show");
+                        });
+                        item.addEventListener('mouseleave', (e) => {
+                            e.target.querySelector("span").classList.remove("underline-show");
+                        });
+                    });
+            
+                    //Bind custom verification coupon function
+                    const activateButton = modalBody.querySelector(`*[name='${names.couponApplyBtnName}']`);
+                    ext.helper.util.bindApplyCouponsEvent(activateButton, (dataJson) => {
+                        removeModal(modal);
+                        const {platform, codes, check, open} = dataJson;
+                        Promise.resolve().then(() => {
+                            progressModal.generate(
+                                this._logoBase64OrUrl,
+                                this._container,
+                                platform, codes, check);
+                        });
+                        Promise.resolve().then(() => {
+                            if(!!open){
+                                try {
+                                    ext.helper.util.openUrl(open);
+                                } catch (error) {
+                                    ext.logger("error", "CouponListModalHelper", "generateCouponList", "detect error", error);
+                                }
+                            }
+                        });
+                    });
+                }
+ 
+            } catch (error) {
+                requestLoadding.remove();
+                requestStateBox.append(requestLoaddingError);
+                ext.logger("info", "CouponListModalHelper", "generateCouponList", "generate coupon list error, ", error);
+            }
+        };
+
+        const showAllComponents = () => {
+            ext.helper.coupon.couponInspectHelper.showRightWidget();
+            ext.helper.coupon.itemsHistory.show();
+        };
+
+        const hideAllComponents = () => {
+            ext.helper.coupon.couponInspectHelper.hideRightWidget();
+            ext.helper.coupon.itemsHistory.hide();
+        };
+
+
+        this._container = null;
+        this._logoBase64OrUrl = null;
+        /**
+         * @param {Object} container The outermost DIV that contains all elements.
+         * @param {Object} modalPosition The position information of this model
+         * @param {Object} openedFrom Where it was opened from
+         */
+        this.generate = async (logoBase64OrUrl, container, title, modalPosition) => {
+            if (hasModal) return;
+
+            const { outerDIV } = container;
+            const icons = await ext.helper.file.readContent("images/svg/", [
+                { name: "icon-settings", ext: "svg" },
+                { name: "icon-close", ext: "svg" },
+                { name: "icon-network-error", ext: "svg" }
+            ]);
+
+            this._container = container;
+            this._logoBase64OrUrl = logoBase64OrUrl;
+            
+            const contentHtml = `
                 <div class="modal-header">
                     <div class="logo"><img src="${logoBase64OrUrl}" /></div>
                     <div class="title">${title}</div>
@@ -29886,602 +29876,602 @@
                 </div>
                 <div class="modal-body" name="modalBody"></div>
             `;
-      const modal = ext.helper.elementUtil.createElement("div", {
-        className: "coupon-list-widget-conent",
-        html: contentHtml,
-        attributes: { style: toCssString(modalPosition) }
-      });
-      outerDIV.append(modal);
-      hasModal = true;
-
-      //Get elements from HTML
-      const close = modal.querySelector(".modal-header .btns> .close");
-
-      addCloseEventListener(close, modal);
-      addShowSettingEventListener(modal);
-      setCouponsHtml(modal, icons);
-
-      return modal;
-    };
-  };
-
-
-  /**
-   * This is a basic method for platform-specific coupon auto-detect.
-   */
-  const AutoDetectBase = function () {
-    this.BUTTON_CLICK_PASUE_MS = 700; // After clicking the verification button, wait before proceeding.
-    this.VALIDATE_DELAY_MAX_MS = 10 * 1000; // Maximum wait time for verification
-    this.VALIDATE_LOOP_DELAY_MS = 1500; // Polling task, detecting coupon verification results.
-    this.VALIDATE_END_PASUE_MS = 500; // After verification is complete, delay the return for a better viewing experience.
-    this.HookType = { react: "react", default: "default" };
-
-    const unsafeWindow = window;
-
-    /**
-     * react directly input.value value will not update, use this hook to solve it
-     * @param {HTMLInputElement} element
-     * @param {string} value
-     * @param {boolean} useSetter
-     */
-    this.reactHook = function (element, value, useSetter = true) {
-      const inputEvent = new InputEvent("input", {
-        view: unsafeWindow,
-        bubbles: true,
-        cancelable: true
-      });
-      const changeEvent = new InputEvent("change", {
-        view: unsafeWindow,
-        bubbles: true,
-        cancelable: true
-      });
-      const keyupEvent = new InputEvent("keyup", {
-        view: unsafeWindow,
-        bubbles: true,
-        cancelable: true
-      });
-
-      // Temporarily make the element editable
-      element.setAttribute("readonly", "readonly");
-      setTimeout(() => {
-        element.removeAttribute("readonly");
-      }, 200);
-
-      // Set the value using the property descriptor setter if available
-      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-      if (valueSetter && useSetter) {
-        valueSetter.call(element, value);
-      } else {
-        element.value = value;
-      }
-
-      // Dispatch events to notify listeners
-      element.dispatchEvent(inputEvent);
-      element.dispatchEvent(changeEvent);
-      element.dispatchEvent(keyupEvent);
-    };
-
-    this.unusedHook = function (element, value) {
-      element.value = value;
-    };
-
-    /**
-     * @param {Object} support
-     * This is the first step in verifying the coupon: checking if the element exists.
-     * Here is to determine if there is input; the application button may be hidden.
-     */
-    this.validate = function (supportData) {
-      const submitButton = document.querySelector(supportData.submitButtonSelector);
-      const couponInput = document.querySelector(supportData.couponInputSelector);
-      const validateData = { "couponInput": null, "submitButton": null };
-      if (couponInput) {
-        validateData.couponInput = couponInput;
-        validateData.submitButton = submitButton;
-      }
-      return validateData;
-    };
-
-    /**
-     * @param {Object} support
-     * This is the second step of coupon verification: enter the code and click the verify button.
-     * Part Three: Verification Results, to be independently implemented by the platform.
-     */
-    this.clickValidateButton = function (supportData, couponInput, submitButton, code, hookType) {
-      if (!couponInput) {
-        return new Promise((resolve) => {
-          resolve(false);
-        });
-      }
-
-      if (hookType === this.HookType.react) {
-        this.reactHook(couponInput, code);
-      } else if (hookType === this.HookType.default) {
-        this.unusedHook(couponInput, code);
-      }
-
-      //Get it again, mainly to handle the situation where the button is displayed after generating the input code.
-      if (!submitButton) {
-        submitButton = document.querySelector(supportData.submitButtonSelector);
-        if (!submitButton) {
-          return new Promise((resolve) => {
-            resolve(false);
-          });
-        }
-      }
-
-      return new Promise((resolve) => {
-        const clickPromise = new Promise((resolveCheck) => {
-          setTimeout(() => {
-            submitButton.click();
-            resolveCheck(true);
-          }, this.BUTTON_CLICK_PASUE_MS);
-        });
-        clickPromise.then((result) => {
-          resolve(result);
-        });
-      });
-    };
-
-  };
-
-
-  /**
-   * AliExpress coupon verification logic
-   * @param {*} ext 
-   */
-  $.AliexpressAutoDetectHelper = function (ext) {
-    AutoDetectBase.call(this); //Inherit the properties of AutoDetectBase
-
-    this.start = function (supportData, code) {
-      const { couponInput, submitButton } = this.validate(supportData);
-
-      return new Promise(async (resolve) => {
-        const clickResult = await this.clickValidateButton(supportData, couponInput, submitButton, code, this.HookType.react);
-        if (!clickResult) {
-          resolve(clickResult);
-          return;
-        }
-
-        /**
-         * ===========
-         * This is independent logic.
-         * ===========
-         */
-        let errors = null,existingCode = null,inputCode = null;
-        let checkResult = false,current = 0;
-
-        //Loop detection to check if execution is complete.
-        const checkInterval = setInterval(() => {
-          errors = document.querySelector(supportData.applyErrorSelector);
-          if (supportData.existingCodeSelector) {
-            existingCode = document.querySelector(supportData.existingCodeSelector);
-          }
-          inputCode = document.querySelector(supportData.couponInputSelector);
-
-          //In some cases on AliExpress, the input box disappears after successful verification.
-          if (errors || existingCode || !inputCode || current >= this.VALIDATE_DELAY_MAX_MS) {
-            clearInterval(checkInterval);
-            checkResult = !!existingCode || !inputCode;
-            setTimeout(() => {//After verification is complete, delay the return for a better viewing experience.
-              resolve(checkResult);
-            }, this.VALIDATE_END_PASUE_MS);
-          }
-
-          current += this.VALIDATE_LOOP_DELAY_MS;
-        }, this.VALIDATE_LOOP_DELAY_MS);
-
-        /**
-         * ===========
-         * This is independent logic.
-         * ===========
-         */
-      });
-    };
-  };
-
-
-  /**
-   * eBay coupon verification logic
-   * @param {*} ext 
-   */
-  $.EbayAutoDetectHelper = function (ext) {
-    AutoDetectBase.call(this); //Inherit the properties of AutoDetectBase
-
-    this.start = function (supportData, code) {
-      const { couponInput, submitButton } = this.validate(supportData);
-
-      return new Promise(async (resolve) => {
-        const clickResult = await this.clickValidateButton(supportData, couponInput, submitButton, code, this.HookType.react);
-        if (!clickResult) {
-          resolve(clickResult);
-          return;
-        }
-
-        /**
-         * ===========
-         * This is independent logic.
-         * ===========
-         */
-        let errors = null,existingCode = null;
-        let checkResult = false,current = 0;
-
-        //If there are errors before performing the check, delete them.
-        //This is eBay's unique logic.
-        errors = document.querySelector(supportData.applyErrorSelector);
-        if (errors) {
-          errors.remove();
-        }
-
-        //Loop detection to check if execution is complete.
-        const checkInterval = setInterval(() => {
-          errors = document.querySelector(supportData.applyErrorSelector);
-          if (supportData.existingCodeSelector) {
-            existingCode = document.querySelector(supportData.existingCodeSelector);
-          }
-
-          if (errors || existingCode || current >= this.VALIDATE_DELAY_MAX_MS) {
-            clearInterval(checkInterval);
-            checkResult = !!existingCode;
-            setTimeout(() => {//After verification is complete, delay the return for a better viewing experience.
-              resolve(checkResult);
-            }, this.VALIDATE_END_PASUE_MS);
-          }
-
-          current += this.VALIDATE_LOOP_DELAY_MS;
-        }, this.VALIDATE_LOOP_DELAY_MS);
-
-        /**
-         * ===========
-         * This is independent logic.
-         * ===========
-         */
-      });
-    };
-  };
-
-  /**
-   * Amazon coupon verification logic
-   * @param {*} ext 
-   */
-  $.AmazonAutoDetectHelper = function (ext) {
-    AutoDetectBase.call(this); //Inherit the properties of AutoDetectBase
-
-    this.start = function (supportData, code) {
-      const { couponInput, submitButton } = this.validate(supportData);
-
-      return new Promise(async (resolve) => {
-        const clickResult = await this.clickValidateButton(supportData, couponInput, submitButton, code, this.HookType.react);
-        if (!clickResult) {
-          resolve(clickResult);
-          return;
-        }
-
-        /**
-         * ===========
-         * This is independent logic.
-         * ===========
-         */
-        let errors = null,existingCode = null,loading = null;
-        let checkResult = false,current = 0;
-
-        //Loop detection to check if execution is complete.
-        const checkInterval = setInterval(() => {
-          loading = document.querySelector(supportData.loadingSelector);
-          if (!loading) {
-            errors = document.querySelector(supportData.applyErrorSelector);
-            if (supportData.existingCodeSelector) {
-              existingCode = document.querySelector(supportData.existingCodeSelector);
-            }
-
-            if (errors || existingCode || current >= this.VALIDATE_DELAY_MAX_MS) {
-              clearInterval(checkInterval);
-              checkResult = !!existingCode;
-              setTimeout(() => {//After verification is complete, delay the return for a better viewing experience.
-                resolve(checkResult);
-              }, this.VALIDATE_END_PASUE_MS);
-            }
-          }
-          current += this.VALIDATE_LOOP_DELAY_MS;
-        }, this.VALIDATE_LOOP_DELAY_MS);
-
-        /**
-         * ===========
-         * This is independent logic.
-         * ===========
-         */
-      });
-    };
-  };
-
-
-  /**
-   * All automatic ticket verification calls are made here.
-   * The entire process draws inspiration from: Shop Mail
-   * https://chromewebstore.google.com/detail/shop-mail-%E2%80%94-the-only-coup/hjimmklopenmealinniilgohbmglfooi?hl=zh-CN&utm_source=ext_sidebar
-   */
-  //This is an internal method and is not allowed to be called in other JavaScript files.
-  const DetectHelper = function (ext) {
-    /**
-     * Expands the coupon input box by clicking expand selectors. Only for platforms that require it.
-     */
-    this._tryClickExpand = function (supportData) {
-      //If the input box is found, return it directly.
-      const { couponInputSelector, expandCodeBoxSelectors } = supportData;
-      const couponInput = document.querySelector(couponInputSelector);
-      if (couponInput) {
-        return new Promise((resolve) => {resolve(true);});
-      }
-      //If couponInput does not exist, but the selector is not expanded, this is an error and should be returned directly.
-      //This is a configuration error.
-      if (!expandCodeBoxSelectors || expandCodeBoxSelectors.length == 0) {
-        return new Promise((resolve) => {
-          resolve(false);
-        });
-      }
-      //Start performing click operations after the configuration check is completed.
-      return new Promise(async (resolve) => {
-        let result = false;
-        for (let i = 0; i < expandCodeBoxSelectors.length; i++) {
-          const elements = document.querySelectorAll(expandCodeBoxSelectors[i]);
-          for (let j = 0; j < elements.length; j++) {
-            let element = elements[j];
-            ext.logger("info", "AutoDetectUtilHelper", "_tryClickExpand", "expand element##############", element);
-            element.click();
-
-            result = await new Promise((resolveInner) => {
-              let elapsed = 0;
-              const interval = 200,maxTime = 6000;
-              //The only criterion for determining success is whether there is a code input box.
-              const timer = setInterval(() => {
-                let hasCouponInput = document.querySelector(couponInputSelector);
-                if (hasCouponInput) {
-                  clearInterval(timer);
-                  resolveInner(true);
-                } else if (elapsed >= maxTime) {
-                  clearInterval(timer);
-                  resolveInner(false);
-                }
-                elapsed += interval;
-              }, interval);
+            const modal = ext.helper.elementUtil.createElement("div", {
+                className: "coupon-list-widget-conent",
+                html: contentHtml,
+                attributes: { style: toCssString(modalPosition) }
             });
-            if (result) {
-              break;
-            }
-          }
-          if (result) {
-            break;
-          }
-        }
-        resolve(result);
-      });
-    };
+            outerDIV.append(modal);
+            hasModal = true;
+        
+            //Get elements from HTML
+            const close = modal.querySelector(".modal-header .btns> .close");
 
-    /**
-     * @param {Object} support
-     * Try to open the input code box group; only after it is successfully opened can subsequent processing be performed.
-     * For platforms that do not require opening, directly return true.
-     */
-    this.isPrepared = function (supportData) {
-      return new Promise((resolve) => {
-        //1. Verify the overall existence
-        ext.logger("info", "AutoDetectUtilHelper", "isPrepared", "##############", "step 1: Verify that the container exists");
-        $.waitForSelector(supportData.promoContainerSelector, { "target": document.body, "allowEmpty": true, "timeout": 5 * 1000 }).then((promoContainerElement) => {
-          if (promoContainerElement) {
-            //2. Verify whether the code input box needs to be expanded.
-            ext.logger("info", "AutoDetectUtilHelper", "isPrepared", "##############", "step 2: Verify whether the code input box needs to be expanded");
-            this._tryClickExpand(supportData).then((result) => {
-              ext.logger("info", "AutoDetectUtilHelper", "isPrepared", "##############", "step 3: Expanded result", result);
-              //Return verification result
-              resolve(result);
-            });
-          } else {//If the outermost frame does not exist, return false directly.
-            resolve(false);
-          }
-        }).catch(() => {
-          resolve(false);
-        });
-      });
-    };
-  };
+            addCloseEventListener(close, modal);
+            addShowSettingEventListener(modal);
+            setCouponsHtml(modal, icons);
 
-  /**
-   * For external js, call this method where validation is needed.
-   */
-  $.AutoDetectUtilHelper = function (ext, platformConfigs) {
-
-    const detectHelper = new DetectHelper(ext);
-
-    this.validate = async function (platform, supportData) {
-      ext.logger("info", "AutoDetectUtilHelper", "validate", "platform=========>", platform);
-      ext.logger("info", "AutoDetectUtilHelper", "validate", "supportData=========>", supportData);
-      const preparedData = { result: false };
-      if (platform && supportData) {
-        const isPrepared = await detectHelper.isPrepared(supportData);
-        preparedData.result = isPrepared;
-      }
-      ext.logger("info", "AutoDetectUtilHelper", "validate", "validate data=========>", preparedData);
-      return preparedData;
-    };
-
-    /**
-     * Each platform performs the following coupon verification operation according to different logics.
-     * @param {string} platform
-     * @param {Object} supportData {domain, data} = support
-     * @param {string} code
-     * @returns {Promise<boolean>|null}
-     */
-    this.tryCode = function (platform, supportData, code) {
-      const platformHelpers = {
-        [platformConfigs.aliexpress.platformId]: $.AliexpressAutoDetectHelper,
-        [platformConfigs.ebay.platformId]: $.EbayAutoDetectHelper,
-        [platformConfigs.amazon.platformId]: $.AmazonAutoDetectHelper
-      };
-      const HelperClass = platformHelpers[platform];
-      if (!HelperClass) return null;
-      try {
-        return new HelperClass(ext).start(supportData, code);
-      } catch (e) {
-        ext.logger("error", "AutoDetectUtilHelper", "tryCode", "auto try code,", e);
-        return null;
-      }
-    };
-  };
-
-
-  /**
-   * @param {*} ext
-   * @param {*} platformConfigs
-   */
-  $.ProgressModalHelper = function (ext, platformConfigs) {
-    const ALERT_HIDDEN_DELAY_MS = 4000;
-
-    this.checkIsStop = false; // Check if stopped
-    const maskHelper = new $.MaskHelper(ext);
-    const autoDetectUtil = new $.AutoDetectUtilHelper(ext, platformConfigs);
-    const customAlert = new $.AlertHelper();
-
-    const _start = () => {
-      this.checkIsStop = false;
-      document.body.style.overflow = 'hidden';
-    };
-
-    const _end = () => {
-      document.body.style.overflow = 'auto';
-      this.checkIsStop = true;
-    };
-
-    const initProgress = (progressBar) => {
-      progressBar.style.width = "0%";
-    };
-
-    const updateProgressValue = (progressBar, value) => {
-      progressBar.style.width = value * 100 + "%";
-    };
-
-    const activeCouponItem = (couponItem) => {
-      couponItem.classList.add("coupon-item-active");
-    };
-
-    const inactiveCouponItem = (couponItem) => {
-      ext.helper.elementUtil.removeClass(couponItem, "coupon-item-lose");
-      couponItem.classList.add("coupon-item-lose");
-    };
-
-    const closeModal = (mask) => {
-      mask.remove();
-      _end();
-    };
-
-    const addCloseEventListener = (mask, modal) => {
-      modal.querySelector("div[class^='close']").addEventListener("click", () => {
-        closeModal(mask);
-      });
-    };
-
-    const couponScrollToCenter = (couponsWarpper, element) => {
-      const couponsWarpperRect = couponsWarpper.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
-      const scrollLeft = couponsWarpper.scrollLeft + (elementRect.left + elementRect.width / 2) - (couponsWarpperRect.left + couponsWarpperRect.width / 2);
-      couponsWarpper.scrollTo({
-        left: scrollLeft,
-        behavior: 'smooth'
-      });
-    };
-
-    const showCouponItems = async (mask, modal, platform, coupons, supportData) => {
-      const couponsWarpper = modal.querySelector("div[class^='deal-coupons-warpper']");
-      const progressBar = modal.querySelector("div[class^='progress-bar']");
-      const progressText = modal.querySelector("span[class^='progress-text']");
-
-      const icons = await ext.helper.file.readContent("images/svg/", [
-      { name: "icon-success", ext: "svg" },
-      { name: "icon-error", ext: "svg" }]
-      );
-
-      //Dynamically generate HTML
-      const couponElements = coupons.map((coupon) => {
-        return {
-          "element": ext.helper.elementUtil.createElement("div", {
-            className: "coupon-item",
-            text: coupon
-          }),
-          "code": coupon
+            return modal;
         };
-      });
-      couponElements.forEach((item, index) => {
-        couponsWarpper.append(item.element);
-      });
-
-      const total = coupons.length;
-      initProgress(progressBar);
-
-      //Start verifying tickets: Preparations
-      const validateData = await autoDetectUtil.validate(platform, supportData);
-      if (!validateData || !validateData.result) {
-        closeModal(mask);
-        customAlert.show({
-          icon: icons["icon-error"],
-          message: ext.helper.i18n.get("inspect_autoDetect_alert_error"),
-          delay: ALERT_HIDDEN_DELAY_MS
-        });
-        return;
-      }
-
-      const results = [];
-      for (let index = 0; index < total; index++) {
-        if (this.checkIsStop) {
-          break;
-        }
-        const { element, code } = couponElements[index];
-        if (index !== 0) {
-          inactiveCouponItem(couponElements[index - 1].element);
-        }
-        progressText.textContent = `(${index + 1}/${total})`;
-
-        activeCouponItem(element);
-        couponScrollToCenter(couponsWarpper, element);
-        updateProgressValue(progressBar, (index + 1) / total);
-
-        let result = await autoDetectUtil.tryCode(platform, supportData, code);
-        results.push({ "code": code, "result": result });
-        if (result) {
-          break;
-        }
-      }
-      // If none are effective in the end, simply close or execute other logic.
-      closeModal(mask);
-      const successCodeObj = results.find((item) => item.result === true);
-      customAlert.show({
-        icon: icons[successCodeObj ? "icon-success" : "icon-error"],
-        message: ext.helper.i18n.get(successCodeObj ? "inspect_autoDetect_alert_success" : "inspect_autoDetect_alert_error"),
-        delay: ALERT_HIDDEN_DELAY_MS
-      });
     };
 
-    this.generate = async (logoBase64OrUrl, container, platform, coupons, supportData) => {
-      const icons = await ext.helper.file.readContent("images/svg/", [{ name: "icon-close", ext: "svg" }]);
 
-      //TEST================
-      // supportData = {
-      //   "promoContainerSelector":"div[class*='CheckoutSummaryRedesign__container']",
-      //   "expandCodeBoxSelectors":[
-      //     "div[class*='RedCheckoutSummaryRedesign_Coupon__coupon__'] span[class*='Coupon__couponText']",
-      //     "div[class*='RedCheckoutSummaryRedesign_TotalPrice__container__'] span[class*='Coupon__couponText']",
-      //     "div[class*='RedCheckoutSummaryRedesign_TotalPrice__container__'] span[class*='TotalPrice']"
-      //   ],
-      //   "couponInputSelector":"div[class^='RedCheckoutSummaryRedesign_Coupon__inputWrap__'] input",
-      //   "submitButtonSelector":"div[class^='RedCheckoutSummaryRedesign_Coupon__button__'] >button",
-      //   "applyErrorSelector":"div[class^='RedCheckoutSummaryRedesign_Coupon__inputWrap__'] span[class*='Input__error']",
-      //   "existingCodeSelector":"", // Determine via input
-      //   "removeCodeAction":"",
-      //   "onlyOneCanBeUsed":false,
-      //   "finalPriceSelector":""
-      // }
-      // coupons = ["12345", "7FOR70", "7SAF2YVI", "12345"]; //7FOR70
-      //TEST================
+    /**
+     * This is a basic method for platform-specific coupon auto-detect.
+     */
+    const AutoDetectBase = function () {
+        this.BUTTON_CLICK_PASUE_MS = 700; // After clicking the verification button, wait before proceeding.
+        this.VALIDATE_DELAY_MAX_MS = 10 * 1000; // Maximum wait time for verification
+        this.VALIDATE_LOOP_DELAY_MS = 1500; // Polling task, detecting coupon verification results.
+        this.VALIDATE_END_PASUE_MS = 500; // After verification is complete, delay the return for a better viewing experience.
+        this.HookType = { react: "react", default: "default" };
 
-      _start();
-      const modalHtml = `
+        const unsafeWindow = window;
+
+        /**
+         * react directly input.value value will not update, use this hook to solve it
+         * @param {HTMLInputElement} element
+         * @param {string} value
+         * @param {boolean} useSetter
+         */
+        this.reactHook = function(element, value, useSetter=true){
+            const inputEvent = new InputEvent("input", {
+                view: unsafeWindow,
+                bubbles: true,
+                cancelable: true
+            });
+            const changeEvent = new InputEvent("change", {
+                view: unsafeWindow,
+                bubbles: true,
+                cancelable: true
+            });
+            const keyupEvent = new InputEvent("keyup", {
+                view: unsafeWindow,
+                bubbles: true,
+                cancelable: true
+            });
+
+            // Temporarily make the element editable
+            element.setAttribute("readonly", "readonly");
+            setTimeout(() => {
+                element.removeAttribute("readonly");
+            }, 200);
+
+            // Set the value using the property descriptor setter if available
+            const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+            if (valueSetter && useSetter) {
+                valueSetter.call(element, value);
+            } else {
+                element.value = value;
+            }
+
+            // Dispatch events to notify listeners
+            element.dispatchEvent(inputEvent);
+            element.dispatchEvent(changeEvent);
+            element.dispatchEvent(keyupEvent);
+        };
+
+        this.unusedHook = function(element, value){
+            element.value = value;
+        };
+
+        /**
+         * @param {Object} support
+         * This is the first step in verifying the coupon: checking if the element exists.
+         * Here is to determine if there is input; the application button may be hidden.
+         */
+        this.validate = function(supportData){
+            const submitButton = document.querySelector(supportData.submitButtonSelector);
+            const couponInput = document.querySelector(supportData.couponInputSelector);
+            const validateData = {"couponInput":null, "submitButton":null}
+            if(couponInput){
+                validateData.couponInput = couponInput;
+                validateData.submitButton = submitButton;
+            }
+            return validateData;
+        };
+
+        /**
+         * @param {Object} support
+         * This is the second step of coupon verification: enter the code and click the verify button.
+         * Part Three: Verification Results, to be independently implemented by the platform.
+         */
+        this.clickValidateButton = function(supportData, couponInput, submitButton, code, hookType){
+            if(!couponInput){
+                return new Promise((resolve)=>{
+                    resolve(false);
+                });
+            }
+
+            if(hookType===this.HookType.react){
+                this.reactHook(couponInput, code);
+            }else if(hookType===this.HookType.default){
+                this.unusedHook(couponInput, code);
+            }
+
+            //Get it again, mainly to handle the situation where the button is displayed after generating the input code.
+            if(!submitButton){
+                submitButton = document.querySelector(supportData.submitButtonSelector);
+                if(!submitButton){
+                    return new Promise((resolve)=>{
+                    resolve(false);
+                    });
+                }
+            }
+
+            return new Promise((resolve)=>{
+                const clickPromise = new Promise((resolveCheck)=>{
+                    setTimeout(()=>{
+                        submitButton.click();
+                        resolveCheck(true);
+                    }, this.BUTTON_CLICK_PASUE_MS);
+                });
+                clickPromise.then((result)=>{
+                    resolve(result);
+                });
+            });
+        };
+
+    };
+
+
+    /**
+     * AliExpress coupon verification logic
+     * @param {*} ext 
+     */
+    $.AliexpressAutoDetectHelper = function(ext){
+        AutoDetectBase.call(this); //Inherit the properties of AutoDetectBase
+
+        this.start = function(supportData, code){
+            const {couponInput, submitButton} = this.validate(supportData);
+        
+            return new Promise(async (resolve)=>{
+                const clickResult = await this.clickValidateButton(supportData, couponInput, submitButton, code, this.HookType.react);
+                if(!clickResult){
+                    resolve(clickResult)
+                    return;
+                }
+            
+                /**
+                 * ===========
+                 * This is independent logic.
+                 * ===========
+                 */
+                let errors = null, existingCode = null, inputCode = null;
+                let checkResult = false, current = 0;
+            
+                //Loop detection to check if execution is complete.
+                const checkInterval = setInterval(()=>{
+                    errors = document.querySelector(supportData.applyErrorSelector);
+                    if(supportData.existingCodeSelector){
+                        existingCode = document.querySelector(supportData.existingCodeSelector);
+                    }
+                    inputCode = document.querySelector(supportData.couponInputSelector);
+            
+                    //In some cases on AliExpress, the input box disappears after successful verification.
+                    if(errors || existingCode || !inputCode || current >= this.VALIDATE_DELAY_MAX_MS){
+                        clearInterval(checkInterval);
+                        checkResult = !!existingCode || !inputCode;
+                        setTimeout(()=> { //After verification is complete, delay the return for a better viewing experience.
+                            resolve(checkResult);
+                        }, this.VALIDATE_END_PASUE_MS);
+                    }
+            
+                    current += this.VALIDATE_LOOP_DELAY_MS;
+                }, this.VALIDATE_LOOP_DELAY_MS);
+            
+                /**
+                 * ===========
+                 * This is independent logic.
+                 * ===========
+                 */
+            });
+        }
+    };
+
+
+    /**
+     * eBay coupon verification logic
+     * @param {*} ext 
+     */
+    $.EbayAutoDetectHelper = function(ext){
+        AutoDetectBase.call(this); //Inherit the properties of AutoDetectBase
+        
+        this.start = function(supportData, code){
+            const {couponInput, submitButton} = this.validate(supportData);
+        
+            return new Promise(async (resolve)=>{
+                const clickResult = await this.clickValidateButton(supportData, couponInput, submitButton, code, this.HookType.react);
+                if(!clickResult){
+                resolve(clickResult)
+                    return;
+                }
+            
+                /**
+                 * ===========
+                 * This is independent logic.
+                 * ===========
+                 */
+                let errors = null, existingCode = null;
+                let checkResult = false, current = 0;
+
+                //If there are errors before performing the check, delete them.
+                //This is eBay's unique logic.
+                errors = document.querySelector(supportData.applyErrorSelector);
+                if(errors){
+                    errors.remove();
+                }
+            
+                //Loop detection to check if execution is complete.
+                const checkInterval = setInterval(()=>{
+                    errors = document.querySelector(supportData.applyErrorSelector);
+                    if(supportData.existingCodeSelector){
+                        existingCode = document.querySelector(supportData.existingCodeSelector);
+                    }
+            
+                    if(errors || existingCode || current >= this.VALIDATE_DELAY_MAX_MS){
+                        clearInterval(checkInterval);
+                        checkResult = !!existingCode;
+                        setTimeout(()=>{ //After verification is complete, delay the return for a better viewing experience.
+                            resolve(checkResult);
+                        }, this.VALIDATE_END_PASUE_MS);
+                    }
+            
+                    current += this.VALIDATE_LOOP_DELAY_MS;
+                }, this.VALIDATE_LOOP_DELAY_MS);
+            
+                /**
+                 * ===========
+                 * This is independent logic.
+                 * ===========
+                 */
+            });
+        };
+    };
+
+    /**
+     * Amazon coupon verification logic
+     * @param {*} ext 
+     */
+    $.AmazonAutoDetectHelper = function(ext){
+        AutoDetectBase.call(this); //Inherit the properties of AutoDetectBase
+        
+        this.start = function(supportData, code){
+            const {couponInput, submitButton} = this.validate(supportData);
+        
+            return new Promise(async (resolve)=>{
+                const clickResult = await this.clickValidateButton(supportData, couponInput, submitButton, code, this.HookType.react);
+                if(!clickResult){
+                    resolve(clickResult)
+                    return;
+                }
+        
+                /**
+                 * ===========
+                 * This is independent logic.
+                 * ===========
+                 */
+                let errors = null, existingCode = null, loading = null;
+                let checkResult = false, current = 0;
+        
+                //Loop detection to check if execution is complete.
+                const checkInterval = setInterval(()=>{
+                    loading = document.querySelector(supportData.loadingSelector);
+                    if(!loading){
+                        errors = document.querySelector(supportData.applyErrorSelector);
+                        if(supportData.existingCodeSelector){
+                            existingCode = document.querySelector(supportData.existingCodeSelector);
+                        }
+                
+                        if(errors || existingCode || current >= this.VALIDATE_DELAY_MAX_MS){
+                            clearInterval(checkInterval);
+                            checkResult = !!existingCode;
+                            setTimeout(()=>{ //After verification is complete, delay the return for a better viewing experience.
+                                resolve(checkResult);
+                            }, this.VALIDATE_END_PASUE_MS);
+                        }
+                    }
+                    current += this.VALIDATE_LOOP_DELAY_MS;
+                }, this.VALIDATE_LOOP_DELAY_MS);
+        
+                /**
+                 * ===========
+                 * This is independent logic.
+                 * ===========
+                 */
+            });
+        };
+    };
+
+  
+    /**
+     * All automatic ticket verification calls are made here.
+     * The entire process draws inspiration from: Shop Mail
+     * https://chromewebstore.google.com/detail/shop-mail-%E2%80%94-the-only-coup/hjimmklopenmealinniilgohbmglfooi?hl=zh-CN&utm_source=ext_sidebar
+     */
+    //This is an internal method and is not allowed to be called in other JavaScript files.
+    const DetectHelper = function(ext){
+        /**
+         * Expands the coupon input box by clicking expand selectors. Only for platforms that require it.
+         */
+        this._tryClickExpand = function (supportData) {
+            //If the input box is found, return it directly.
+            const {couponInputSelector, expandCodeBoxSelectors} = supportData;
+            const couponInput = document.querySelector(couponInputSelector);
+            if(couponInput){
+                return new Promise((resolve) => { resolve(true); });
+            }
+            //If couponInput does not exist, but the selector is not expanded, this is an error and should be returned directly.
+            //This is a configuration error.
+            if(!expandCodeBoxSelectors || expandCodeBoxSelectors.length ==0){
+                return new Promise((resolve) => {
+                    resolve(false);
+                });
+            }
+            //Start performing click operations after the configuration check is completed.
+            return new Promise(async (resolve) => {
+                let result = false;
+                for(let i=0; i<expandCodeBoxSelectors.length; i++){
+                    const elements = document.querySelectorAll(expandCodeBoxSelectors[i]);
+                    for(let j=0; j<elements.length; j++){
+                        let element = elements[j];
+                        ext.logger("info", "AutoDetectUtilHelper", "_tryClickExpand", "expand element##############",element);
+                        element.click();
+
+                        result = await new Promise((resolveInner) => {
+                            let elapsed = 0;
+                            const interval = 200, maxTime = 6000;
+                            //The only criterion for determining success is whether there is a code input box.
+                            const timer = setInterval(() => {
+                                let hasCouponInput = document.querySelector(couponInputSelector);
+                                if (hasCouponInput) {
+                                    clearInterval(timer);
+                                    resolveInner(true);
+                                } else if (elapsed >= maxTime) {
+                                    clearInterval(timer);
+                                    resolveInner(false);
+                                }
+                                elapsed += interval;
+                            }, interval);
+                        });
+                        if(result){
+                            break;
+                        }
+                    }
+                    if(result){
+                        break;
+                    }
+                }
+                resolve(result);
+            });
+        };
+
+        /**
+         * @param {Object} support
+         * Try to open the input code box group; only after it is successfully opened can subsequent processing be performed.
+         * For platforms that do not require opening, directly return true.
+         */
+        this.isPrepared = function (supportData) {
+            return new Promise((resolve) => {
+                //1. Verify the overall existence
+                ext.logger("info", "AutoDetectUtilHelper", "isPrepared", "##############","step 1: Verify that the container exists");
+                $.waitForSelector(supportData.promoContainerSelector, {"target":document.body, "allowEmpty":true, "timeout":5*1000}).then((promoContainerElement)=>{
+                    if(promoContainerElement){
+                        //2. Verify whether the code input box needs to be expanded.
+                        ext.logger("info", "AutoDetectUtilHelper", "isPrepared", "##############","step 2: Verify whether the code input box needs to be expanded");
+                        this._tryClickExpand(supportData).then((result)=>{
+                            ext.logger("info", "AutoDetectUtilHelper", "isPrepared", "##############","step 3: Expanded result", result);
+                            //Return verification result
+                            resolve(result);
+                        });
+                    }else{ //If the outermost frame does not exist, return false directly.
+                        resolve(false);
+                    }
+                }).catch(()=>{
+                    resolve(false);
+                });
+            });
+        };
+    };
+
+    /**
+     * For external js, call this method where validation is needed.
+     */
+    $.AutoDetectUtilHelper = function(ext, platformConfigs){
+
+        const detectHelper = new DetectHelper(ext);
+
+        this.validate = async function (platform, supportData) {
+            ext.logger("info", "AutoDetectUtilHelper", "validate", "platform=========>", platform);
+            ext.logger("info", "AutoDetectUtilHelper", "validate", "supportData=========>", supportData);
+            const preparedData = { result: false };
+            if (platform && supportData) {
+                const isPrepared = await detectHelper.isPrepared(supportData);
+                preparedData.result = isPrepared;
+            }
+            ext.logger("info", "AutoDetectUtilHelper", "validate", "validate data=========>", preparedData);
+            return preparedData;
+        };
+
+        /**
+         * Each platform performs the following coupon verification operation according to different logics.
+         * @param {string} platform
+         * @param {Object} supportData {domain, data} = support
+         * @param {string} code
+         * @returns {Promise<boolean>|null}
+         */
+        this.tryCode = function (platform, supportData, code) {
+            const platformHelpers = {
+                [platformConfigs.aliexpress.platformId]: $.AliexpressAutoDetectHelper,
+                [platformConfigs.ebay.platformId]: $.EbayAutoDetectHelper,
+                [platformConfigs.amazon.platformId]: $.AmazonAutoDetectHelper
+            };
+            const HelperClass = platformHelpers[platform];
+            if (!HelperClass) return null;
+            try {
+                return new HelperClass(ext).start(supportData, code);
+            } catch (e) {
+                ext.logger("error", "AutoDetectUtilHelper", "tryCode", "auto try code,", e);
+                return null;
+            }
+        };
+    };
+
+
+    /**
+     * @param {*} ext
+     * @param {*} platformConfigs
+     */
+    $.ProgressModalHelper = function (ext, platformConfigs) {
+        const ALERT_HIDDEN_DELAY_MS = 4000;
+
+        this.checkIsStop = false; // Check if stopped
+        const maskHelper = new $.MaskHelper(ext);
+        const autoDetectUtil = new $.AutoDetectUtilHelper(ext, platformConfigs);
+        const customAlert = new $.AlertHelper();
+
+        const _start = () => {
+            this.checkIsStop = false;
+            document.body.style.overflow = 'hidden';
+        };
+
+        const _end = () => {
+            document.body.style.overflow = 'auto';
+            this.checkIsStop = true;
+        };
+
+        const initProgress = (progressBar) => {
+            progressBar.style.width = "0%";
+        };
+
+        const updateProgressValue = (progressBar, value) => {
+            progressBar.style.width = value*100+"%";
+        };
+
+        const activeCouponItem = (couponItem) => {
+            couponItem.classList.add("coupon-item-active");
+        };
+
+        const inactiveCouponItem = (couponItem) => {
+            ext.helper.elementUtil.removeClass(couponItem, "coupon-item-lose");
+            couponItem.classList.add("coupon-item-lose");
+        };
+
+        const closeModal = (mask) => {
+            mask.remove();
+            _end();
+        };
+
+        const addCloseEventListener = (mask, modal) => {
+            modal.querySelector("div[class^='close']").addEventListener("click", () => {
+                closeModal(mask);
+            });
+        };
+
+        const couponScrollToCenter = (couponsWarpper, element) => {
+            const couponsWarpperRect = couponsWarpper.getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
+            const scrollLeft = couponsWarpper.scrollLeft + (elementRect.left + elementRect.width / 2) - (couponsWarpperRect.left + couponsWarpperRect.width / 2);
+            couponsWarpper.scrollTo({
+                left: scrollLeft,
+                behavior: 'smooth'
+            });
+        };
+
+        const showCouponItems = async (mask, modal, platform, coupons, supportData) => {
+            const couponsWarpper = modal.querySelector("div[class^='deal-coupons-warpper']");
+            const progressBar = modal.querySelector("div[class^='progress-bar']");
+            const progressText = modal.querySelector("span[class^='progress-text']");
+
+            const icons = await ext.helper.file.readContent("images/svg/", [
+                { name: "icon-success", ext: "svg" },
+                { name: "icon-error", ext: "svg" }
+            ]);
+
+            //Dynamically generate HTML
+            const couponElements = coupons.map((coupon)=>{
+                return {
+                    "element":ext.helper.elementUtil.createElement("div",{
+                        className:"coupon-item",
+                        text:coupon
+                    }),
+                    "code":coupon
+                }
+            });
+            couponElements.forEach((item, index) => {
+                couponsWarpper.append(item.element);
+            });
+
+            const total = coupons.length;
+            initProgress(progressBar);
+            
+            //Start verifying tickets: Preparations
+            const validateData = await autoDetectUtil.validate(platform, supportData);
+            if (!validateData || !validateData.result) {
+                closeModal(mask);
+                customAlert.show({
+                    icon: icons["icon-error"],
+                    message: ext.helper.i18n.get("inspect_autoDetect_alert_error"),
+                    delay: ALERT_HIDDEN_DELAY_MS
+                });
+                return;
+            }
+
+            const results = [];
+            for (let index = 0; index < total; index++) {
+                if (this.checkIsStop) {
+                    break;
+                }
+                const { element, code } = couponElements[index];
+                if (index !== 0) {
+                    inactiveCouponItem(couponElements[index - 1].element);
+                }
+                progressText.textContent = `(${index + 1}/${total})`;
+
+                activeCouponItem(element);
+                couponScrollToCenter(couponsWarpper, element);
+                updateProgressValue(progressBar, (index + 1) / total);
+            
+                let result = await autoDetectUtil.tryCode(platform, supportData, code);
+                results.push({ "code": code, "result": result });
+                if (result) {
+                    break;
+                }
+            }
+            // If none are effective in the end, simply close or execute other logic.
+            closeModal(mask);
+            const successCodeObj = results.find((item) => item.result === true);
+            customAlert.show({
+                icon: icons[successCodeObj ? "icon-success" : "icon-error"],
+                message: ext.helper.i18n.get(successCodeObj ? "inspect_autoDetect_alert_success" : "inspect_autoDetect_alert_error"),
+                delay: ALERT_HIDDEN_DELAY_MS
+            });
+        };
+
+        this.generate = async (logoBase64OrUrl, container, platform, coupons, supportData) => {
+            const icons = await ext.helper.file.readContent("images/svg/", [{ name: "icon-close", ext: "svg" }]);
+
+            //TEST================
+            // supportData = {
+            //   "promoContainerSelector":"div[class*='CheckoutSummaryRedesign__container']",
+            //   "expandCodeBoxSelectors":[
+            //     "div[class*='RedCheckoutSummaryRedesign_Coupon__coupon__'] span[class*='Coupon__couponText']",
+            //     "div[class*='RedCheckoutSummaryRedesign_TotalPrice__container__'] span[class*='Coupon__couponText']",
+            //     "div[class*='RedCheckoutSummaryRedesign_TotalPrice__container__'] span[class*='TotalPrice']"
+            //   ],
+            //   "couponInputSelector":"div[class^='RedCheckoutSummaryRedesign_Coupon__inputWrap__'] input",
+            //   "submitButtonSelector":"div[class^='RedCheckoutSummaryRedesign_Coupon__button__'] >button",
+            //   "applyErrorSelector":"div[class^='RedCheckoutSummaryRedesign_Coupon__inputWrap__'] span[class*='Input__error']",
+            //   "existingCodeSelector":"", // Determine via input
+            //   "removeCodeAction":"",
+            //   "onlyOneCanBeUsed":false,
+            //   "finalPriceSelector":""
+            // }
+            // coupons = ["12345", "7FOR70", "7SAF2YVI", "12345"]; //7FOR70
+            //TEST================
+
+            _start();
+            const modalHtml = `
                 <div class="modal-header">
                     <div class="logo"><img src="${logoBase64OrUrl}" /></div>
                     <div class="title"></div>
@@ -30508,1467 +30498,1467 @@
                 </div>
             `;
 
-      //Generate a blurred background
-      const mask = maskHelper.generate();
-      //Generate popup body
-      const modal = ext.helper.elementUtil.createElement("div", {
-        className: "modal-content",
-        html: modalHtml
-      });
-      mask.append(modal);
-      container.outerDIV.append(mask);
-
-      showCouponItems(mask, modal, platform, coupons, supportData);
-      addCloseEventListener(mask, modal);
-    };
-  };
-
-
-  /**
-   * @param {*} ext 
-   */
-  $.AliexpressHelper = function (ext, platformConfig) {
-
-    const platform = platformConfig.platformId;
-    const defaultCouponDetailTemplateHelper = new $.DefaultCouponDetailemplateHelper(ext, platform);
-    const aliexpressTradeTemplateHelper = new $.AliexpressTradeTemplateHelper(ext, platform);
-
-    const prefix = "website_" + platform + "_";
-    const languageStorageKey = prefix + "language";
-    const currencyStorageKey = prefix + "currency";
-    const marketplaceStorageKey = prefix + "marketplace";
-
-    //Currently, it is known that AliExpress may delete HTML that does not belong to the original website, thus requiring a loop check. This is the identifier.
-    this.checkDomInsertRs = null;
-
-    const setStorageData = (key, value) => {
-      const obj = {};
-      obj[key] = value;
-      return new Promise((resolve) => {
-        $.api.storage.local.set(obj, () => {
-          resolve();
-        });
-      });
-    };
-
-    const getStorageData = (key, defaultValue) => {
-      return new Promise((resolve) => {
-        $.api.storage.local.get([key], (data) => {
-          resolve(data.hasOwnProperty(key) ? data[key] : defaultValue);
-        });
-      });
-    };
-
-    this.getLang = () => {
-      const host = window.location.host;
-      let lang = "en";
-      if (/^(us|ko|uk|fr|de|it|ca|au|jp|ja|he|kr|ru|br|in|es|mx|pl|tr|ar|id|th|vn|sg|my|ph|be|nl|se|ch|no|dk|at|ie|fi|pt|gr|hu|cz|bg|ro|ua|il|sa|eg|ir|pk|iq|af|ly|et|gh|ke|ng|za|tz|mg|mw|zm|bw|sn|cm|ci|gh|ma|tn|mr|mu|om|kw|qa|bh|ae|lb|jo|sy|lb|il|ps|kr|cl|pe|uy|ec|ve|bo|gt|pa|hn|ni|cr|sv|gt|sl|lr|sd|er|dj|et|mw|mz|ao|tz|zm|zw|mw|na|bw|ls|mg|km)\.aliexpress\.com$/.test(host)) {
-        lang = host.split(".")[0];
-      } else if (/^www\.aliexpress\.com$/.test(host)) {
-        lang = "en";
-      } else if (/^aliexpress\.ru$/.test(host)) {
-        lang = "ru";
-      }
-      setStorageData(languageStorageKey, lang);
-      return lang;
-    };
-
-    this.getMarketplace = async (marketplaceHandler) => {
-      let countryCode = "";
-      const host = window.location.host;
-      if (/^(us|ko|uk|fr|de|it|ca|au|jp|ja|he|kr|ru|br|in|es|mx|pl|tr|ar|id|th|vn|sg|my|ph|be|nl|se|ch|no|dk|at|ie|fi|pt|gr|hu|cz|bg|ro|ua|il|sa|eg|ir|pk|iq|af|ly|et|gh|ke|ng|za|tz|mg|mw|zm|bw|sn|cm|ci|gh|ma|tn|mr|mu|om|kw|qa|bh|ae|lb|jo|sy|lb|il|ps|kr|cl|pe|uy|ec|ve|bo|gt|pa|hn|ni|cr|sv|gt|sl|lr|sd|er|dj|et|mw|mz|ao|tz|zm|zw|mw|na|bw|ls|mg|km)\.aliexpress\.com$/.test(host)) {
-        countryCode = host.split(".")[0];
-      } else {
-        countryCode = host.split(".").slice(-1)[0];
-      }
-
-      let marketplace = await getStorageData(marketplaceStorageKey, null);
-      const defaultMarketplace = { countryCode: countryCode, className: "", html: "" };
-
-      //AliExpress.ru does not have a country switching feature.
-      if (marketplaceHandler && !/\.ru/.test(host)) {
-        const handlerElement = await $.waitForSelector(marketplaceHandler, { "target": document.body, "allowEmpty": true, "timeout": 2 * 1000 });
-        if (handlerElement) {
-          marketplace = {
-            countryCode: countryCode,
-            className: handlerElement.className ?? "",
-            html: handlerElement.outerHTML ?? ""
-          };
-          setStorageData(marketplaceStorageKey, marketplace);
-        }
-      }
-
-      if (!marketplace) {
-        marketplace = defaultMarketplace;
-      }
-
-      ext.logger("info", "AliexpressHelper", "getMarketplace", "aliexpress marketplace", marketplace);
-      return encodeURIComponent(JSON.stringify(marketplace));
-    };
-
-
-    this.getCurrency = () => {
-      const host = window.location.host;
-      return new Promise((resolve, reject) => {
-        if (host.indexOf("aliexpress.ru") != -1) {//Russian websites require special handling.
-          resolve("unknown");
-        } else {
-          const element = document.querySelector("div[class^='ship-to--menuItem--']") ||
-          document.querySelector("div[class^='countryFlag--']"); //https://inbusiness.aliexpress.com/web/search-products?spm=oneshop.home.search_products&searchText=ds
-          if (element) {
-            let currency = element.textContent;
-            if (currency) {
-              currency = encodeURIComponent(currency);
-              setStorageData(currencyStorageKey, currency);
-              resolve(currency);
-            } else {
-              resolve("unknown");
-            }
-          } else {
-            resolve("unknown");
-          }
-        }
-      });
-    };
-
-    this.detail = async () => {
-      const language = this.getLang();
-      const currency = await this.getCurrency();
-      const marketplace = await this.getMarketplace();
-      const id = ext.helper.util.getGoodsIdByLink(window.location.href);
-      const params = {
-        ids: id,
-        platform: platform,
-        lang: language,
-        currency: currency,
-        mul: false,
-        qu: "",
-        marketplace: marketplace
-      };
-      try {
-        const data = await ext.helper.request.getCouponQuery(params);
-        if (data.code == "success" && !!data.result) {
-          const json = JSON.parse(data.result);
-          ext.logger("info", "AliexpressHelper", "detail", "detail request json=", json);
-          await this.detailAnalyze(json, language, currency, marketplace);
-        }
-      } catch (error) {
-        ext.logger("error", "AliexpressHelper", "detail", "detail exception: ", platform, error);
-      }
-    };
-
-    this.detailAnalyze = async (json, language, currency, marketplace) => {
-      this.checkDomInsertRs = false;
-      try {
-        if (!json || !json.hasOwnProperty("aliexpress")) {
-          return;
-        }
-
-        let couponResult = null;
-        let qrcodeResult = null;
-        const { css, coupon, mscan } = defaultCouponDetailTemplateHelper.generate(json.aliexpress);
-
-        if (!!css) {
-          ext.helper.styleHelper.addStylesheetsByContent(css, "aliexpress-coupon-query-detail");
-        }
-
-        if (!!coupon) {
-          const { handler, html, templateId, distinguish, hint } = coupon;
-          const element = await $.forceGetElement(handler);
-
-          ext.logger("info", "AliexpressHelper", "detailAnalyze", "coupon insert: element", element);
-          if (element) {
-            couponResult = { "element": element, "html": html, "templateId": templateId, "distinguish": distinguish, "hint": hint };
-          }
-        }
-
-        if (!!mscan) {
-          const { qrId, templateId, canvasId, html, distinguish, handler } = mscan;
-          const params = {
-            id: qrId,
-            lang: language,
-            platform: platform,
-            currency: currency,
-            marketplace: marketplace
-          };
-          const promiseResultArray = [
-          $.forceGetElement(handler),
-          ext.helper.request.getCouponQrCode(params)];
-
-          const allResult = await Promise.all(promiseResultArray);
-
-          let element = null,qrcodeData = null;
-          for (let i = 0; i < allResult.length; i++) {
-            const item = allResult[i];
-            if (item) {
-              if (item.hasOwnProperty("code")) {
-                qrcodeData = item;
-              } else {
-                element = item;
-              }
-            }
-          }
-
-          ext.logger("info", "AliexpressHelper", "detailAnalyze", "qrcode insert: element", element);
-          if (element && qrcodeData) {
-            qrcodeResult = { "element": element, "html": html, "canvasId": canvasId, "qrcodeData": qrcodeData, "distinguish": distinguish };
-          }
-        }
-
-        ext.helper.util.loopTask(() => {
-          if (couponResult) {
-            ext.helper.util.distinguishRemoveAndTry(couponResult.distinguish, () => {
-              this.detailCouponAnalyze(couponResult);
+            //Generate a blurred background
+            const mask = maskHelper.generate();
+            //Generate popup body
+            const modal = ext.helper.elementUtil.createElement("div", {
+                className:"modal-content",
+                html:modalHtml
             });
-          }
-          if (qrcodeResult) {
-            ext.helper.util.distinguishRemoveAndTry(qrcodeResult.distinguish, () => {
-              this.detailMscanAnalyze(qrcodeResult);
-            });
-          }
-        });
+            mask.append(modal);
+            container.outerDIV.append(mask);
 
-      } catch (error) {
-        ext.logger("error", "AliexpressHelper", "detailAnalyze", "detailAnalyze: ", error);
-
-      } finally {
-        this.checkDomInsertRs = true;
-      }
+            showCouponItems(mask, modal, platform, coupons, supportData);
+            addCloseEventListener(mask, modal);
+        };
     };
 
+  
+    /**
+     * @param {*} ext 
+     */
+    $.AliexpressHelper = function (ext, platformConfig) {
 
-    this.detailCouponAnalyze = (result) => {
-      const { element, html, templateId, hint } = result;
+        const platform = platformConfig.platformId;
+        const defaultCouponDetailTemplateHelper = new $.DefaultCouponDetailemplateHelper(ext, platform);
+        const aliexpressTradeTemplateHelper = new $.AliexpressTradeTemplateHelper(ext, platform);
+       
+        const prefix = "website_" + platform + "_";
+        const languageStorageKey = prefix + "language";
+        const currencyStorageKey = prefix + "currency";
+        const marketplaceStorageKey = prefix + "marketplace";
 
-      element.insertAdjacentHTML('afterend', html);
-      const templateIdEle = document.querySelector("div[id='" + templateId + "']");
-      if (templateIdEle) {
-        const couponCodeElement = templateIdEle.querySelector(".jox-acq-code");
-        if (couponCodeElement) {
-          const promoCode = ext.helper.util.decryptStr(couponCodeElement.getAttribute("data-encryptcode"));
-          templateIdEle.addEventListener("click", () => {
-            ext.helper.util.setClipboard(promoCode).then(() => {
-              ext.helper.toast.show({ "message": hint });
-            });
-          });
-        }
-      }
-    };
+        //Currently, it is known that AliExpress may delete HTML that does not belong to the original website, thus requiring a loop check. This is the identifier.
+        this.checkDomInsertRs = null;
 
-    this.detailMscanAnalyze = (result) => {
-      const { element, html, qrcodeData, canvasId } = result;
-
-      element.insertAdjacentHTML('afterend', html);
-      if (!!qrcodeData && qrcodeData.code === "success" && !!qrcodeData.result) {
-        const mscanImg = JSON.parse(qrcodeData.result).mscanImg;
-        if (!!mscanImg) {
-          const canvasElement = document.getElementById(canvasId);
-          if (canvasElement) {
-            const cxt = canvasElement.getContext("2d");
-            const imgData = new Image();
-            imgData.src = mscanImg;
-            imgData.onload = function () {
-              cxt.drawImage(imgData, 0, 0, imgData.width, imgData.height);
-            };
-          }
-        }
-      }
-    };
-
-    this.trade = async () => {
-      const visitUrl = window.location.href;
-      const validate = platformConfig.tradeUrlPatterns.some((reg) => reg.test(visitUrl));
-      if (!validate) return;
-
-      // No language information available here
-      // So, get language from storage
-      const language = await getStorageData(languageStorageKey, navigator.language);
-      const currency = await getStorageData(currencyStorageKey, "USD");
-      const marketplace = await this.getMarketplace();
-
-
-      const ids = ext.helper.util.getSearchParameter(window.location.search, "objectId") ||
-      ext.helper.util.getSearchParameter(window.location.search, "availableProductShopcartIds") ||
-      ext.helper.util.getSearchParameter(window.location.search, "itemId");
-
-      const params = {
-        ids: ids,
-        qu: "",
-        platform: platform,
-        lang: language,
-        mul: true,
-        currency: currency,
-        marketplace: marketplace
-      };
-
-
-      const res = await ext.helper.request.getCouponQuery(params);
-      ext.logger("info", "AliexpressHelper", "trade", "trade res=", res);
-
-      if (res.code == "success" && !!res.result) {
-        const json = JSON.parse(res.result);
-        await this.tradeAnalyze(json, language);
-      }
-    };
-
-    this.tradeAnalyze = async (json, language) => {
-
-      const { handler, html, css, templateId, distinguish, hint } = aliexpressTradeTemplateHelper.generate(json.aliexpress);
-      if (!handler || !html || !css || !templateId || !distinguish) {
-        return;
-      }
-      ext.helper.styleHelper.addStylesheetsByContent(css, "aliexpress-trade");
-
-      let element = await $.forceGetElement(handler);
-      ext.logger("info", "AliexpressHelper", "tradeAnalyze", "insert: element", element);
-
-      ext.helper.util.loopTask(() => {
-        if (!element) {
-          return;
-        }
-        ext.helper.util.distinguishRemoveAndTry(distinguish, () => {
-          element.insertAdjacentHTML('afterend', html);
-          const templateIdEle = document.querySelector("#" + templateId + ">.item");
-          if (templateIdEle) {
-            const promoCode = ext.helper.util.decryptStr(templateIdEle.querySelector(".copy").getAttribute("data-encryptcode"));
-            templateIdEle.addEventListener("click", () => {
-              ext.helper.util.setClipboard(promoCode).then(() => {
-                ext.helper.toast.show({ "message": hint });
-              });
-            });
-
-            // Only when expandable; if input.value is used, do not trigger the change event
-            const arrowElement = document.querySelector(".pl-summary__item-arrow-pc");
-            if (arrowElement) {
-              arrowElement.click();
-            }
-          }
-        });
-      });
-    };
-
-    this.removeAnchor = () => {
-      setInterval(() => {
-        const anchors = document.querySelectorAll("div[name^='ali-gogo-coupon-']");
-        anchors.forEach((element) => {
-          ext.helper.util.removeAnchorsByNode(element);
-        });
-      }, 3000);
-    };
-
-    this.run = async function () {
-      const visitUrl = window.location.href;
-      if (platformConfig.detailUrlPattern.test(visitUrl)) {
-        this.detail();
-      }
-      this.trade();
-      this.removeAnchor();
-    };
-  };
-
-
-  /**
-   * @param {*} ext 
-   */
-  $.AliexpressDetectHelper = function (ext, platformConfig) {
-
-    const couponExistTemplate = new $.CouponExistTemplateHelper(ext);
-    const platform = platformConfig.platformId;
-    const couponExistPer = platformConfig.couponExistPer || 10;
-
-    this.loopIsComplete = true;
-    this.cacheLinkDoms = {}; //Save the collected link DOM.
-
-    this.isInbusinessPage = function () {
-      return /inbusiness\.aliexpress\.com\/web\/search-products/.test(window.location.href);
-    };
-
-    this.isItemLink = function (url) {
-      return platformConfig.detailUrlPattern.test(url);
-    };
-
-    this.pickUpWholesale = async function (selectors, language, currency, marketplace) {
-      const items = [];
-      try {
-        selectors.forEach((elementObj) => {
-          if (elementObj.element) {
-            const elements = document.querySelectorAll(elementObj.element + ":not([" + $.attr.couponProcessMark + "='true'])");
-            ext.logger("info", "AliexpressDetectHelper", "pickUpWholesale", "search coupon elements======>", elements.length);
-            const findA = elementObj.findA;
-            elements.forEach((element) => {
-              if (element && ext.helper.elementUtil.isElementDisplayed(element) && !element.getAttribute($.attr.couponProcessMark)) {
-                const goodsLink = ext.helper.util.getGoodsLinkByElement(element, findA);
-                let id = null;
-                if (this.isItemLink(goodsLink)) {
-                  id = ext.helper.util.getGoodsIdByLink(goodsLink.getAttribute("href"));
-                }
-                if (id) {
-                  items.push({
-                    "id": id, "platform": this.currentPlatform, "handler": element, "findA": findA, "from": "wholesale"
-                  });
-                  this.cacheLinkDoms[id] = goodsLink;
-                }
-              }
-            });
-          }
-        });
-        if (items.length > 0) {
-          await this.search(items, language, currency, marketplace);
-        }
-      } catch (e) {
-        ext.logger("error", "AliexpressDetectHelper", "pickUpWholesale", "pickUpWholesale: ", e);
-      }
-    };
-
-    this.pickUpInbusiness = async function (language, currency, marketplace) {
-      const validate = this.isInbusinessPage();
-      if (!validate) return;
-
-      try {
-        const iceContainerElement = document.querySelector("#ice-container");
-        const loadMoreElement = await $.waitForSelector("#loadMore", { "target": iceContainerElement });
-        if (loadMoreElement) {
-          const array = [];
-          const containerElement = loadMoreElement.previousElementSibling;
-          if (containerElement && containerElement.tagName === 'DIV') {
-            const childNodes = containerElement.childNodes;
-            childNodes.forEach((child) => {
-              if (child.tagName === "A" && ext.helper.elementUtil.isElementDisplayed(child) && !child.getAttribute($.attr.couponProcessMark)) {
-                const id = ext.helper.util.getGoodsIdByLink(child.getAttribute("href"));
-                if (id) {
-                  array.push({
-                    "id": id, "platform": platform, "handler": child, "from": "inbusiness"
-                  });
-                  this.cacheLinkDoms[id] = child;
-                }
-              }
-            });
-          }
-          await this.search(array, language, currency, marketplace);
-        }
-      } catch (e) {
-        ext.logger("error", "AliexpressDetectHelper", "pickUpInbusiness", "pickUpInbusiness: ", e);
-      }
-    };
-
-    this.search = function (array, language, currency, marketplace) {
-      const groups = ext.helper.util.calcRequestGroup(array, couponExistPer);
-      return new Promise((resolve, reject) => {
-        if (groups.length <= 0) {
-          resolve("complete");
-          return;
-        }
-
-        const promises = [];
-        for (let i = 0; i < groups.length; i++) {
-          promises.push(this.createItemHtml(groups[i], language, currency, marketplace));
-        }
-        Promise.all(promises).then((data) => {
-          resolve("complete");
-        });
-      });
-    };
-
-    this.createItemHtml = function (group, language, currency, marketplace) {
-      return new Promise((resolve, reject) => {
-        try {
-          if (Array.isArray(group) && group.length === 0) {
-            resolve("exception");
-            return;
-          }
-
-          let reqId = "";
-          for (let i = 0; i < group.length; i++) {
-            if (group[i].handler.getAttribute($.attr.couponProcessMark)) {
-              continue;
-            }
-            reqId += group[i].id + ",";
-            //Add markers before starting the request to avoid duplicate requests.
-            group[i].handler.setAttribute($.attr.couponProcessMark, "true");
-          }
-          if (reqId.endsWith(",")) {
-            reqId = reqId.slice(0, -1);
-          }
-
-          ext.logger("info", "AliexpressDetectHelper", "search", "request start >>>>>>>>>>>>>", group);
-
-          const params = {
-            platform: platform,
-            ids: reqId,
-            lang: language,
-            currency: currency,
-            marketplace: marketplace
-          };
-          ext.helper.request.getCouponExist(params).then((data) => {
-            ext.logger("info", "AliexpressDetectHelper", "search", "request finish >>>>>>>>>>>>>");
-            delete ext.helper.request.removeRequest(data.requestKey); //delete current cache request
-
-            if (data.code != "success" || !data.result) {
-              resolve("exception");
-              return;
-            }
-
-            const json = JSON.parse(data.result);
-            ext.logger("info", "AliexpressDetectHelper", "search", "json", json);
-            let isBroken = false;
-            for (let key in json) {
-              const { distinguish, tip, direction } = json[key];
-              if (!distinguish || !tip || !direction) {
-                continue;
-              }
-
-              const item = group.find((obj) => obj.id === key);
-              if (!item) {
-                continue;
-              }
-              let handler = null,findA = null;
-              if (item.hasOwnProperty("handler") && item.hasOwnProperty("findA")) {
-                handler = item.handler;
-                findA = item.findA;
-              }
-              if (!handler || !findA) {
-                continue;
-              }
-
-              // Exception currentGoodsId != request id
-              // avoid current request
-              const elementA = ext.helper.util.getGoodsLinkByElement(handler, findA);
-              const currentId = elementA ? ext.helper.util.getGoodsIdByLink(elementA.getAttribute("href")) : "";
-              if (currentId != key) {
-                group.forEach((gItem) => {
-                  const ele = gItem.handler;
-                  ele.removeAttribute($.attr.couponProcessMark);
-                  const tipElement = ele.querySelector("div[name^='ali-gogo-coupon-']");
-                  if (tipElement) {
-                    tipElement.remove();
-                  }
+        const setStorageData = (key, value) => {
+            const obj = {};
+            obj[key] = value;
+            return new Promise((resolve) => {
+                $.api.storage.local.set(obj, () => {
+                    resolve();
                 });
-                ext.logger("info", "AliexpressDetectHelper", "search", "exception currentGoodsId != request id", key);
-                isBroken = true;
-                break;
-
-              } else {
-                handler.style.position = "relative";
-                handler.insertAdjacentHTML('beforeend', couponExistTemplate.generate(distinguish, tip, direction));
-                ext.logger("info", "AliexpressDetectHelper", "search", "exist coupon >>>>>>>>>>>>>", key);
-              }
-            }
-            resolve(isBroken ? "broken" : "complete");
-          });
-        } catch (e) {
-          ext.logger("error", "AliexpressDetectHelper", "search", "createItemHtml: ", e);
-          resolve("exception");
-        }
-      });
-    };
-
-    this.isRun = function () {
-      let run = false;
-      if (window.location.host.indexOf("aliexpress.") != -1) {
-        run = !/\/(item|trade|checkout)\//.test(window.location.pathname);
-      }
-      return run;
-    };
-
-
-    this.changePageEvent = function () {
-      //AliExpress pagination loading reuses elements.
-      let hookDivTimer = null,removeTagIsComplete = true;
-
-      const onInitDom = () => {
-        if (!removeTagIsComplete) return;
-
-        removeTagIsComplete = false;
-        const attr = $.attr.couponProcessMark;
-        document.querySelectorAll(`*[${attr}='true']`).forEach((el) => {
-          el.removeAttribute(attr);
-          const tip = el.querySelector("*[name^='ali-gogo-coupon-']");
-          if (tip) {
-            tip.remove();
-          }
-        });
-        removeTagIsComplete = true;
-
-        this.cacheLinkDoms = {}; //Clear
-      };
-
-      const checkObjectValues = () => {
-        const obj = this.cacheLinkDoms;
-        const keys = Object.keys(obj);
-        let notContain = 0;
-        for (let i = 0; i < keys.length; i++) {
-          const key = keys[i];
-          const el = obj[key];
-          try {
-            const href = el.getAttribute("href");
-            if (!href.includes(key)) {
-              if (++notContain > 2) return true;
-            }
-          } catch (e) {
-            ext.logger("info", "AliexpressDetectHelper", "checkObjectValues", "checkObjectValues exception======>", e);
-          }
-        }
-        return false;
-      };
-
-      //Currently, it is listening for the disappearance of the loading modal box. If AliExpress makes modifications, you can choose to use URL changes.
-      //Using MutationObserver is more efficient.
-      const observer = new MutationObserver((mutations) => {
-        //Is there a deletion node at the first level of the body?
-        const hasDelete = mutations.some((m) =>
-        m.target === document.body && m.removedNodes.length > 0
-        );
-        if (!hasDelete) return;
-
-        //This deletion event will only be triggered once.
-        if (hookDivTimer) clearTimeout(hookDivTimer);
-
-        hookDivTimer = setTimeout(() => {
-          hookDivTimer = null;
-          if (checkObjectValues()) onInitDom();
-        }, 500);
-      });
-      observer.observe(document.body, { childList: true, subtree: false });
-    };
-
-
-    this.run = async function () {
-
-      if (!this.isRun()) return;
-
-      let removeTagIsComplete = true;
-      const language = ext.helper.coupon.aliexpress.getLang();
-      const currency = await ext.helper.coupon.aliexpress.getCurrency();
-      const marketplace = await ext.helper.coupon.aliexpress.getMarketplace(platformConfig.marketplace);
-
-      const confString = await ext.helper.request.requestCouponExistConf();
-      ext.logger("info", "AliexpressDetectHelper", "run", "conf ======>", confString);
-      if (!confString) {
-        return;
-      }
-
-      const selectors = ext.helper.util.pickupGoodsItem(platform, confString);
-      ext.logger("info", "AliexpressDetectHelper", "run", "search coupon selectors======>", selectors);
-      setInterval(async () => {
-        if (removeTagIsComplete && this.loopIsComplete) {
-          this.loopIsComplete = false;
-          await this.pickUpInbusiness(language, currency, marketplace);
-          await this.pickUpWholesale(selectors, language, currency, marketplace);
-          this.loopIsComplete = true;
-        }
-      }, 1700);
-
-
-      //Only takes effect when clicking the next page.
-      //Principle Explanation: When the loading div is removed, check if there has been any change in the DOM.
-      if (selectors.length != 0 && window.location.pathname != "/") {
-        this.changePageEvent();
-      }
-    };
-
-  };
-
-
-  /**
-   * @param {*} ext 
-   */
-  $.AmazonHelper = function (ext, platformConfig) {
-
-    const platform = platformConfig.platformId;
-    const amazonCouponQueryTemplateHelper = new $.AmazonCouponQueryTemplateHelper(ext);
-
-    this.detail = async function () {
-      const visitUrl = window.location.href;
-      const id = ext.helper.util.getGoodsIdByLink(visitUrl);
-      if (!id) {
-        return;
-      }
-      const marketplace = ext.helper.util.getCommonMarketplace(visitUrl);
-
-      try {
-        const params = {
-          ids: id,
-          qu: "",
-          platform: platform,
-          marketplace: marketplace,
-          mul: false
-        };
-        const data = await ext.helper.request.getCouponQuery(params);
-        if (data.code == "success" && !!data.result) {
-          const json = JSON.parse(data.result);
-          ext.logger("info", "AmazonHelper", "detail", "detail request json=", json);
-          await this.detailAnalyze(json);
-        }
-      } catch (e) {
-        ext.logger("info", "AmazonHelper", "detail", "request,exception", e);
-      }
-    };
-
-    this.detailAnalyze = async function (json) {
-      if (!!json && json.hasOwnProperty("amazon")) {
-        const { html, css, handler, distinguish } = amazonCouponQueryTemplateHelper.generate(json.amazon);
-        ext.helper.styleHelper.addStylesheetsByContent(css, "amazon-coupon-query-detail");
-
-        const element = await $.forceGetElement(handler);
-        ext.logger("info", "AmazonHelper", "detailAnalyze", "coupon insert: element", element);
-        if (element) {
-          ext.helper.util.loopTask(() => {
-            ext.helper.util.distinguishRemoveAndTry(distinguish, () => {
-              element.insertAdjacentHTML('afterend', html);
             });
-          });
-        }
-      }
-    };
-
-    this.run = function () {
-      const visitUrl = window.location.href;
-      if (platformConfig.detailUrlPattern.test(visitUrl)) {
-        this.detail();
-      }
-    };
-  };
-
-
-  /**
-   * @param {*} ext 
-   */
-  $.BanggoodHelper = function (ext, platformConfig) {
-
-    const platform = platformConfig.platformId;
-    const defaultCouponDetailTemplateHelper = new $.DefaultCouponDetailemplateHelper(ext, platform);
-
-    this.getLang = function () {
-      return document.querySelector("html").getAttribute("lang") || "";
-    };
-
-    this.getCurrency = function () {
-      const element = document.querySelector(".shipto-state");
-      if (element) {
-        return encodeURIComponent(element.textContent);
-      }
-      return "";
-    };
-
-    this.getMarketplace = function (url = window.location.href) {
-      const marketplace = [
-      /https?:\/\/www\.banggood\.com\/([a-z]{2,3})\//,
-      /https?:\/\/([a-z]{2,3})\.banggood\.com/].
-      map((rs) => {
-        const match = url.match(rs);
-        if (match) {
-          return match[1];
-        }
-        return null;
-      }).find((rs) => rs != null);
-      return marketplace || "com";
-    };
-
-    this.detail = async function () {
-      const visitUrl = window.location.href;
-      const id = ext.helper.util.getGoodsIdByLink(visitUrl);
-      if (!id) {
-        return;
-      }
-
-      const marketplace = this.getMarketplace(visitUrl);
-      const currency = this.getCurrency();
-      const lang = this.getLang();
-      try {
-        const params = {
-          ids: id,
-          qu: "",
-          platform: platform,
-          marketplace: marketplace,
-          currency: currency,
-          mul: false,
-          lang: lang
         };
-        const data = await ext.helper.request.getCouponQuery(params);
-        if (data.code == "success" && !!data.result) {
-          const json = JSON.parse(data.result);
-          ext.logger("info", "BanggoodHelper", "detail", "detail request json=", json);
-          await this.detailAnalyze(json, marketplace);
-        }
-      } catch (e) {
-        ext.logger("info", "BanggoodHelper", "detail", "request,exception", e);
-      }
-    };
 
-    this.detailAnalyze = async function (json, marketplace) {
-      let couponResult = null;
-      let qrcodeResult = null;
-
-      const { css, coupon, mscan } = defaultCouponDetailTemplateHelper.generate(json.banggood);
-      ext.helper.styleHelper.addStylesheetsByContent(css, "banggood-coupon-query-detail");
-
-      if (!!coupon) {
-        const { handler, html, templateId, distinguish, hint, mid } = coupon;
-        const element = await $.forceGetElement(handler);
-
-        ext.logger("info", "BanggoodHelper", "detailAnalyze", "coupon insert: element", element);
-        if (element) {
-          couponResult = { "element": element, "html": html, "templateId": templateId, "distinguish": distinguish, "hint": hint, "mid": mid };
-        }
-      }
-      if (!!mscan) {
-        const { qrId, templateId, canvasId, html, distinguish, handler } = mscan;
-
-        const params = {
-          id: qrId,
-          marketplace: marketplace,
-          platform: platform
-        };
-        const allResult = await Promise.all([
-        $.forceGetElement(handler),
-        ext.helper.request.getCouponQrCode(params)]
-        );
-        let element = null,qrcodeData = null;
-        for (let i = 0; i < allResult.length; i++) {
-          const item = allResult[i];
-          if (item) {
-            if (item.hasOwnProperty("code")) {
-              qrcodeData = item;
-            } else {
-              element = item;
-            }
-          }
-        }
-
-        ext.logger("info", "BanggoodHelper", "detailAnalyze", "qrcode insert: element", element);
-        if (element && qrcodeData) {
-          qrcodeResult = { "element": element, "html": html, "canvasId": canvasId, "qrcodeData": qrcodeData, "distinguish": distinguish };
-        }
-      }
-
-      ext.helper.util.loopTask(() => {
-        if (couponResult) {
-          ext.helper.util.distinguishRemoveAndTry(couponResult.distinguish, () => {
-            this.detailCouponAnalyze(couponResult);
-          });
-        }
-        if (qrcodeResult) {
-          ext.helper.util.distinguishRemoveAndTry(qrcodeResult.distinguish, () => {
-            this.detailMscanAnalyze(qrcodeResult);
-          });
-        }
-      });
-    };
-
-    this.detailCouponAnalyze = function (result) {
-      const { element, html, templateId, hint, mid } = result;
-
-      element.insertAdjacentHTML('afterend', html);
-      const templateIdEle = document.querySelector("div[id='" + templateId + "']");
-      if (templateIdEle) {
-        const couponCodeElement = templateIdEle.querySelector(".jox-acq-code");
-        if (couponCodeElement) {
-          const promoCode = ext.helper.util.decryptStr(couponCodeElement.getAttribute("data-encryptcode"));
-          templateIdEle.addEventListener("click", () => {
-            ext.helper.util.setClipboard(promoCode).then(() => {
-              ext.helper.toast.show({ "message": hint });
-
-              if (mid && mid.hasOwnProperty("config")) {
-                const { target, link, delay } = mid.config,linkDecrypt = ext.helper.util.decryptStr(link);
-                setTimeout(() => {
-                  if (target === "_blank") {
-                    ext.helper.util.openInTab(linkDecrypt);
-                  } else if (target === "_self") {
-                    window.location.href = linkDecrypt;
-                  } else if (target === "_replace") {
-                    window.location.replace(linkDecrypt);
-                  }
-                }, delay);
-              }
-
+        const getStorageData = (key, defaultValue) => {
+            return new Promise((resolve) => {
+                $.api.storage.local.get([key], (data) => {
+                    resolve(data.hasOwnProperty(key) ? data[key] : defaultValue);
+                });
             });
-          });
-        }
-      }
-    };
+        };
 
-    this.detailMscanAnalyze = function (result) {
-      const { element, html, qrcodeData, canvasId } = result;
+        this.getLang = () =>{
+            const host = window.location.host;
+            let lang = "en";
+            if(/^(us|ko|uk|fr|de|it|ca|au|jp|ja|he|kr|ru|br|in|es|mx|pl|tr|ar|id|th|vn|sg|my|ph|be|nl|se|ch|no|dk|at|ie|fi|pt|gr|hu|cz|bg|ro|ua|il|sa|eg|ir|pk|iq|af|ly|et|gh|ke|ng|za|tz|mg|mw|zm|bw|sn|cm|ci|gh|ma|tn|mr|mu|om|kw|qa|bh|ae|lb|jo|sy|lb|il|ps|kr|cl|pe|uy|ec|ve|bo|gt|pa|hn|ni|cr|sv|gt|sl|lr|sd|er|dj|et|mw|mz|ao|tz|zm|zw|mw|na|bw|ls|mg|km)\.aliexpress\.com$/.test(host)){
+                lang = host.split(".")[0];
+            }else if(/^www\.aliexpress\.com$/.test(host)){
+                lang = "en";
+            }else if(/^aliexpress\.ru$/.test(host)){
+                lang = "ru";
+            }
+            setStorageData(languageStorageKey, lang);
+            return lang;
+        };
 
-      element.insertAdjacentHTML('afterend', html);
-      if (!!qrcodeData && qrcodeData.code === "success" && !!qrcodeData.result) {
-        const mscanImg = JSON.parse(qrcodeData.result).mscanImg;
-        if (!!mscanImg) {
-          const canvasElement = document.getElementById(canvasId);
-          if (canvasElement) {
-            const cxt = canvasElement.getContext("2d");
-            const imgData = new Image();
-            imgData.src = mscanImg;
-            imgData.onload = function () {
-              cxt.drawImage(imgData, 0, 0, imgData.width, imgData.height);
+        this.getMarketplace = async (marketplaceHandler) =>{
+            let countryCode = "";
+            const host = window.location.host;
+            if(/^(us|ko|uk|fr|de|it|ca|au|jp|ja|he|kr|ru|br|in|es|mx|pl|tr|ar|id|th|vn|sg|my|ph|be|nl|se|ch|no|dk|at|ie|fi|pt|gr|hu|cz|bg|ro|ua|il|sa|eg|ir|pk|iq|af|ly|et|gh|ke|ng|za|tz|mg|mw|zm|bw|sn|cm|ci|gh|ma|tn|mr|mu|om|kw|qa|bh|ae|lb|jo|sy|lb|il|ps|kr|cl|pe|uy|ec|ve|bo|gt|pa|hn|ni|cr|sv|gt|sl|lr|sd|er|dj|et|mw|mz|ao|tz|zm|zw|mw|na|bw|ls|mg|km)\.aliexpress\.com$/.test(host)){
+              countryCode = host.split(".")[0];
+            }else{
+              countryCode = host.split(".").slice(-1)[0]
+            }
+
+            let marketplace = await getStorageData(marketplaceStorageKey, null);
+            const defaultMarketplace = {countryCode: countryCode, className: "", html: ""};
+
+			//AliExpress.ru does not have a country switching feature.
+            if(marketplaceHandler && !/\.ru/.test(host)){
+                const handlerElement = await $.waitForSelector(marketplaceHandler, {"target":document.body, "allowEmpty":true, "timeout":2*1000})
+                if(handlerElement){
+                    marketplace = {
+                        countryCode: countryCode,
+                        className: handlerElement.className ?? "",
+                        html: handlerElement.outerHTML ?? ""
+                    };
+                    setStorageData(marketplaceStorageKey, marketplace);
+                }
+            }
+
+            if(!marketplace){ 
+                marketplace = defaultMarketplace;
+            }
+
+            ext.logger("info", "AliexpressHelper", "getMarketplace", "aliexpress marketplace", marketplace);
+            return encodeURIComponent(JSON.stringify(marketplace));
+        };
+
+
+        this.getCurrency = () =>{
+            const host = window.location.host;
+            return new Promise((resolve,reject) =>{
+              if(host.indexOf("aliexpress.ru")!=-1){ //Russian websites require special handling.
+                resolve("unknown");
+              }else{
+                    const element = document.querySelector("div[class^='ship-to--menuItem--']")
+                        || document.querySelector("div[class^='countryFlag--']"); //https://inbusiness.aliexpress.com/web/search-products?spm=oneshop.home.search_products&searchText=ds
+                    if(element){
+                        let currency = element.textContent;
+                        if(currency){
+                            currency = encodeURIComponent(currency);
+                            setStorageData(currencyStorageKey, currency);
+                            resolve(currency);
+                        }else{
+                            resolve("unknown");
+                        }
+                    }else{
+                        resolve("unknown");
+                    }
+              }
+            });
+        };
+
+        this.detail = async () =>{
+            const language = this.getLang();
+            const currency = await this.getCurrency();
+            const marketplace = await this.getMarketplace();
+            const id = ext.helper.util.getGoodsIdByLink(window.location.href);
+            const params = {
+                ids: id,
+                platform: platform,
+                lang: language,
+                currency:currency,
+                mul:false,
+                qu: "",
+                marketplace:marketplace
+            }
+            try {
+                const data = await ext.helper.request.getCouponQuery(params);
+                if(data.code=="success" && !!data.result){
+                    const json = JSON.parse(data.result);
+                    ext.logger("info", "AliexpressHelper", "detail", "detail request json=", json);
+                    await this.detailAnalyze(json, language, currency, marketplace);
+                }
+            } catch (error) {
+                ext.logger("error", "AliexpressHelper", "detail", "detail exception: ", platform, error);
+            }
+        };
+
+        this.detailAnalyze = async(json, language, currency, marketplace) =>{
+            this.checkDomInsertRs = false;
+            try{
+                if(!json || !json.hasOwnProperty("aliexpress")){
+                    return;
+                }
+            
+                let couponResult = null;
+                let qrcodeResult = null;
+                const {css, coupon, mscan} = defaultCouponDetailTemplateHelper.generate(json.aliexpress);
+
+                if(!!css){
+                    ext.helper.styleHelper.addStylesheetsByContent(css, "aliexpress-coupon-query-detail");
+                }
+                
+                if(!!coupon){
+                    const {handler, html, templateId, distinguish, hint} = coupon;
+                    const element = await $.forceGetElement(handler);
+
+                    ext.logger("info", "AliexpressHelper", "detailAnalyze", "coupon insert: element", element);
+                    if(element){
+                        couponResult = {"element":element, "html":html, "templateId":templateId, "distinguish":distinguish, "hint":hint}
+                    }
+                }
+            
+                if(!!mscan){
+                    const {qrId, templateId, canvasId, html, distinguish, handler} = mscan;
+                    const params = {
+                        id: qrId,
+                        lang: language,
+                        platform: platform,
+                        currency: currency,
+                        marketplace: marketplace
+                    };
+                    const promiseResultArray = [
+                        $.forceGetElement(handler),
+                        ext.helper.request.getCouponQrCode(params)
+                    ];
+                    const allResult = await Promise.all(promiseResultArray);
+
+                    let element=null, qrcodeData=null;
+                    for (let i = 0; i < allResult.length; i++) {
+                        const item = allResult[i];
+                        if (item) {
+                            if (item.hasOwnProperty("code")) {
+                                qrcodeData = item;
+                            } else {
+                                element = item;
+                            }
+                        }
+                    }
+            
+                    ext.logger("info", "AliexpressHelper", "detailAnalyze", "qrcode insert: element", element);
+                    if(element && qrcodeData){
+                        qrcodeResult = {"element":element, "html":html, "canvasId":canvasId, "qrcodeData":qrcodeData,"distinguish":distinguish}
+                    }
+                }
+                
+                ext.helper.util.loopTask(()=>{
+                    if(couponResult){
+                        ext.helper.util.distinguishRemoveAndTry(couponResult.distinguish, ()=>{
+                            this.detailCouponAnalyze(couponResult);
+                        });
+                    }
+                    if(qrcodeResult){
+                        ext.helper.util.distinguishRemoveAndTry(qrcodeResult.distinguish, ()=>{
+                            this.detailMscanAnalyze(qrcodeResult);
+                        });
+                    }
+                });
+
+            }catch(error){
+                ext.logger("error", "AliexpressHelper", "detailAnalyze", "detailAnalyze: ", error);
+
+            }finally{
+              this.checkDomInsertRs = true;
+            }
+        };
+
+
+        this.detailCouponAnalyze = (result) =>{
+            const {element, html, templateId, hint} = result;
+
+            element.insertAdjacentHTML('afterend', html);
+            const templateIdEle = document.querySelector("div[id='"+templateId+"']");
+            if(templateIdEle){
+                const couponCodeElement = templateIdEle.querySelector(".jox-acq-code");
+                if(couponCodeElement){
+                    const promoCode = ext.helper.util.decryptStr(couponCodeElement.getAttribute("data-encryptcode"));
+                    templateIdEle.addEventListener("click", ()=>{
+                        ext.helper.util.setClipboard(promoCode).then(()=>{
+                            ext.helper.toast.show({"message":hint});
+                        });
+                    });
+                }
+            }
+        };
+
+        this.detailMscanAnalyze = (result) =>{
+            const {element, html, qrcodeData, canvasId} = result;
+
+            element.insertAdjacentHTML('afterend', html);
+            if(!!qrcodeData && qrcodeData.code==="success" && !!qrcodeData.result){
+                const mscanImg = JSON.parse(qrcodeData.result).mscanImg;
+                if(!!mscanImg){
+                    const canvasElement = document.getElementById(canvasId);
+                    if(canvasElement){
+                        const cxt = canvasElement.getContext("2d");
+                        const imgData = new Image();
+                        imgData.src = mscanImg;
+                        imgData.onload=function(){
+                            cxt.drawImage(imgData, 0, 0, imgData.width, imgData.height);
+                        }
+                    }
+                }
+            }
+        };
+
+        this.trade = async () =>{
+            const visitUrl = window.location.href;
+            const validate = platformConfig.tradeUrlPatterns.some((reg) => reg.test(visitUrl));
+            if(!validate) return;
+        
+            // No language information available here
+            // So, get language from storage
+            const language = await getStorageData(languageStorageKey, navigator.language);
+            const currency = await getStorageData(currencyStorageKey, "USD");
+            const marketplace = await this.getMarketplace();
+            console.log("currency=",currency, "marketplace=", marketplace);
+        
+            const ids = ext.helper.util.getSearchParameter(window.location.search, "objectId")
+                || ext.helper.util.getSearchParameter(window.location.search, "availableProductShopcartIds")
+                || ext.helper.util.getSearchParameter(window.location.search, "itemId");
+            
+            const params = {
+                ids: ids,
+                qu: "",
+                platform: platform,
+                lang: language,
+                mul: true,
+                currency:currency,
+                marketplace:marketplace
             };
-          }
-        }
-      }
-    };
-
-    this.run = function () {
-      const visitUrl = window.location.href;
-      if (platformConfig.detailUrlPattern.test(visitUrl)) {
-        this.detail();
-      }
-    };
-  };
 
 
-  /**
-   * @param {*} ext 
-   */
-  $.BanggoodDetectHelper = function (ext, platformConfig) {
-
-    const couponExistTemplate = new $.CouponExistTemplateHelper(ext);
-    const platform = platformConfig.platformId;
-    const couponExistPer = platformConfig.couponExistPer || 10;
-    this.loopIsComplete = true;
-
-    this.isRun = function () {
-      return !platformConfig.detailUrlPattern.test(window.location.href);
-    };
-
-    this.pickUpItems = async function (selectors, marketplace, lang, currency) {
-      const items = [];
-      try {
-        selectors.forEach((elementObj) => {
-          if (elementObj.element) {
-            const elements = document.querySelectorAll(elementObj.element + ":not([" + $.attr.couponProcessMark + "='true'])");
-            ext.logger("info", "BanggoodDetectHelper", "pickUpItems", "search coupon elements======>", elements);
-            const findA = elementObj.findA;
-            elements.forEach((element) => {
-              if (element && ext.helper.elementUtil.isElementDisplayed(element) && !element.getAttribute($.attr.couponProcessMark)) {
-                const goodsLink = ext.helper.util.getGoodsLinkByElement(element, findA);
-                const priceQuery = elementObj.price;
-
-                //ext.logger("info", "search price elements======>", element, priceQuery);
-                const price = ext.helper.util.getGoodsPriceByElement(element, priceQuery);
-                //ext.logger("info", "search price======>", price);
-
-                let id = null;
-                if (platformConfig.detailUrlPattern.test(goodsLink)) {
-                  const goodsLinkHref = goodsLink.getAttribute("href");
-                  id = ext.helper.util.getGoodsIdByLink(goodsLinkHref);
-                }
-                if (id) {
-                  items.push({
-                    "id": id, "price": price, "platform": platform, "handler": element, "findA": findA, "from": "search"
-                  });
-                }
-              }
-            });
-          }
-        });
-        ext.logger("info", "BanggoodDetectHelper", "pickUpItems", items);
-        if (items.length > 0) {
-          await this.search(items, marketplace, lang, currency);
-        }
-      } catch (e) {
-        ext.logger("error", "BanggoodDetectHelper", "pickUpItems", "pickUpItems: ", e);
-      }
-    };
-
-    this.search = async function (array, marketplace, lang, currency) {
-      const groups = ext.helper.util.calcRequestGroup(array, couponExistPer);
-      return new Promise((resolve, reject) => {
-        if (groups.length <= 0) {
-          resolve("complete");
-          return;
-        }
-
-        const promises = [];
-        for (let i = 0; i < groups.length; i++) {
-          promises.push(this.createItemHtml(groups[i], marketplace, lang, currency));
-        }
-        Promise.all(promises).then((data) => {
-          resolve("complete");
-        });
-      });
-    };
-
-    this.createItemHtml = function (group, marketplace, lang, currency) {
-      return new Promise((resolve, reject) => {
-        try {
-          if (Array.isArray(group) && group.length === 0) {
-            resolve("exception");
-            return;
-          }
-
-          let reqId = "";
-          const platform = group[0].platform;
-          for (let i = 0; i < group.length; i++) {
-            if (group[i].handler.getAttribute($.attr.couponProcessMark)) {
-              continue;
+            const res = await ext.helper.request.getCouponQuery(params);
+            ext.logger("info", "AliexpressHelper", "trade", "trade res=", res);
+        
+            if(res.code=="success" && !!res.result){
+                const json = JSON.parse(res.result);
+                await this.tradeAnalyze(json, language);
             }
-            reqId += group[i].id + ":" + group[i].price + ",";
-            //Add markers before starting the request to avoid duplicate requests.
-            group[i].handler.setAttribute($.attr.couponProcessMark, "true");
-          }
-          if (reqId.endsWith(",")) {
-            reqId = reqId.slice(0, -1);
-          }
-
-          const params = {
-            platform: platform,
-            ids: reqId,
-            marketplace: marketplace,
-            currency: currency,
-            lang: lang
-          };
-          ext.helper.request.getCouponExist(params).then((data) => {
-            ext.logger("info", "BanggoodDetectHelper", "search", "request finish >>>>>>>>>>>>>", data);
-            delete ext.helper.request.removeRequest(data.requestKey); //delete current cache request
-
-            if (data.code != "success" || !data.result) {
-              resolve("exception");
-              return;
-            }
-
-            const json = JSON.parse(data.result);
-            for (let key in json) {
-              const { distinguish, tip, direction } = json[key];
-              if (!distinguish || !tip || !direction) {
-                continue;
-              }
-
-              const item = group.find((obj) => obj.id === key);
-              if (!item) {
-                continue;
-              }
-              let handler = null,findA = null;
-              if (item.hasOwnProperty("handler") && item.hasOwnProperty("findA")) {
-                handler = item.handler;
-                findA = item.findA;
-              }
-              if (!handler || !findA) {
-                continue;
-              }
-
-              handler.style.position = "relative";
-              handler.insertAdjacentHTML('beforeend', couponExistTemplate.generate(distinguish, tip, direction));
-              ext.logger("info", "BanggoodDetectHelper", "search", "exist coupon >>>>>>>>>>>>>", key);
-            }
-            resolve("complete");
-          });
-        } catch (e) {
-          ext.logger("error", "BanggoodDetectHelper", "search", "createItemHtml: ", e);
-          resolve("exception");
-        }
-      });
-    };
-
-    this.run = async function () {
-      if (!this.isRun()) return;
-
-      const marketplace = ext.helper.coupon.banggood.getMarketplace(window.location.href);
-      const lang = ext.helper.coupon.banggood.getLang();
-      const confString = await ext.helper.request.requestCouponExistConf();
-      ext.logger("info", "BanggoodDetectHelper", "run", "conf ======>", confString);
-      if (!confString) {
-        return;
-      }
-
-      const selectors = ext.helper.util.pickupGoodsItem(platform, confString);
-      ext.logger("info", "BanggoodDetectHelper", "run", "search coupon selectors======>", selectors);
-
-      setInterval(async () => {
-        if (this.loopIsComplete) {
-          this.loopIsComplete = false;
-          const currency = ext.helper.coupon.banggood.getCurrency();
-          await this.pickUpItems(selectors, marketplace, lang, currency);
-          this.loopIsComplete = true;
-        }
-      }, 1700);
-    };
-  };
-
-
-  /**
-   * @param {*} ext 
-   */
-  $.EbayHelper = function (ext, platformConfig) {
-
-    const platform = platformConfig.platformId;
-    const defaultCouponDetailTemplateHelper = new $.DefaultCouponDetailemplateHelper(ext, platform);
-
-    this.detail = async function () {
-      const visitUrl = window.location.href;
-      const id = ext.helper.util.getGoodsIdByLink(visitUrl);
-      const varG = ext.helper.util.getSearchParameter(window.location.href, "var");
-      if (!id) {
-        return;
-      }
-
-      const marketplace = ext.helper.util.getCommonMarketplace(visitUrl);
-      let idsG = id;
-      if (!!varG) {
-        idsG += "@" + varG;
-      }
-
-      try {
-        const params = {
-          ids: idsG,
-          qu: "",
-          platform: platform,
-          marketplace: marketplace,
-          mul: false
         };
-        const data = await ext.helper.request.getCouponQuery(params);
-        if (data.code == "success" && !!data.result) {
-          const json = JSON.parse(data.result);
-          ext.logger("info", "EbayHelper", "detail", "detail request json=", json);
-          await this.detailAnalyze(json, marketplace);
-        }
-      } catch (e) {
-        ext.logger("info", "EbayHelper", "detail", "request,exception", e);
-      }
-    };
 
-    this.detailAnalyze = async function (json, marketplace) {
-      let couponResult = null;
-      let qrcodeResult = null;
+        this.tradeAnalyze = async(json, language) =>{
 
-      const { css, coupon, mscan } = defaultCouponDetailTemplateHelper.generate(json.ebay);
-      ext.helper.styleHelper.addStylesheetsByContent(css, "ebay-coupon-query-detail");
-
-      if (!!coupon) {
-        const { handler, html, templateId, distinguish, hint, mid } = coupon;
-        const element = await $.forceGetElement(handler);
-
-        ext.logger("info", "EbayHelper", "detailAnalyze", "coupon insert: element", element);
-        if (element) {
-          couponResult = { "element": element, "html": html, "templateId": templateId, "distinguish": distinguish, "hint": hint, "mid": mid };
-        }
-      }
-
-      if (!!mscan) {
-        const { qrId, templateId, canvasId, html, distinguish, handler } = mscan;
-
-        const params = {
-          id: qrId,
-          marketplace: marketplace,
-          platform: platform
-        };
-        const allResult = await Promise.all([
-        $.forceGetElement(handler),
-        ext.helper.request.getCouponQrCode(params)]
-        );
-        let element = null,qrcodeData = null;
-        for (let i = 0; i < allResult.length; i++) {
-          const item = allResult[i];
-          if (item) {
-            if (item.hasOwnProperty("code")) {
-              qrcodeData = item;
-            } else {
-              element = item;
+            const {handler, html, css, templateId, distinguish, hint} = aliexpressTradeTemplateHelper.generate(json.aliexpress);
+            if(!handler || !html || !css || !templateId || !distinguish){
+                return;
             }
-          }
-        }
-
-        ext.logger("info", "EbayHelper", "detailAnalyze", "qrcode insert: element", element);
-        if (element && qrcodeData) {
-          qrcodeResult = { "element": element, "html": html, "canvasId": canvasId, "qrcodeData": qrcodeData, "distinguish": distinguish };
-        }
-      }
-
-      ext.helper.util.loopTask(() => {
-        if (couponResult) {
-          ext.helper.util.distinguishRemoveAndTry(couponResult.distinguish, () => {
-            this.detailCouponAnalyze(couponResult);
-          });
-        }
-        if (qrcodeResult) {
-          ext.helper.util.distinguishRemoveAndTry(qrcodeResult.distinguish, () => {
-            this.detailMscanAnalyze(qrcodeResult);
-          });
-        }
-      });
-    };
-
-    this.detailCouponAnalyze = function (result) {
-      const { element, html, templateId, hint, mid } = result;
-
-      element.insertAdjacentHTML('afterend', html);
-      const templateIdEle = document.querySelector("div[id='" + templateId + "']");
-      if (templateIdEle) {
-        const couponCodeElement = templateIdEle.querySelector(".jox-acq-code");
-        if (couponCodeElement) {
-          const promoCode = ext.helper.util.decryptStr(couponCodeElement.getAttribute("data-encryptcode"));
-          templateIdEle.addEventListener("click", () => {
-            ext.helper.util.setClipboard(promoCode).then(() => {
-              ext.helper.toast.show({ "message": hint });
-
-              if (mid && mid.hasOwnProperty("config")) {
-                const { target, link, delay } = mid.config,linkDecrypt = ext.helper.util.decryptStr(link);
-                setTimeout(() => {
-                  if (target === "_blank") {
-                    ext.helper.util.openInTab(linkDecrypt);
-                  } else if (target === "_self") {
-                    window.location.href = linkDecrypt;
-                  } else if (target === "_replace") {
-                    window.location.replace(linkDecrypt);
-                  }
-                }, delay);
-              }
-
+            ext.helper.styleHelper.addStylesheetsByContent(css, "aliexpress-trade");
+        
+            let element = await $.forceGetElement(handler);
+            ext.logger("info", "AliexpressHelper", "tradeAnalyze", "insert: element", element);
+        
+            ext.helper.util.loopTask(()=>{
+                if(!element){
+                    return;
+                }
+                ext.helper.util.distinguishRemoveAndTry(distinguish, ()=>{
+                    element.insertAdjacentHTML('afterend', html);
+                    const templateIdEle = document.querySelector("#"+templateId+">.item");
+                    if(templateIdEle){
+                        const promoCode = ext.helper.util.decryptStr(templateIdEle.querySelector(".copy").getAttribute("data-encryptcode"));
+                        templateIdEle.addEventListener("click",()=>{
+                            ext.helper.util.setClipboard(promoCode).then(()=>{
+                                ext.helper.toast.show({"message": hint});
+                            });
+                        });
+                
+                        // Only when expandable; if input.value is used, do not trigger the change event
+                        const arrowElement = document.querySelector(".pl-summary__item-arrow-pc");
+                        if(arrowElement){
+                            arrowElement.click();
+                        }
+                    }
+                });
             });
-          });
         }
-      }
+
+        this.removeAnchor = () =>{
+            setInterval(()=>{
+                const anchors = document.querySelectorAll("div[name^='ali-gogo-coupon-']");
+                anchors.forEach((element)=>{
+                    ext.helper.util.removeAnchorsByNode(element);
+                });
+            }, 3000);
+        };
+
+        this.run = async function () {
+            const visitUrl = window.location.href;
+            if(platformConfig.detailUrlPattern.test(visitUrl)){
+                this.detail();
+            }
+            this.trade();
+            this.removeAnchor();
+        };
     };
 
-    this.detailMscanAnalyze = function (result) {
-      const { element, html, qrcodeData, canvasId } = result;
+  
+    /**
+     * @param {*} ext 
+     */
+    $.AliexpressDetectHelper = function (ext, platformConfig) {
+        
+        const couponExistTemplate = new $.CouponExistTemplateHelper(ext);
+        const platform = platformConfig.platformId;
+        const couponExistPer = platformConfig.couponExistPer || 10;
 
-      element.insertAdjacentHTML('afterend', html);
-      if (!!qrcodeData && qrcodeData.code === "success" && !!qrcodeData.result) {
-        const mscanImg = JSON.parse(qrcodeData.result).mscanImg;
-        if (!!mscanImg) {
-          const canvasElement = document.getElementById(canvasId);
-          if (canvasElement) {
-            const cxt = canvasElement.getContext("2d");
-            const imgData = new Image();
-            imgData.src = mscanImg;
-            imgData.onload = function () {
-              cxt.drawImage(imgData, 0, 0, imgData.width, imgData.height);
+        this.loopIsComplete = true;
+        this.cacheLinkDoms = {}; //Save the collected link DOM.
+
+        this.isInbusinessPage = function(){
+            return /inbusiness\.aliexpress\.com\/web\/search-products/.test(window.location.href);
+        };
+
+        this.isItemLink = function(url){
+            return platformConfig.detailUrlPattern.test(url);
+        };
+
+        this.pickUpWholesale = async function(selectors, language, currency, marketplace){
+            const items = [];
+            try{
+                selectors.forEach((elementObj)=>{
+                        if(elementObj.element){
+                            const elements = document.querySelectorAll(elementObj.element+":not(["+$.attr.couponProcessMark+"='true'])");
+                            ext.logger("info", "AliexpressDetectHelper", "pickUpWholesale", "search coupon elements======>", elements.length);
+                            const findA = elementObj.findA;
+                            elements.forEach((element)=>{
+                                if(element && ext.helper.elementUtil.isElementDisplayed(element) && !element.getAttribute($.attr.couponProcessMark)){
+                                    const goodsLink = ext.helper.util.getGoodsLinkByElement(element, findA);
+                                    let id = null;
+                                    if(this.isItemLink(goodsLink)){
+                                        id = ext.helper.util.getGoodsIdByLink(goodsLink.getAttribute("href"));
+                                    }
+                                    if(id){
+                                        items.push({
+                                            "id":id, "platform":this.currentPlatform, "handler":element, "findA":findA, "from":"wholesale"
+                                        });
+                                        this.cacheLinkDoms[id] = goodsLink;
+                                    }
+                                }
+                            });
+                        }
+                });
+                if(items.length>0){
+                    await this.search(items, language, currency, marketplace);
+                }
+            }catch(e){
+                ext.logger("error", "AliexpressDetectHelper", "pickUpWholesale", "pickUpWholesale: ", e);
+            }
+        };
+
+        this.pickUpInbusiness = async function(language, currency, marketplace){
+            const validate = this.isInbusinessPage();
+            if(!validate) return;
+        
+            try{
+                const iceContainerElement = document.querySelector("#ice-container");
+                const loadMoreElement = await $.waitForSelector("#loadMore", {"target":iceContainerElement});
+                if(loadMoreElement){
+                    const array = [];
+                    const containerElement = loadMoreElement.previousElementSibling;
+                    if(containerElement && containerElement.tagName==='DIV'){
+                        const childNodes = containerElement.childNodes;
+                        childNodes.forEach((child)=>{
+                            if(child.tagName==="A" && ext.helper.elementUtil.isElementDisplayed(child) && !child.getAttribute($.attr.couponProcessMark)){
+                                const id = ext.helper.util.getGoodsIdByLink(child.getAttribute("href"));
+                                if(id){
+                                    array.push({
+                                        "id":id, "platform":platform, "handler":child, "from":"inbusiness"
+                                    });
+                                    this.cacheLinkDoms[id] = child;
+                                }
+                            }
+                        });
+                    }
+                    await this.search(array, language, currency, marketplace);
+                }
+            }catch(e){
+                ext.logger("error", "AliexpressDetectHelper", "pickUpInbusiness", "pickUpInbusiness: ", e);
+            }
+        };
+
+        this.search = function(array, language, currency, marketplace){
+            const groups = ext.helper.util.calcRequestGroup(array, couponExistPer);
+            return new Promise((resolve, reject) => {
+                if (groups.length <= 0) {
+                    resolve("complete");
+                    return;
+                }
+            
+                const promises = [];
+                for(let i=0; i<groups.length; i++){
+                    promises.push(this.createItemHtml(groups[i], language, currency, marketplace));
+                }
+                Promise.all(promises).then((data)=>{
+                    resolve("complete");
+                });
+            });
+        };
+
+        this.createItemHtml = function(group, language, currency, marketplace){
+            return new Promise((resolve, reject)=>{
+                try{
+                    if(Array.isArray(group) && group.length === 0){
+                        resolve("exception");
+                        return;
+                    }
+            
+                    let reqId = "";
+                    for (let i = 0; i < group.length; i++) {
+                        if(group[i].handler.getAttribute($.attr.couponProcessMark)){
+                            continue;
+                        }
+                        reqId += group[i].id+",";
+                        //Add markers before starting the request to avoid duplicate requests.
+                        group[i].handler.setAttribute($.attr.couponProcessMark, "true");
+                    }
+                    if (reqId.endsWith(",")) {
+                        reqId = reqId.slice(0, -1);
+                    }
+            
+                    ext.logger("info", "AliexpressDetectHelper", "search", "request start >>>>>>>>>>>>>", group);
+
+                    const params = {
+                        platform:platform,
+                        ids: reqId,
+                        lang: language,
+                        currency: currency,
+                        marketplace: marketplace
+                    };
+                    ext.helper.request.getCouponExist(params).then((data)=>{
+                        ext.logger("info", "AliexpressDetectHelper", "search", "request finish >>>>>>>>>>>>>");
+                        delete ext.helper.request.removeRequest(data.requestKey); //delete current cache request
+                
+                        if(data.code!="success" || !data.result){
+                            resolve("exception");
+                            return;
+                        }
+                
+                        const json = JSON.parse(data.result);
+                        ext.logger("info", "AliexpressDetectHelper", "search", "json", json);
+                        let isBroken = false;
+                        for (let key in json) {
+                            const { distinguish, tip, direction } = json[key];
+                            if(!distinguish || !tip || !direction){
+                                continue;
+                            }
+                
+                            const item = group.find(obj => obj.id ===  key);
+                            if(!item){
+                                continue;
+                            }
+                            let handler = null, findA = null;
+                            if(item.hasOwnProperty("handler") && item.hasOwnProperty("findA")){
+                                handler = item.handler;
+                                findA = item.findA;
+                            }
+                            if(!handler || !findA){
+                                continue;
+                            }
+                                
+                            // Exception currentGoodsId != request id
+                            // avoid current request
+                            const elementA = ext.helper.util.getGoodsLinkByElement(handler, findA);
+                            const currentId = elementA ? ext.helper.util.getGoodsIdByLink(elementA.getAttribute("href")) : "";
+                            if(currentId != key){
+                                group.forEach((gItem)=>{
+                                    const ele = gItem.handler;
+                                    ele.removeAttribute($.attr.couponProcessMark);
+                                    const tipElement = ele.querySelector("div[name^='ali-gogo-coupon-']");
+                                    if(tipElement){
+                                        tipElement.remove();
+                                    }
+                                });
+                                ext.logger("info", "AliexpressDetectHelper", "search", "exception currentGoodsId != request id", key);
+                                isBroken = true;
+                                break;
+
+                            }else{
+                                handler.style.position = "relative";
+                                handler.insertAdjacentHTML('beforeend', couponExistTemplate.generate(distinguish, tip, direction));
+                                ext.logger("info", "AliexpressDetectHelper", "search", "exist coupon >>>>>>>>>>>>>", key);
+                            }
+                        }
+                        resolve(isBroken ? "broken" :"complete");
+                    });
+                }catch(e){
+                    ext.logger("error", "AliexpressDetectHelper", "search", "createItemHtml: ", e);
+                    resolve("exception");
+                }
+            });
+        };
+
+        this.isRun = function(){
+            let run = false;
+            if(window.location.host.indexOf("aliexpress.")!=-1){
+                run = !/\/(item|trade|checkout)\//.test(window.location.pathname)
+            }
+            return run;
+        };
+
+
+        this.changePageEvent = function(){
+             //AliExpress pagination loading reuses elements.
+            let hookDivTimer = null, removeTagIsComplete = true;
+
+            const onInitDom = () => {
+                if (!removeTagIsComplete) return;
+
+                removeTagIsComplete = false;
+                const attr = $.attr.couponProcessMark;
+                document.querySelectorAll(`*[${attr}='true']`).forEach(el => {
+                    el.removeAttribute(attr);
+                    const tip = el.querySelector("*[name^='ali-gogo-coupon-']");
+                    if (tip){
+                    tip.remove();
+                    }
+                });
+                removeTagIsComplete = true;
+
+                this.cacheLinkDoms = {};  //Clear
             };
-          }
-        }
-      }
-    };
 
-    this.run = function () {
-      const visitUrl = window.location.href;
-      if (platformConfig.detailUrlPattern.test(visitUrl)) {
-        this.detail();
-      }
-    };
-  };
-
-
-  /**
-   * @param {*} ext 
-   */
-  $.EbayDetectHelper = function (ext, platformConfig) {
-
-    const couponExistTemplate = new $.CouponExistTemplateHelper(ext);
-    const platform = platformConfig.platformId;
-    const couponExistPer = platformConfig.couponExistPer || 10;
-    this.loopIsComplete = true;
-
-    this.isRun = function () {
-      let run = false;
-      if (window.location.host.indexOf("ebay.") != -1) {
-        run = !/\/(item|itm|trade|checkout|rxo)\//.test(window.location.pathname);
-      }
-      return run;
-    };
-
-    this.isItemLink = function (url) {
-      return platformConfig.detailUrlPattern.test(url);
-    };
-
-    this.pickUpItems = async function (selectors, marketplace) {
-      const items = [];
-      try {
-        selectors.forEach((elementObj) => {
-          if (elementObj.element) {
-            const elements = document.querySelectorAll(elementObj.element + ":not([" + $.attr.couponProcessMark + "='true'])");
-            ext.logger("info", "EbayDetectHelper", "pickUpItems", "search coupon elements======>", elements);
-            const findA = elementObj.findA;
-            elements.forEach((element) => {
-              if (element && ext.helper.elementUtil.isElementDisplayed(element) && !element.getAttribute($.attr.couponProcessMark)) {
-                const goodsLink = ext.helper.util.getGoodsLinkByElement(element, findA);
-                const priceQuery = elementObj.price;
-
-                //ext.logger("info", "search price elements======>", element, priceQuery);
-                const price = ext.helper.util.getGoodsPriceByElement(element, priceQuery);
-                //ext.logger("info", "search price======>", price);
-
-                let id = null,varG = null;
-                if (this.isItemLink(goodsLink)) {
-                  const goodsLinkHref = goodsLink.getAttribute("href");
-                  id = ext.helper.util.getGoodsIdByLink(goodsLinkHref);
-                  varG = ext.helper.util.getSearchParameter(goodsLinkHref, "var");
+            const checkObjectValues = () => {
+                const obj = this.cacheLinkDoms;
+                const keys = Object.keys(obj);
+                let notContain = 0;
+                for (let i = 0; i < keys.length; i++) {
+                    const key = keys[i];
+                    const el = obj[key];
+                    try {
+                        const href = el.getAttribute("href");
+                        if (!href.includes(key)) {
+                            if (++notContain > 2) return true;
+                        }
+                    } catch (e) {
+                        ext.logger("info", "AliexpressDetectHelper", "checkObjectValues", "checkObjectValues exception======>", e);
+                    }
                 }
-                if (id) {
-                  items.push({
-                    "id": id, "varG": varG, "price": price, "platform": platform, "handler": element, "findA": findA, "from": "search"
-                  });
-                }
-              }
+                return false;
+            };
+
+            //Currently, it is listening for the disappearance of the loading modal box. If AliExpress makes modifications, you can choose to use URL changes.
+            //Using MutationObserver is more efficient.
+            const observer = new MutationObserver(mutations => {
+                //Is there a deletion node at the first level of the body?
+                const hasDelete = mutations.some(m =>
+                    m.target === document.body && m.removedNodes.length > 0
+                );
+                if (!hasDelete) return;
+
+                //This deletion event will only be triggered once.
+                if (hookDivTimer) clearTimeout(hookDivTimer);
+
+                hookDivTimer = setTimeout(() => {
+                    hookDivTimer = null;
+                    if (checkObjectValues()) onInitDom();
+                }, 500);
             });
-          }
-        });
-        ext.logger("info", "EbayDetectHelper", "pickUpItems", items);
-        if (items.length > 0) {
-          await this.search(items, marketplace);
-        }
-      } catch (e) {
-        ext.logger("error", "EbayDetectHelper", "pickUpItems", "pickUpItems: ", e);
-      }
-    };
+            observer.observe(document.body, { childList: true, subtree: false });
+        };
 
-    this.search = async function (array, marketplace) {
-      const groups = ext.helper.util.calcRequestGroup(array, couponExistPer);
-      return new Promise((resolve, reject) => {
-        if (groups.length <= 0) {
-          resolve("complete");
-          return;
-        }
 
-        const promises = [];
-        for (let i = 0; i < groups.length; i++) {
-          promises.push(this.createItemHtml(groups[i], marketplace));
-        }
-        Promise.all(promises).then((data) => {
-          resolve("complete");
-        });
-      });
-    };
+        this.run = async function(){
+            
+            if(!this.isRun()) return;
 
-    this.createItemHtml = function (group, marketplace) {
-      return new Promise((resolve, reject) => {
-        try {
-          if (Array.isArray(group) && group.length === 0) {
-            resolve("exception");
-            return;
-          }
+            let removeTagIsComplete = true;
+            const language = ext.helper.coupon.aliexpress.getLang();
+            const currency = await ext.helper.coupon.aliexpress.getCurrency();
+            const marketplace = await ext.helper.coupon.aliexpress.getMarketplace(platformConfig.marketplace);
 
-          let reqId = "";
-          const platform = group[0].platform;
-          for (let i = 0; i < group.length; i++) {
-            if (group[i].handler.getAttribute($.attr.couponProcessMark)) {
-              continue;
-            }
-            reqId += group[i].id;
-            if (!!group[i].varG) {
-              reqId += "@" + group[i].varG;
-            }
-            reqId += ":" + group[i].price + ",";
-
-            //Add markers before starting the request to avoid duplicate requests.
-            group[i].handler.setAttribute($.attr.couponProcessMark, "true");
-          }
-          if (reqId.endsWith(",")) {
-            reqId = reqId.slice(0, -1);
-          }
-
-          ext.logger("info", "EbayDetectHelper", "search", "request start >>>>>>>>>>>>>", group);
-          const params = {
-            platform: platform,
-            ids: reqId,
-            marketplace: marketplace
-          };
-
-          ext.helper.request.getCouponExist(params).then((data) => {
-            ext.logger("info", "EbayDetectHelper", "search", "request finish >>>>>>>>>>>>>");
-            ext.helper.request.removeRequest(data.requestKey); //delete current cache request
-
-            if (data.code != "success" || !data.result) {
-              resolve("exception");
-              return;
+            const confString = await ext.helper.request.requestCouponExistConf();
+            ext.logger("info", "AliexpressDetectHelper", "run", "conf ======>", confString);
+            if(!confString){
+                return;
             }
 
-            const json = JSON.parse(data.result);
-            for (let key in json) {
-              const { distinguish, tip, direction } = json[key];
-              if (!distinguish || !tip || !direction) {
-                continue;
-              }
-
-              const item = group.find((obj) => obj.id === key);
-              if (!item) {
-                continue;
-              }
-              let handler = null,findA = null;
-              if (item.hasOwnProperty("handler") && item.hasOwnProperty("findA")) {
-                handler = item.handler;
-                findA = item.findA;
-              }
-              if (!handler || !findA) {
-                continue;
-              }
-
-              handler.style.position = "relative";
-              handler.insertAdjacentHTML('beforeend', couponExistTemplate.generate(distinguish, tip, direction));
-              ext.logger("info", "EbayDetectHelper", "search", "exist coupon >>>>>>>>>>>>>", key);
+            const selectors = ext.helper.util.pickupGoodsItem(platform, confString);
+            ext.logger("info", "AliexpressDetectHelper", "run", "search coupon selectors======>", selectors);
+            setInterval(async ()=>{
+            if(removeTagIsComplete && this.loopIsComplete){
+                this.loopIsComplete = false;
+                await this.pickUpInbusiness(language, currency, marketplace);
+                await this.pickUpWholesale(selectors, language, currency, marketplace);
+                this.loopIsComplete = true;
             }
-            resolve("complete");
-          });
-        } catch (e) {
-          ext.logger("error", "EbayDetectHelper", "search", "createItemHtml: ", e);
-          resolve("exception");
-        }
-      });
+            }, 1700);
+
+            
+            //Only takes effect when clicking the next page.
+            //Principle Explanation: When the loading div is removed, check if there has been any change in the DOM.
+            if(selectors.length != 0 && window.location.pathname!="/"){
+                this.changePageEvent();
+            }
+        };
+
     };
 
-    this.run = async function () {
-      if (!this.isRun()) return;
+  
+    /**
+     * @param {*} ext 
+     */
+    $.AmazonHelper = function (ext, platformConfig) {
 
-      const marketplace = ext.helper.util.getCommonMarketplace(window.location.href);
-      const confString = await ext.helper.request.requestCouponExistConf();
-      ext.logger("info", "EbayDetectHelper", "run", "conf ======>", confString);
-      if (!confString) {
-        return;
-      }
+        const platform = platformConfig.platformId;
+        const amazonCouponQueryTemplateHelper = new $.AmazonCouponQueryTemplateHelper(ext);
 
-      const selectors = ext.helper.util.pickupGoodsItem(platform, confString);
-      ext.logger("info", "EbayDetectHelper", "run", "search coupon selectors======>", selectors);
+        this.detail = async function(){
+            const visitUrl = window.location.href;
+            const id = ext.helper.util.getGoodsIdByLink(visitUrl);
+            if(!id){
+                return;
+            }
+            const marketplace = ext.helper.util.getCommonMarketplace(visitUrl);
 
-      setInterval(async () => {
-        if (this.loopIsComplete) {
-          this.loopIsComplete = false;
-          await this.pickUpItems(selectors, marketplace);
-          this.loopIsComplete = true;
-        }
-      }, 1700);
+            try{
+                const params = {
+                    ids:id,
+                    qu:"",
+                    platform:platform,
+                    marketplace:marketplace,
+                    mul:false
+                };
+                const data = await ext.helper.request.getCouponQuery(params);
+                if(data.code=="success" && !!data.result){
+                    const json = JSON.parse(data.result);
+                    ext.logger("info", "AmazonHelper", "detail", "detail request json=",json);
+                    await this.detailAnalyze(json);
+                }
+            }catch(e){
+                ext.logger("info", "AmazonHelper", "detail", "request,exception",e);
+            }
+        };
+
+        this.detailAnalyze = async function(json){
+            if(!!json && json.hasOwnProperty("amazon")){
+                const { html, css, handler, distinguish } = amazonCouponQueryTemplateHelper.generate(json.amazon);
+                ext.helper.styleHelper.addStylesheetsByContent(css, "amazon-coupon-query-detail");
+            
+                const element = await $.forceGetElement(handler);
+                ext.logger("info", "AmazonHelper", "detailAnalyze", "coupon insert: element", element);
+                if(element){
+                    ext.helper.util.loopTask(()=>{
+                        ext.helper.util.distinguishRemoveAndTry(distinguish, ()=>{
+                            element.insertAdjacentHTML('afterend', html);
+                        });
+                    });   
+                }
+            }
+        };
+
+        this.run = function(){
+            const visitUrl = window.location.href;
+            if(platformConfig.detailUrlPattern.test(visitUrl)){
+                this.detail();
+            }
+        };
     };
-  };
 
-  /**
-   * @param {*} ext 
-   */
-  $.SettingHelper = function (ext) {
+  
+    /**
+     * @param {*} ext 
+     */
+    $.BanggoodHelper = function (ext, platformConfig) {
 
-    let settingDialogShadowRoot = null;
+        const platform = platformConfig.platformId;
+        const defaultCouponDetailTemplateHelper = new $.DefaultCouponDetailemplateHelper(ext, platform);
+        
+        this.getLang = function(){
+            return document.querySelector("html").getAttribute("lang") || "";
+        };
+
+        this.getCurrency = function(){
+            const element = document.querySelector(".shipto-state");
+            if(element){
+                return encodeURIComponent(element.textContent);
+            }
+            return "";
+        };
+
+        this.getMarketplace = function(url = window.location.href){
+            const marketplace = [
+                /https?:\/\/www\.banggood\.com\/([a-z]{2,3})\//,
+                /https?:\/\/([a-z]{2,3})\.banggood\.com/
+            ].map((rs) => {
+                const match = url.match(rs);
+                if(match){
+                    return match[1];
+                }
+                return null;
+            }).find((rs)=>rs!=null);
+            return marketplace || "com";
+        };
+
+        this.detail = async function(){
+            const visitUrl = window.location.href;
+            const id = ext.helper.util.getGoodsIdByLink(visitUrl);
+            if(!id){
+                return;
+            }
+        
+            const marketplace = this.getMarketplace(visitUrl);
+            const currency = this.getCurrency();
+            const lang = this.getLang();
+            try{
+                const params = {
+                    ids:id,
+                    qu:"",
+                    platform:platform,
+                    marketplace:marketplace,
+                    currency:currency,
+                    mul:false,
+                    lang:lang
+                };
+                const data = await ext.helper.request.getCouponQuery(params);
+                if(data.code=="success" && !!data.result){
+                    const json = JSON.parse(data.result);
+                    ext.logger("info", "BanggoodHelper", "detail", "detail request json=",json);
+                    await this.detailAnalyze(json,marketplace);
+                }
+            }catch(e){
+                ext.logger("info", "BanggoodHelper", "detail", "request,exception",e);
+            }
+        };
+
+        this.detailAnalyze = async function(json, marketplace){
+            let couponResult = null;
+            let qrcodeResult = null;
+            
+            const {css, coupon, mscan} = defaultCouponDetailTemplateHelper.generate(json.banggood);
+            ext.helper.styleHelper.addStylesheetsByContent(css, "banggood-coupon-query-detail");
+
+            if(!!coupon){
+                const {handler, html, templateId, distinguish, hint, mid} = coupon;
+                const element = await $.forceGetElement(handler);
+
+                ext.logger("info", "BanggoodHelper", "detailAnalyze", "coupon insert: element", element);
+                if(element){
+                    couponResult = {"element":element, "html":html, "templateId":templateId, "distinguish":distinguish, "hint":hint, "mid":mid}
+                }
+            }
+            if(!!mscan){
+                const {qrId, templateId, canvasId, html, distinguish, handler} = mscan;
+            
+                const params = {
+                    id:qrId,
+                    marketplace:marketplace,
+                    platform:platform,
+                };
+                const allResult = await Promise.all([
+                    $.forceGetElement(handler),
+                    ext.helper.request.getCouponQrCode(params)
+                ]);
+                let element = null, qrcodeData = null;
+                for (let i = 0; i < allResult.length; i++) {
+                    const item = allResult[i];
+                    if (item) {
+                        if (item.hasOwnProperty("code")) {
+                            qrcodeData = item;
+                        } else {
+                            element = item;
+                        }
+                    }
+                }
+            
+                ext.logger("info", "BanggoodHelper", "detailAnalyze", "qrcode insert: element", element);
+                if(element && qrcodeData){
+                    qrcodeResult = {"element":element, "html":html, "canvasId":canvasId, "qrcodeData":qrcodeData, "distinguish":distinguish}
+                }
+            }
+
+            ext.helper.util.loopTask(()=>{
+                if(couponResult){
+                    ext.helper.util.distinguishRemoveAndTry(couponResult.distinguish, ()=>{
+                        this.detailCouponAnalyze(couponResult);
+                    });
+                }
+                if(qrcodeResult){
+                    ext.helper.util.distinguishRemoveAndTry(qrcodeResult.distinguish, ()=>{
+                        this.detailMscanAnalyze(qrcodeResult);
+                    });
+                }
+            });
+        };
+
+        this.detailCouponAnalyze = function(result){
+            const {element, html, templateId, hint, mid} = result;
+        
+            element.insertAdjacentHTML('afterend', html);
+            const templateIdEle = document.querySelector("div[id='"+templateId+"']");
+            if(templateIdEle){
+                const couponCodeElement = templateIdEle.querySelector(".jox-acq-code");
+                if(couponCodeElement){
+                    const promoCode = ext.helper.util.decryptStr(couponCodeElement.getAttribute("data-encryptcode"));
+                    templateIdEle.addEventListener("click", ()=>{
+                        ext.helper.util.setClipboard(promoCode).then(()=>{
+                            ext.helper.toast.show({"message":hint});
+                            
+                            if(mid && mid.hasOwnProperty("config")){
+                                const {target, link, delay}  = mid.config, linkDecrypt = ext.helper.util.decryptStr(link);
+                                setTimeout(()=>{
+                                    if(target==="_blank"){
+                                        ext.helper.util.openInTab(linkDecrypt);
+                                    }else if(target==="_self"){
+                                        window.location.href = linkDecrypt;
+                                    }else if(target==="_replace"){
+                                        window.location.replace(linkDecrypt);
+                                    }
+                                },delay);
+                            }
+                
+                        });
+                    });
+                }
+            }
+        };
+
+        this.detailMscanAnalyze = function(result){
+            const {element, html, qrcodeData, canvasId} = result;
+        
+            element.insertAdjacentHTML('afterend', html);
+            if(!!qrcodeData && qrcodeData.code==="success" && !!qrcodeData.result){
+                const mscanImg = JSON.parse(qrcodeData.result).mscanImg;
+                if(!!mscanImg){
+                    const canvasElement = document.getElementById(canvasId);
+                    if(canvasElement){
+                        const cxt = canvasElement.getContext("2d");
+                        const imgData = new Image();
+                        imgData.src = mscanImg;
+                        imgData.onload=function(){
+                            cxt.drawImage(imgData, 0, 0, imgData.width, imgData.height);
+                        }
+                    }
+                }
+            }
+        };
+
+        this.run = function(){
+            const visitUrl = window.location.href;
+            if(platformConfig.detailUrlPattern.test(visitUrl)){
+                this.detail();
+            }
+        };
+    };
+
+  
+    /**
+     * @param {*} ext 
+     */
+    $.BanggoodDetectHelper = function (ext, platformConfig) {
+
+        const couponExistTemplate = new $.CouponExistTemplateHelper(ext);
+        const platform = platformConfig.platformId;
+        const couponExistPer = platformConfig.couponExistPer || 10;
+        this.loopIsComplete = true;
+
+        this.isRun = function(){
+            return !platformConfig.detailUrlPattern.test(window.location.href);
+        };
+
+        this.pickUpItems = async function(selectors, marketplace, lang, currency){
+            const items = [];
+            try{
+                selectors.forEach((elementObj)=>{
+                    if(elementObj.element){
+                        const elements = document.querySelectorAll(elementObj.element+":not(["+$.attr.couponProcessMark+"='true'])");
+                        ext.logger("info", "BanggoodDetectHelper", "pickUpItems", "search coupon elements======>", elements);
+                        const findA = elementObj.findA;
+                        elements.forEach((element)=>{
+                            if(element && ext.helper.elementUtil.isElementDisplayed(element) && !element.getAttribute($.attr.couponProcessMark)){
+                                const goodsLink = ext.helper.util.getGoodsLinkByElement(element, findA);
+                                const priceQuery = elementObj.price;
+								
+								//ext.logger("info", "search price elements======>", element, priceQuery);
+								const price = ext.helper.util.getGoodsPriceByElement(element, priceQuery);
+								//ext.logger("info", "search price======>", price);
+                    
+                                let id = null;
+                                if(platformConfig.detailUrlPattern.test(goodsLink)){
+                                    const goodsLinkHref = goodsLink.getAttribute("href");
+                                    id = ext.helper.util.getGoodsIdByLink(goodsLinkHref);
+                                }
+                                if(id){
+                                    items.push({
+                                        "id":id, "price":price, "platform":platform, "handler":element, "findA":findA, "from":"search"
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+                ext.logger("info", "BanggoodDetectHelper", "pickUpItems", items);
+                if(items.length>0){
+                    await this.search(items, marketplace, lang, currency);
+                }
+              }catch(e){
+              ext.logger("error", "BanggoodDetectHelper", "pickUpItems", "pickUpItems: ", e);
+            }
+        };
+
+        this.search = async function(array, marketplace, lang, currency){
+            const groups = ext.helper.util.calcRequestGroup(array, couponExistPer);
+            return new Promise((resolve, reject) => {
+                if (groups.length <= 0) {
+                    resolve("complete");
+                    return;
+                }
+            
+                const promises = [];
+                for(let i=0; i<groups.length; i++){
+                    promises.push(this.createItemHtml(groups[i], marketplace, lang, currency));
+                }
+                Promise.all(promises).then((data)=>{
+                    resolve("complete");
+                });
+            });
+        };
+
+        this.createItemHtml = function(group, marketplace, lang, currency){
+            return new Promise((resolve, reject)=>{
+              try{
+                    if(Array.isArray(group) && group.length === 0){
+                        resolve("exception");
+                        return;
+                    }
+            
+                    let reqId = "";
+                    const platform = group[0].platform;
+                    for (let i = 0; i < group.length; i++) {
+                        if(group[i].handler.getAttribute($.attr.couponProcessMark)){
+                            continue;
+                        }
+                        reqId += group[i].id+":"+group[i].price+",";
+                        //Add markers before starting the request to avoid duplicate requests.
+                        group[i].handler.setAttribute($.attr.couponProcessMark, "true");
+                    }
+                    if (reqId.endsWith(",")) {
+                        reqId = reqId.slice(0, -1);
+                    }
+
+                    const params = {
+                        platform:platform,
+                        ids:reqId,
+                        marketplace:marketplace,
+                        currency:currency,
+                        lang:lang
+                    };
+                    ext.helper.request.getCouponExist(params).then((data)=>{
+                        ext.logger("info", "BanggoodDetectHelper", "search", "request finish >>>>>>>>>>>>>", data);
+                        delete ext.helper.request.removeRequest(data.requestKey); //delete current cache request
+                
+                        if(data.code!="success" || !data.result){
+                            resolve("exception");
+                            return;
+                        }
+                
+                        const json = JSON.parse(data.result);
+                        for (let key in json) {
+                            const { distinguish, tip, direction } = json[key];
+                            if(!distinguish || !tip || !direction){
+                                continue;
+                            }
+                
+                            const item = group.find(obj => obj.id ===  key);
+                            if(!item){
+                                continue;
+                            }
+                            let handler = null, findA = null;
+                            if(item.hasOwnProperty("handler") && item.hasOwnProperty("findA")){
+                                handler = item.handler;
+                                findA = item.findA;
+                            }
+                            if(!handler || !findA){
+                                continue;
+                            }
+
+                            handler.style.position = "relative";
+                            handler.insertAdjacentHTML('beforeend', couponExistTemplate.generate(distinguish, tip, direction));
+                            ext.logger("info", "BanggoodDetectHelper", "search", "exist coupon >>>>>>>>>>>>>", key);
+                        }
+                        resolve("complete");
+                    });
+                }catch(e){
+                    ext.logger("error", "BanggoodDetectHelper", "search", "createItemHtml: ", e);
+                    resolve("exception");
+                }
+            });
+        };
+
+        this.run = async function(){
+            if(!this.isRun()) return;
+        
+            const marketplace = ext.helper.coupon.banggood.getMarketplace(window.location.href);
+            const lang = ext.helper.coupon.banggood.getLang();
+            const confString = await ext.helper.request.requestCouponExistConf();
+            ext.logger("info", "BanggoodDetectHelper", "run", "conf ======>", confString);
+            if(!confString){
+                return;
+            }
+        
+            const selectors = ext.helper.util.pickupGoodsItem(platform, confString);
+            ext.logger("info", "BanggoodDetectHelper", "run", "search coupon selectors======>", selectors);
+        
+            setInterval(async ()=>{
+                if(this.loopIsComplete){
+                    this.loopIsComplete = false;
+                    const currency = ext.helper.coupon.banggood.getCurrency();
+                    await this.pickUpItems(selectors, marketplace, lang, currency);
+                    this.loopIsComplete = true;
+                }
+            }, 1700);
+        };
+    };
+
+  
+    /**
+     * @param {*} ext 
+     */
+    $.EbayHelper = function (ext, platformConfig) {
+
+        const platform = platformConfig.platformId;
+        const defaultCouponDetailTemplateHelper = new $.DefaultCouponDetailemplateHelper(ext, platform);
+        
+        this.detail = async function(){
+            const visitUrl = window.location.href;
+            const id = ext.helper.util.getGoodsIdByLink(visitUrl);
+            const varG = ext.helper.util.getSearchParameter(window.location.href, "var");
+            if(!id){
+                return;
+            }
+
+            const marketplace = ext.helper.util.getCommonMarketplace(visitUrl);
+            let idsG = id;
+            if(!!varG){
+                idsG += "@"+varG;
+            }
+
+            try{
+                const params = {
+                    ids:idsG,
+                    qu:"",
+                    platform:platform,
+                    marketplace:marketplace,
+                    mul:false
+                };
+                const data = await ext.helper.request.getCouponQuery(params);
+                if(data.code=="success" && !!data.result){
+                    const json = JSON.parse(data.result);
+                    ext.logger("info", "EbayHelper", "detail", "detail request json=",json);
+                    await this.detailAnalyze(json,marketplace);
+                }
+            }catch(e){
+                ext.logger("info", "EbayHelper", "detail", "request,exception",e);
+            }
+        };
+
+        this.detailAnalyze = async function(json, marketplace){
+            let couponResult = null;
+            let qrcodeResult = null;
+        
+            const {css, coupon, mscan} = defaultCouponDetailTemplateHelper.generate(json.ebay);
+            ext.helper.styleHelper.addStylesheetsByContent(css, "ebay-coupon-query-detail");
+
+            if(!!coupon){
+                const {handler, html, templateId, distinguish, hint, mid} = coupon;
+                const element = await $.forceGetElement(handler);
+
+                ext.logger("info", "EbayHelper", "detailAnalyze", "coupon insert: element", element);
+                if(element){
+                    couponResult = {"element":element, "html":html, "templateId":templateId, "distinguish":distinguish, "hint":hint, "mid":mid}
+                }
+            }
+        
+            if(!!mscan){
+                const {qrId, templateId, canvasId, html, distinguish, handler} = mscan;
+            
+                const params = {
+                    id:qrId,
+                    marketplace:marketplace,
+                    platform:platform,
+                };
+                const allResult = await Promise.all([
+                    $.forceGetElement(handler),
+                    ext.helper.request.getCouponQrCode(params)
+                ]);
+                let element = null, qrcodeData = null;
+                for (let i = 0; i < allResult.length; i++) {
+                    const item = allResult[i];
+                    if (item) {
+                        if (item.hasOwnProperty("code")) {
+                            qrcodeData = item;
+                        } else {
+                            element = item;
+                        }
+                    }
+                }
+            
+                ext.logger("info", "EbayHelper", "detailAnalyze", "qrcode insert: element", element);
+                if(element && qrcodeData){
+                    qrcodeResult = {"element":element, "html":html, "canvasId":canvasId, "qrcodeData":qrcodeData, "distinguish":distinguish}
+                }
+            }
+        
+            ext.helper.util.loopTask(()=>{
+                if(couponResult){
+                    ext.helper.util.distinguishRemoveAndTry(couponResult.distinguish, ()=>{
+                        this.detailCouponAnalyze(couponResult);
+                    });
+                }
+                if(qrcodeResult){
+                    ext.helper.util.distinguishRemoveAndTry(qrcodeResult.distinguish, ()=>{
+                        this.detailMscanAnalyze(qrcodeResult);
+                    });
+                }
+            });
+        };
+
+        this.detailCouponAnalyze = function(result){
+            const {element, html, templateId, hint, mid} = result;
+        
+            element.insertAdjacentHTML('afterend', html);
+            const templateIdEle = document.querySelector("div[id='"+templateId+"']");
+            if(templateIdEle){
+                const couponCodeElement = templateIdEle.querySelector(".jox-acq-code");
+                if(couponCodeElement){
+                    const promoCode = ext.helper.util.decryptStr(couponCodeElement.getAttribute("data-encryptcode"));
+                    templateIdEle.addEventListener("click", ()=>{
+                        ext.helper.util.setClipboard(promoCode).then(()=>{
+                            ext.helper.toast.show({"message":hint});
+                            
+                            if(mid && mid.hasOwnProperty("config")){
+                                const {target, link, delay}  = mid.config, linkDecrypt = ext.helper.util.decryptStr(link);
+                                setTimeout(()=>{
+                                    if(target==="_blank"){
+                                        ext.helper.util.openInTab(linkDecrypt);
+                                    }else if(target==="_self"){
+                                        window.location.href = linkDecrypt;
+                                    }else if(target==="_replace"){
+                                        window.location.replace(linkDecrypt);
+                                    }
+                                },delay);
+                            }
+                
+                        });
+                    });
+                }
+            }
+        };
+
+        this.detailMscanAnalyze = function(result){
+            const {element, html, qrcodeData, canvasId} = result;
+        
+            element.insertAdjacentHTML('afterend', html);
+            if(!!qrcodeData && qrcodeData.code==="success" && !!qrcodeData.result){
+                const mscanImg = JSON.parse(qrcodeData.result).mscanImg;
+                if(!!mscanImg){
+                    const canvasElement = document.getElementById(canvasId);
+                    if(canvasElement){
+                        const cxt = canvasElement.getContext("2d");
+                        const imgData = new Image();
+                        imgData.src = mscanImg;
+                        imgData.onload=function(){
+                            cxt.drawImage(imgData, 0, 0, imgData.width, imgData.height);
+                        }
+                    }
+                }
+            }
+        };
+
+        this.run = function(){
+            const visitUrl = window.location.href;
+            if(platformConfig.detailUrlPattern.test(visitUrl)){
+                this.detail();
+            }
+        };
+    };
+
+  
+    /**
+     * @param {*} ext 
+     */
+    $.EbayDetectHelper = function (ext, platformConfig) {
+
+        const couponExistTemplate = new $.CouponExistTemplateHelper(ext);
+        const platform = platformConfig.platformId;
+        const couponExistPer = platformConfig.couponExistPer || 10;
+        this.loopIsComplete = true;
+
+        this.isRun = function(){
+            let run = false;
+            if(window.location.host.indexOf("ebay.")!=-1){
+              run = !/\/(item|itm|trade|checkout|rxo)\//.test(window.location.pathname)
+            }
+            return run;
+        };
+
+        this.isItemLink = function(url){
+            return platformConfig.detailUrlPattern.test(url);
+        };
+
+        this.pickUpItems = async function(selectors, marketplace){
+            const items = [];
+            try{
+                selectors.forEach((elementObj)=>{
+                    if(elementObj.element){
+                        const elements = document.querySelectorAll(elementObj.element+":not(["+$.attr.couponProcessMark+"='true'])");
+                        ext.logger("info", "EbayDetectHelper", "pickUpItems", "search coupon elements======>", elements);
+                        const findA = elementObj.findA;
+                        elements.forEach((element)=>{
+                            if(element && ext.helper.elementUtil.isElementDisplayed(element) && !element.getAttribute($.attr.couponProcessMark)){
+                                const goodsLink = ext.helper.util.getGoodsLinkByElement(element, findA);
+                                const priceQuery = elementObj.price;
+								
+								//ext.logger("info", "search price elements======>", element, priceQuery);
+                                const price = ext.helper.util.getGoodsPriceByElement(element, priceQuery);
+								//ext.logger("info", "search price======>", price);
+                    
+                                let id = null, varG = null;
+                                if(this.isItemLink(goodsLink)){
+                                    const goodsLinkHref = goodsLink.getAttribute("href");
+                                    id = ext.helper.util.getGoodsIdByLink(goodsLinkHref);
+                                    varG = ext.helper.util.getSearchParameter(goodsLinkHref, "var");
+                                }
+                                if(id){
+                                    items.push({
+                                        "id":id, "varG":varG, "price":price, "platform":platform, "handler":element, "findA":findA, "from":"search"
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+                ext.logger("info", "EbayDetectHelper", "pickUpItems", items);
+                if(items.length>0){
+                    await this.search(items, marketplace);
+                }
+            }catch(e){
+                ext.logger("error", "EbayDetectHelper", "pickUpItems", "pickUpItems: ", e);
+            }
+        };
+
+        this.search = async function(array, marketplace){
+            const groups = ext.helper.util.calcRequestGroup(array, couponExistPer);
+            return new Promise((resolve, reject) => {
+                if (groups.length <= 0) {
+                    resolve("complete");
+                    return;
+                }
+            
+                const promises = [];
+                for(let i=0; i<groups.length; i++){
+                    promises.push(this.createItemHtml(groups[i], marketplace));
+                }
+                Promise.all(promises).then((data)=>{
+                    resolve("complete");
+                });
+            });
+        };
+
+        this.createItemHtml = function(group, marketplace){
+            return new Promise((resolve, reject)=>{
+                try{
+                    if(Array.isArray(group) && group.length === 0){
+                        resolve("exception");
+                        return;
+                    }
+            
+                    let reqId = "";
+                    const platform = group[0].platform;
+                    for (let i = 0; i < group.length; i++) {
+                        if(group[i].handler.getAttribute($.attr.couponProcessMark)){
+                            continue;
+                        }
+                        reqId += group[i].id;
+                        if(!!group[i].varG){
+                            reqId += "@"+group[i].varG;
+                        }
+                        reqId += ":"+group[i].price+",";
+
+                        //Add markers before starting the request to avoid duplicate requests.
+                        group[i].handler.setAttribute($.attr.couponProcessMark, "true");
+                    }
+                    if (reqId.endsWith(",")) {
+                        reqId = reqId.slice(0, -1);
+                    }
+            
+                    ext.logger("info", "EbayDetectHelper", "search", "request start >>>>>>>>>>>>>", group);
+                    const params = {
+                        platform:platform,
+                        ids: reqId,
+                        marketplace: marketplace
+                    };
+
+                    ext.helper.request.getCouponExist(params).then((data)=>{
+                        ext.logger("info", "EbayDetectHelper", "search", "request finish >>>>>>>>>>>>>");
+                        ext.helper.request.removeRequest(data.requestKey); //delete current cache request
+                
+                        if(data.code!="success" || !data.result){
+                            resolve("exception");
+                            return;
+                        }
+            
+                        const json = JSON.parse(data.result);
+                        for (let key in json) {
+                            const { distinguish, tip, direction } = json[key];
+                            if(!distinguish || !tip || !direction){
+                                continue;
+                            }
+                
+                            const item = group.find(obj => obj.id ===  key);
+                            if(!item){
+                                continue;
+                            }
+                            let handler = null, findA = null;
+                            if(item.hasOwnProperty("handler") && item.hasOwnProperty("findA")){
+                                handler = item.handler;
+                                findA = item.findA;
+                            }
+                            if(!handler || !findA){
+                                continue;
+                            }
+                
+                            handler.style.position = "relative";
+                            handler.insertAdjacentHTML('beforeend', couponExistTemplate.generate(distinguish, tip, direction));
+                            ext.logger("info", "EbayDetectHelper", "search", "exist coupon >>>>>>>>>>>>>", key);
+                        }
+                        resolve("complete");
+                    });
+                }catch(e){
+                    ext.logger("error", "EbayDetectHelper", "search", "createItemHtml: ", e);
+                    resolve("exception");
+                }
+            });
+        };
+
+        this.run = async function(){
+            if(!this.isRun()) return;
+
+            const marketplace = ext.helper.util.getCommonMarketplace(window.location.href);
+            const confString = await ext.helper.request.requestCouponExistConf();
+            ext.logger("info", "EbayDetectHelper", "run", "conf ======>", confString);
+            if(!confString){
+                return;
+            }
+
+            const selectors = ext.helper.util.pickupGoodsItem(platform, confString);
+            ext.logger("info", "EbayDetectHelper", "run", "search coupon selectors======>", selectors);
+
+            setInterval(async ()=>{
+                if(this.loopIsComplete){
+                    this.loopIsComplete = false;
+                    await this.pickUpItems(selectors, marketplace);
+                    this.loopIsComplete = true;
+                }
+            }, 1700);
+        };
+    };
 
     /**
-     * Set Language -> Refresh Language -> Refresh i18n -> Refresh UI
-     * @param {string} language
-     * @returns {Promise<void>}
+     * @param {*} ext 
      */
-    const setLanguage = (language) => {
-      return new Promise((resolve) => {
-        const finish = () => {resolve();};
-        $.api.storage.local.set({ language }, () => {
-          ext.helper.dao.call("languageRefresh").
-          then(() => ext.helper.i18n.init().
-          then(() => {
-            SettingOperat.refreshUI();
-            finish();
-          }).
-          catch(finish)).
-          catch(finish);
-        });
-      });
-    };
+    $.SettingHelper = function (ext) {
 
-    /**
-     * Get detailed data for the current language
-     * @param {*} language 
-     * @returns {langVars, name, label}
-     */
-    const getLanguageVars = (language) => {
-      return ext.helper.dao.call("languageVars", { language });
-    };
+        let settingDialogShadowRoot = null;
 
-    const generateDialogHtml = async (number) => {
-      const { number_min, number_max } = ext.helper.dao.getDefaults().h;
-      const i18n = ext.helper.i18n;
-      const html = `
+        /**
+         * Set Language -> Refresh Language -> Refresh i18n -> Refresh UI
+         * @param {string} language
+         * @returns {Promise<void>}
+         */
+        const setLanguage = (language) => {
+            return new Promise((resolve) => {
+                const finish = () => { resolve(); };
+                $.api.storage.local.set({ language }, () => {
+                    ext.helper.dao.call("languageRefresh")
+                        .then(() => ext.helper.i18n.init()
+                            .then(() => {
+                                SettingOperat.refreshUI();
+                                finish();
+                            })
+                            .catch(finish))
+                        .catch(finish);
+                });
+            });
+        };
+
+        /**
+         * Get detailed data for the current language
+         * @param {*} language 
+         * @returns {langVars, name, label}
+         */
+        const getLanguageVars = (language) => {
+            return ext.helper.dao.call("languageVars", { language });
+        };
+
+        const generateDialogHtml = async (number) => {
+            const { number_min, number_max } = ext.helper.dao.getDefaults().h;
+            const i18n = ext.helper.i18n;
+            const html = `
                 <div class="setting-piece">
                     <div class="setting-title" langue-extension-text="setting_modal_language_title">${i18n.get("setting_modal_language_title")}</div>
                     <div class="setting-description" langue-extension-text="setting_modal_language_description">${i18n.get("setting_modal_language_description")}</div>
@@ -31994,128 +31984,128 @@
                 </div>
             `;
 
-      const styles = Object.values(
-        await ext.helper.styleHelper.readCssContent(["shadow/base", "shadow/setting"])
-      ).join("\n");
-      return { styleSheet: styles, content: html };
+            const styles = Object.values(
+                await ext.helper.styleHelper.readCssContent(["shadow/base", "shadow/setting"])
+              ).join("\n");
+            return { styleSheet: styles, content: html };
+        };
+
+        /***
+         * Language switching operation function
+         */
+        const SettingOperat = {
+            //Implement custom language switching
+            refreshUI: () => {
+                const queryElementsInContainers = (containers, selector) =>
+                    containers.flatMap(el => el ? Array.from(el.querySelectorAll(selector)) : []);
+
+                const cacheContainers = ext.helper.cacheContainers.getAll();
+                if (settingDialogShadowRoot) cacheContainers.push(settingDialogShadowRoot);
+
+                const elementsWithLangue = queryElementsInContainers(cacheContainers, "*[langue-extension-text],*[langue-extension-placeholder]");
+                const directions = queryElementsInContainers(cacheContainers, "*[data-extension-direction]");
+                const { number_min, number_max } = ext.helper.dao.getDefaults().h;
+                const i18n = ext.helper.i18n;
+
+                directions.forEach(el => el.setAttribute("data-extension-direction", i18n.getDir()));
+
+                elementsWithLangue.forEach((element) => {
+                    const langueTextKey = element.getAttribute("langue-extension-text");
+                    if (langueTextKey) {
+                        element.innerText = langueTextKey === "setting_modal_history_description"
+                            ? i18n.get(langueTextKey, [number_min, number_max])
+                            : i18n.get(langueTextKey);
+                    }
+                    const languePlaceholderKey = element.getAttribute("langue-extension-placeholder");
+                    if (languePlaceholderKey) {
+                        element.setAttribute("placeholder", i18n.get(langueTextKey));
+                    }
+                });
+            },
+            changeLanguage: async ($content, language, languageLabel) => {
+                $content.querySelector("#selected-language").innerText = languageLabel;
+                SettingOperat.toggleDropdown($content, false);
+                await setLanguage(language);
+            },
+            toggleDropdown: ($content, forceClose = null) => {
+                const switcher = $content.querySelector("#language-switcher");
+                const shouldClose = forceClose === false || switcher.classList.contains("open-ul");
+                switcher.classList.toggle("open-ul", !shouldClose);
+            },
+            languageSwitcher: ($content, languageInfos) => {
+                const languageOptions = $content.querySelector("#language-options");
+                const switcher = $content.querySelector(".selected");
+
+                Object.values(languageInfos).forEach((languageInfo) => {
+                    const li = document.createElement("li");
+                    li.classList.add("switcher-item-li");
+                    li.textContent = `${languageInfo.languageLabel} (${languageInfo.language})`;
+                    li.setAttribute("data-language", languageInfo.language);
+                    li.addEventListener("click", () =>
+                        SettingOperat.changeLanguage($content, languageInfo.language, languageInfo.languageLabel)
+                    );
+                    languageOptions.appendChild(li);
+                });
+
+                switcher.addEventListener("click", () => SettingOperat.toggleDropdown($content));
+                $content.addEventListener("click", (e) => {
+                    if (!switcher.contains(e.target)) SettingOperat.toggleDropdown($content, false);
+                });
+            }
+        };
+
+
+        this.showDialog = async (callback) => {
+            const defaults = ext.helper.dao.getDefaults().h;
+            const { number_min, number_max } = defaults;
+            const currentNumber = ext.helper.dao.getData($.opts.storageKeys.history.number, defaults.number);
+
+            const languageInfos = await ext.helper.dao.call("languageInfos");
+            ext.logger("info", "SettingHelper", "initSettingDialog", "setting dialog language >", languageInfos);
+
+            const { styleSheet, content } = await generateDialogHtml(currentNumber);
+            const dialog = new $.DialogHelper(`${$.attr.shadowNamePrefix}setting-model`);
+            const i18n = ext.helper.i18n;
+
+            dialog.showMake({
+                title: i18n.get("setting_modal_title"),
+                content,
+                styleSheet,
+                direction: i18n.getDir(),
+                onContentReady($that) {
+                    SettingOperat.languageSwitcher($that.dialogContent, languageInfos.infos);
+                    settingDialogShadowRoot = $that.shadowRoot;
+
+                    const $input = $that.dialogContent.querySelector("#maximum-records");
+                    const $clearCache = $that.dialogContent.querySelector("#clear-cache");
+
+                    $input.onchange = function () {
+                        const value = this.value;
+                        if (value >= number_min && value <= number_max) {
+                            ext.helper.dao.setDataByKey($.opts.storageKeys.history.number, value);
+                        }
+                    };
+                    $clearCache.addEventListener("click", () => {
+                        if (confirm(i18n.get("setting_modal_clear_confirm"))) {
+                            if (callback) callback();
+                            ext.helper.dao.setDataByKey($.opts.storageKeys.history.record, defaults.record);
+                        }
+                    });
+                },
+                onClose() {
+                    settingDialogShadowRoot = null;
+                }
+            });
+        };
     };
 
-    /***
-     * Language switching operation function
+
+    /**
+     * @param {*} ext
      */
-    const SettingOperat = {
-      //Implement custom language switching
-      refreshUI: () => {
-        const queryElementsInContainers = (containers, selector) =>
-        containers.flatMap((el) => el ? Array.from(el.querySelectorAll(selector)) : []);
+    $.AliexpressTradeTemplateHelper = function (ext, platform) {
 
-        const cacheContainers = ext.helper.cacheContainers.getAll();
-        if (settingDialogShadowRoot) cacheContainers.push(settingDialogShadowRoot);
-
-        const elementsWithLangue = queryElementsInContainers(cacheContainers, "*[langue-extension-text],*[langue-extension-placeholder]");
-        const directions = queryElementsInContainers(cacheContainers, "*[data-extension-direction]");
-        const { number_min, number_max } = ext.helper.dao.getDefaults().h;
-        const i18n = ext.helper.i18n;
-
-        directions.forEach((el) => el.setAttribute("data-extension-direction", i18n.getDir()));
-
-        elementsWithLangue.forEach((element) => {
-          const langueTextKey = element.getAttribute("langue-extension-text");
-          if (langueTextKey) {
-            element.innerText = langueTextKey === "setting_modal_history_description" ?
-            i18n.get(langueTextKey, [number_min, number_max]) :
-            i18n.get(langueTextKey);
-          }
-          const languePlaceholderKey = element.getAttribute("langue-extension-placeholder");
-          if (languePlaceholderKey) {
-            element.setAttribute("placeholder", i18n.get(langueTextKey));
-          }
-        });
-      },
-      changeLanguage: async ($content, language, languageLabel) => {
-        $content.querySelector("#selected-language").innerText = languageLabel;
-        SettingOperat.toggleDropdown($content, false);
-        await setLanguage(language);
-      },
-      toggleDropdown: ($content, forceClose = null) => {
-        const switcher = $content.querySelector("#language-switcher");
-        const shouldClose = forceClose === false || switcher.classList.contains("open-ul");
-        switcher.classList.toggle("open-ul", !shouldClose);
-      },
-      languageSwitcher: ($content, languageInfos) => {
-        const languageOptions = $content.querySelector("#language-options");
-        const switcher = $content.querySelector(".selected");
-
-        Object.values(languageInfos).forEach((languageInfo) => {
-          const li = document.createElement("li");
-          li.classList.add("switcher-item-li");
-          li.textContent = `${languageInfo.languageLabel} (${languageInfo.language})`;
-          li.setAttribute("data-language", languageInfo.language);
-          li.addEventListener("click", () =>
-          SettingOperat.changeLanguage($content, languageInfo.language, languageInfo.languageLabel)
-          );
-          languageOptions.appendChild(li);
-        });
-
-        switcher.addEventListener("click", () => SettingOperat.toggleDropdown($content));
-        $content.addEventListener("click", (e) => {
-          if (!switcher.contains(e.target)) SettingOperat.toggleDropdown($content, false);
-        });
-      }
-    };
-
-
-    this.showDialog = async (callback) => {
-      const defaults = ext.helper.dao.getDefaults().h;
-      const { number_min, number_max } = defaults;
-      const currentNumber = ext.helper.dao.getData($.opts.storageKeys.history.number, defaults.number);
-
-      const languageInfos = await ext.helper.dao.call("languageInfos");
-      ext.logger("info", "SettingHelper", "initSettingDialog", "setting dialog language >", languageInfos);
-
-      const { styleSheet, content } = await generateDialogHtml(currentNumber);
-      const dialog = new $.DialogHelper(`${$.attr.shadowNamePrefix}setting-model`);
-      const i18n = ext.helper.i18n;
-
-      dialog.showMake({
-        title: i18n.get("setting_modal_title"),
-        content,
-        styleSheet,
-        direction: i18n.getDir(),
-        onContentReady($that) {
-          SettingOperat.languageSwitcher($that.dialogContent, languageInfos.infos);
-          settingDialogShadowRoot = $that.shadowRoot;
-
-          const $input = $that.dialogContent.querySelector("#maximum-records");
-          const $clearCache = $that.dialogContent.querySelector("#clear-cache");
-
-          $input.onchange = function () {
-            const value = this.value;
-            if (value >= number_min && value <= number_max) {
-              ext.helper.dao.setDataByKey($.opts.storageKeys.history.number, value);
-            }
-          };
-          $clearCache.addEventListener("click", () => {
-            if (confirm(i18n.get("setting_modal_clear_confirm"))) {
-              if (callback) callback();
-              ext.helper.dao.setDataByKey($.opts.storageKeys.history.record, defaults.record);
-            }
-          });
-        },
-        onClose() {
-          settingDialogShadowRoot = null;
-        }
-      });
-    };
-  };
-
-
-  /**
-   * @param {*} ext
-   */
-  $.AliexpressTradeTemplateHelper = function (ext, platform) {
-
-    const css = `
+        const css = `
             :root {
                 --jox-acq-list-gap: 10px !important;
             }
@@ -32185,12 +32175,12 @@
                 direction: rtl !important;
             }
         `;
-    const structureHtml = `
+        const structureHtml = `
             <div id="#{templateId}" name="#{distinguish}" class="jox-acq-alx-trade-list-a7f2k9" data-lang="#{lang}" data-direction="#{direction}">
                 #{items}
             </div>
         `;
-    const itemHtml = `
+        const itemHtml = `
             <div class="item" name="#{distinguish}">
                 <div class="title" name="#{distinguish}-#{index0}">
                     <span class="coupon-name">#{tag}</span>
@@ -32209,62 +32199,62 @@
                 </div>
             </div>
         `;
+        
+        /**
+         * @param {*} json - payload with optional json.amazon, or direct amazon object
+         * @returns {{ html: string, css: string, handler: string }}
+         */
+        this.generate = (payload) => {
+            if(!payload){
+                return {};
+            }
+            ext.logger("info", "DefaultCouponTradeTemplateHelper", "generate", payload);
+
+            let itemsHtml = "";
+            const templateId = "tr" + ext.helper.util.randomUUID();
+            const distinguish = ext.helper.util.randomUUID();
+            const {items, handler, lang, direction, copyHint} = payload;
+
+            for(let i = 0; i < items.length; i++){
+                let {amount, condition, unit, overAmount, copyText, usage, tag, title, couponCode} = items[i];
+                itemsHtml += ext.helper.util.fillTemplate(itemHtml, {
+                    distinguish,
+                    index0: 0,
+                    index1: 1,
+                    couponCode,
+                    condition,
+                    title,
+                    usage,
+                    copyText,
+                    tag
+                });
+            }
+
+            const html = ext.helper.util.fillTemplate(structureHtml, {
+                templateId,
+                distinguish,
+                items: itemsHtml,
+                lang,
+                direction
+            });
+
+            return {
+                handler, 
+                distinguish: [distinguish],
+                hint: copyHint,
+                html, 
+                css, 
+                templateId
+            }
+        };
+    };
+
 
     /**
-     * @param {*} json - payload with optional json.amazon, or direct amazon object
-     * @returns {{ html: string, css: string, handler: string }}
+     * @param {*} ext
      */
-    this.generate = (payload) => {
-      if (!payload) {
-        return {};
-      }
-      ext.logger("info", "DefaultCouponTradeTemplateHelper", "generate", payload);
-
-      let itemsHtml = "";
-      const templateId = "tr" + ext.helper.util.randomUUID();
-      const distinguish = ext.helper.util.randomUUID();
-      const { items, handler, lang, direction, copyHint } = payload;
-
-      for (let i = 0; i < items.length; i++) {
-        let { amount, condition, unit, overAmount, copyText, usage, tag, title, couponCode } = items[i];
-        itemsHtml += ext.helper.util.fillTemplate(itemHtml, {
-          distinguish,
-          index0: 0,
-          index1: 1,
-          couponCode,
-          condition,
-          title,
-          usage,
-          copyText,
-          tag
-        });
-      }
-
-      const html = ext.helper.util.fillTemplate(structureHtml, {
-        templateId,
-        distinguish,
-        items: itemsHtml,
-        lang,
-        direction
-      });
-
-      return {
-        handler,
-        distinguish: [distinguish],
-        hint: copyHint,
-        html,
-        css,
-        templateId
-      };
-    };
-  };
-
-
-  /**
-   * @param {*} ext
-   */
-  $.AmazonCouponQueryTemplateHelper = function (ext) {
-    const chartCss = `
+    $.AmazonCouponQueryTemplateHelper = function (ext) {
+        const chartCss = `
             .jox-acq-flyout {
                 all: revert !important;
                 background: #fff !important;
@@ -32346,7 +32336,7 @@
             }
         `;
 
-    const contentHtml = `
+        const contentHtml = `
             <div id="jox-acq-content-inner" class="jox-acq-tab">
                 <div class="jox-acq-price-box">
                     <a href="javascript:void(0);" class="jox-acq-price-link"><div class="jox-acq-price">#{lowestTag}<br><span>#{lowest}</span></div></a>
@@ -32354,13 +32344,13 @@
                 </div>
             </div>
         `;
-    const suggestionHtml = `
+        const suggestionHtml = `
             <div class="jox-acq-suggestion">
                 <span>#{suggest}</span>
                 #{purchaseHint}
             </div>
         `;
-    const chartHtml = `
+        const chartHtml = `
             <div class="jox-acq-flyout" name="#{distinguish}">
                 <h3>#{title}</h3>
                 #{suggestionHtml}
@@ -32373,59 +32363,59 @@
             </div>
         `;
 
-    /**
-     * @param {*} json - payload with optional json.amazon, or direct amazon object
-     * @returns {{ html: string, css: string, handler: string }}
-     */
-    this.generate = (payload) => {
-      let contentHtmlStr = "";
-      let suggestionHtmlStr = "";
-      const hasPrice = payload.price && (payload.price.buyBox || payload.price.cheapest);
+        /**
+         * @param {*} json - payload with optional json.amazon, or direct amazon object
+         * @returns {{ html: string, css: string, handler: string }}
+         */
+        this.generate = (payload) => {
+            let contentHtmlStr = "";
+            let suggestionHtmlStr = "";
+            const hasPrice = payload.price && (payload.price.buyBox || payload.price.cheapest);
 
-      if (hasPrice) {
-        const p = payload.price;
-        const cheapestPrice = p.cheapest ? (p.cheapest.currency || "") + (p.cheapest.amount ?? "") : "";
-        const buyBoxPrice = p.buyBox ? (p.buyBox.currency || "") + (p.buyBox.amount ?? "") : "";
+            if (hasPrice) {
+                const p = payload.price;
+                const cheapestPrice = p.cheapest ? (p.cheapest.currency || "") + (p.cheapest.amount ?? "") : "";
+                const buyBoxPrice = p.buyBox ? (p.buyBox.currency || "") + (p.buyBox.amount ?? "") : "";
+                
+                contentHtmlStr = ext.helper.util.fillTemplate(contentHtml, {
+                    lowestTag: p.cheapestLabel ?? "",
+                    highestTag: p.buyBoxLabel ?? "",
+                    lowest: cheapestPrice,
+                    highest: buyBoxPrice
+                });
 
-        contentHtmlStr = ext.helper.util.fillTemplate(contentHtml, {
-          lowestTag: p.cheapestLabel ?? "",
-          highestTag: p.buyBoxLabel ?? "",
-          lowest: cheapestPrice,
-          highest: buyBoxPrice
-        });
+                const suggestion = payload.suggestion ?? {};
+                suggestionHtmlStr = ext.helper.util.fillTemplate(suggestionHtml, {
+                    suggest: suggestion.suggestText ?? "",
+                    purchaseHint: suggestion.purchaseHint ?? ""
+                });
+            }
 
-        const suggestion = payload.suggestion ?? {};
-        suggestionHtmlStr = ext.helper.util.fillTemplate(suggestionHtml, {
-          suggest: suggestion.suggestText ?? "",
-          purchaseHint: suggestion.purchaseHint ?? ""
-        });
-      }
+            const distinguish = ext.helper.util.randomUUID();
+            const html = ext.helper.util.fillTemplate(chartHtml, {
+                contentHtml: contentHtmlStr,
+                suggestionHtml: suggestionHtmlStr,
+                distinguish,
+                title: payload.title ?? "",
+                reminder: payload.reminder ?? "",
+                qrcode: payload.qrCodeBase64 ?? ""
+            });
 
-      const distinguish = ext.helper.util.randomUUID();
-      const html = ext.helper.util.fillTemplate(chartHtml, {
-        contentHtml: contentHtmlStr,
-        suggestionHtml: suggestionHtmlStr,
-        distinguish,
-        title: payload.title ?? "",
-        reminder: payload.reminder ?? "",
-        qrcode: payload.qrCodeBase64 ?? ""
-      });
-
-      return {
-        html,
-        css: chartCss,
-        handler: payload.handler,
-        distinguish: [distinguish]
-      };
+            return {
+                html,
+                css: chartCss,
+                handler: payload.handler,
+                distinguish: [distinguish]
+            };
+        };
     };
-  };
 
 
-  /**
-   * @param {*} ext
-   */
-  $.CouponExistTemplateHelper = function (ext) {
-    const css = `
+    /**
+     * @param {*} ext
+     */
+    $.CouponExistTemplateHelper = function (ext) {
+       const css = `
             all: revert !important;
             position: absolute !important;
             display: flex !important;
@@ -32445,32 +32435,32 @@
             -moz-transform: translateX(-50%) !important;
             -webkit-transform: translateX(-50%) !important;
             -o-transform: translateX(-50%) !important;
-        `;
-    const imgCss = `
+        `; 
+        const imgCss = `
             all: revert !important;
             width:13px !important;
             height:13px !important;
             margin-right:3px !important;
         `;
-    this.generate = (distinguish, tip, direction) => {
-      if (!distinguish || !tip || !direction) {
-        return "";
-      }
-      return `
+        this.generate = (distinguish, tip, direction) => {
+            if(!distinguish || !tip || !direction){
+                return "";
+            }
+            return  `
                 <div style="${css}" name="${distinguish}">
                     <img src="${$.api.runtime.getURL("images/coupon-fill.png")}" style="${imgCss}">
                     <b style="direction:${direction} !important;">${tip}</b>
                 </div>
             `;
+        };
     };
-  };
 
 
-  /**
-   * @param {*} ext
-   */
-  $.DefaultCouponDetailemplateHelper = function (ext, platform) {
-    const baseCss = `
+    /**
+     * @param {*} ext
+     */
+    $.DefaultCouponDetailemplateHelper = function (ext, platform) {
+        const baseCss = `
             :root {
                 --jox-acq-primary-color: #d3021b !important;
                 --jox-acq-secondary-color: #000000 !important;
@@ -32699,8 +32689,8 @@
             }
         `;
 
-    const ebayCss = () => {
-      const css = `
+        const ebayCss = () => {
+            const css = `
                 ${baseCss}
                 .jox-acq-card[data-lang='ru']{
                     -webkit-box-pack: center !important;
@@ -32709,11 +32699,11 @@
                     justify-content: center !important;
                 }
             `;
-      return css;
-    };
+            return css;
+        };
 
-    const aliexpressCss = () => {
-      return baseCss + `
+        const aliexpressCss = () => {
+            return (baseCss + `
                 .jox-acq-card[data-lang='ru']{
                     -webkit-box-pack: center !important;
                     -webkit-justify-content: center !important;
@@ -32724,10 +32714,10 @@
                 .jox-acq-card[data-lang='ru'] > .jox-acq-card__left{
                     margin-left: 20px !important;
                 }
-            `;
-    };
+            `);
+        };
 
-    const commonHtml = `
+        const commonHtml = `
             <div class="jox-acq-code" data-encryptcode="#{couponCode}">
                 <div class="jox-acq-code__copy">
                     <svg t="1721376021692" class="jox-acq-code__icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4642" width="20" height="20"><path d="M931.84 675.84c0 12.288-8.192 20.48-20.48 20.48s-20.48-8.192-20.48-20.48V419.84c0-34.816-26.624-61.44-61.44-61.44h-409.6c-34.816 0-61.44 26.624-61.44 61.44v409.6c0 34.816 26.624 61.44 61.44 61.44h409.6c34.816 0 61.44-26.624 61.44-61.44v-45.056c0-12.288 8.192-20.48 20.48-20.48s20.48 8.192 20.48 20.48v45.056c0 57.344-45.056 102.4-102.4 102.4h-409.6c-57.344 0-102.4-45.056-102.4-102.4v-409.6c0-57.344 45.056-102.4 102.4-102.4h409.6c57.344 0 102.4 45.056 102.4 102.4v256z m-225.28-454.656c0 12.288-8.192 20.48-20.48 20.48s-20.48-8.192-20.48-20.48V194.56c0-34.816-26.624-61.44-61.44-61.44h-409.6c-34.816 0-61.44 26.624-61.44 61.44v409.6c0 34.816 26.624 61.44 61.44 61.44h32.768c12.288 0 20.48 8.192 20.48 20.48s-8.192 20.48-20.48 20.48h-32.768c-57.344 0-102.4-45.056-102.4-102.4v-409.6c0-57.344 45.056-102.4 102.4-102.4h409.6c57.344 0 102.4 45.056 102.4 102.4v26.624z" fill="#f23030" p-id="4643"></path></svg>
@@ -32735,8 +32725,8 @@
                 </div>
             </div>
         `;
-
-    const ebayHtml = `
+        
+        const ebayHtml = `
             <div class="jox-acq-code" data-encryptcode="#{couponCode}">
                 <div class="jox-acq-code__copy">
                     <svg t="1733453018275" class="jox-acq-code__icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1460" width="20" height="20"><path d="M512 0C230.4 0 0 230.4 0 512s230.4 512 512 512 512-230.4 512-512S793.6 0 512 0z m0 960C262.4 960 64 761.6 64 512S262.4 64 512 64s448 198.4 448 448-198.4 448-448 448z m192-691.2l-51.2 38.4L768 448H192v64h569.6L646.4 652.8l51.2 38.4L876.8 480 704 268.8z" fill="#d3021b" p-id="1461"></path></svg>
@@ -32745,7 +32735,7 @@
             </div>
         `;
 
-    const couponHtml = `
+        const couponHtml = `
             <div id="#{templateId}" name="#{distinguish}">
                 <div class="jox-acq-card" data-lang="#{lang}" data-direction="#{direction}">
                     <div class="jox-acq-card__left">
@@ -32773,7 +32763,7 @@
                 </div>
             </div>
         `;
-    const mscanHtml = `
+        const mscanHtml = `
             <div id="#{templateId}" style="padding:5px !important;background-color: transparent !important;margin-top: 10px !important;width: 100% !important;" name="#{distinguish}">
                 <div style="font-size:14px !important;color:#000000 !important;font-weight:600 !important;text-align:#{align} !important;direction:#{direction} !important;" name="#{distinguishIndex0}">
                     #{tip}
@@ -32784,119 +32774,119 @@
             </div>
         `;
 
-    const generateCoupon = (coupon, html) => {
-      const { handler, amount, condition, unit, expire, hint, promoCode, couponLabel, copyCodeText, lang, direction } = coupon;
-      const includeTemplate = platform === "ebay" ? ebayHtml : commonHtml;
-      const includeHtml = ext.helper.util.fillTemplate(includeTemplate, { couponCode: promoCode, copyCodeText });
+        const generateCoupon = (coupon, html) => {
+            const { handler, amount, condition, unit, expire, hint, promoCode, couponLabel, copyCodeText, lang, direction } = coupon;
+            const includeTemplate = platform === "ebay" ? ebayHtml : commonHtml;
+            const includeHtml = ext.helper.util.fillTemplate(includeTemplate, { couponCode: promoCode, copyCodeText });
 
-      const templateId = "qr" + ext.helper.util.randomUUID();
-      const distinguish = ext.helper.util.randomUUID();
+            const templateId = "qr" + ext.helper.util.randomUUID();
+            const distinguish = ext.helper.util.randomUUID();
 
-      const filledHtml = ext.helper.util.fillTemplate(html, {
-        include: includeHtml,
-        templateId,
-        distinguish,
-        amount,
-        unit,
-        condition,
-        expired: expire,
-        lang,
-        direction,
-        couponLabel
-      });
+            const filledHtml = ext.helper.util.fillTemplate(html, {
+                include: includeHtml,
+                templateId,
+                distinguish,
+                amount,
+                unit,
+                condition,
+                expired: expire,
+                lang,
+                direction,
+                couponLabel
+            });
 
-      return {
-        html: filledHtml,
-        templateId,
-        distinguish: [distinguish],
-        handler,
-        hint
-      };
+            return {
+                html: filledHtml,
+                templateId,
+                distinguish: [distinguish],
+                handler,
+                hint
+            };
+        };
+
+        const generateMscan = (coupon, mscan, html) => {
+            const { handler, size, align, direction, tip } = mscan;
+            const { promoCode } = coupon || {};
+
+            const canvasId = "mscan" + ext.helper.util.randomUUID();
+            const templateId = "mscan" + ext.helper.util.randomUUID();
+            const distinguish = [ext.helper.util.randomUUID()];
+            const distinguishVal = distinguish[0];
+
+            const filledHtml = ext.helper.util.fillTemplate(html, {
+                templateId,
+                align,
+                direction,
+                size,
+                couponCode: promoCode,
+                tip,
+                canvasId,
+                distinguishIndex0: distinguish[0],
+                distinguish: distinguishVal
+            });
+
+            return {
+                html: filledHtml,
+                templateId,
+                canvasId,
+                distinguish,
+                handler
+            };
+        };
+
+        this.generate = (payload) => {
+            if(!payload){
+                return {};
+            }
+            
+            const css = (platform === "ebay") ? ebayCss() : aliexpressCss();
+            const {coupon, id, mscan} = payload;
+            ext.logger("info", "DefaultCouponQueryTemplateHelper", "payload", payload);
+
+            let couponObj = null, mscanObj = null;
+            if(coupon){
+                couponObj = generateCoupon(coupon, couponHtml);
+            }
+            if(mscan){
+                mscanObj = generateMscan(coupon, mscan, mscanHtml);
+            }
+
+            return {
+                css: css,
+                coupon: couponObj==null ? null : {
+                    templateId:couponObj.templateId,
+                    html:couponObj.html,
+                    handler:couponObj.handler,
+                    distinguish:couponObj.distinguish,
+                    hint:couponObj.hint,
+                    mid:(coupon.hasOwnProperty("mid")) ? coupon.mid : null
+                },
+                mscan: mscanObj==null ? null : {
+                    qrId: id, //get qrcode
+                    templateId:mscanObj.templateId,
+                    canvasId:mscanObj.canvasId,
+                    html:mscanObj.html,
+                    distinguish:mscanObj.distinguish,
+                    handler:mscanObj.handler
+                }
+            }
+        };
     };
 
-    const generateMscan = (coupon, mscan, html) => {
-      const { handler, size, align, direction, tip } = mscan;
-      const { promoCode } = coupon || {};
 
-      const canvasId = "mscan" + ext.helper.util.randomUUID();
-      const templateId = "mscan" + ext.helper.util.randomUUID();
-      const distinguish = [ext.helper.util.randomUUID()];
-      const distinguishVal = distinguish[0];
+    /**
+     * Shared template and generation logic, reused by detectCouponList and detectFlyout.
+     * Public methods: generateTermsHtml, generateCashbackBtnHtml, generateScanHtml; property: termsHtml.
+     * @param {*} ext
+     */
+    $.DetectCommonTemplateHelper = function (ext) {
 
-      const filledHtml = ext.helper.util.fillTemplate(html, {
-        templateId,
-        align,
-        direction,
-        size,
-        couponCode: promoCode,
-        tip,
-        canvasId,
-        distinguishIndex0: distinguish[0],
-        distinguish: distinguishVal
-      });
-
-      return {
-        html: filledHtml,
-        templateId,
-        canvasId,
-        distinguish,
-        handler
-      };
-    };
-
-    this.generate = (payload) => {
-      if (!payload) {
-        return {};
-      }
-
-      const css = platform === "ebay" ? ebayCss() : aliexpressCss();
-      const { coupon, id, mscan } = payload;
-      ext.logger("info", "DefaultCouponQueryTemplateHelper", "payload", payload);
-
-      let couponObj = null,mscanObj = null;
-      if (coupon) {
-        couponObj = generateCoupon(coupon, couponHtml);
-      }
-      if (mscan) {
-        mscanObj = generateMscan(coupon, mscan, mscanHtml);
-      }
-
-      return {
-        css: css,
-        coupon: couponObj == null ? null : {
-          templateId: couponObj.templateId,
-          html: couponObj.html,
-          handler: couponObj.handler,
-          distinguish: couponObj.distinguish,
-          hint: couponObj.hint,
-          mid: coupon.hasOwnProperty("mid") ? coupon.mid : null
-        },
-        mscan: mscanObj == null ? null : {
-          qrId: id, //get qrcode
-          templateId: mscanObj.templateId,
-          canvasId: mscanObj.canvasId,
-          html: mscanObj.html,
-          distinguish: mscanObj.distinguish,
-          handler: mscanObj.handler
-        }
-      };
-    };
-  };
-
-
-  /**
-   * Shared template and generation logic, reused by detectCouponList and detectFlyout.
-   * Public methods: generateTermsHtml, generateCashbackBtnHtml, generateScanHtml; property: termsHtml.
-   * @param {*} ext
-   */
-  $.DetectCommonTemplateHelper = function (ext) {
-
-    // Shared fragment templates
-    const gestureComponentHtml = `
+        // Shared fragment templates
+        const gestureComponentHtml = `
             <span class="hand-left-animate">👉🏻</span>
         `;
 
-    const deactivateQrcodeHtml = `
+        const deactivateQrcodeHtml = `
             <div class="jox-acq-cashback-qrcode-container">
                 <div class="jox-acq-activate-suggestion">
                     <span>
@@ -32907,7 +32897,7 @@
             </div>
         `;
 
-    const cashbackBtnComponentHtml = `
+        const cashbackBtnComponentHtml = `
             #{rebateNoticeHtml}
              <div class="jox-acq-cashback-btn-container">
                 <button class="jox-acq-cashback-btn #{disabled}" data-content='#{content}' name="#{btnName}">
@@ -32917,14 +32907,14 @@
             </div>
         `;
 
-    const rebateNoticeComponentHtml = `
+        const rebateNoticeComponentHtml = `
             <div class="jox-acq-need-to-know"> 
                 <b class="jox-acq-need-to-know-important">#{rebateNoticeEmphasis}</b> 
                 <span>#{rebateNoticeNeedToKnow}</span> 
             </div>
         `;
 
-    this.termsHtml = `
+        this.termsHtml = `
             <div class="panel-terms-section">
                 <input type="checkbox" id="#{termsId}" style="display:none;">
                 <label for="#{termsId}" class="jox-acq-terms-toggle">
@@ -32941,73 +32931,73 @@
             </div>
         `;
 
+        /**
+         * Generate terms section HTML from terms data
+         * @param {*} terms - { exclusions, privacyLink, termTitle, terms }
+         * @returns {string}
+         */
+        this.generateTermsHtml = (terms) => {
+            if (!terms) return "";
+            const { exclusions, privacyLink, termTitle } = terms;
+            return ext.helper.util.fillTemplate(this.termsHtml, {
+                exclusions,
+                termsId: "toggle-terms-" + ext.helper.util.randomUUID(),
+                privacyLink,
+                termTitle,
+                terms: terms.terms
+            });
+        };
+
+        this.generateCashbackBtnHtml = (buttonData, btnName) => {
+            if (!buttonData) return "";
+
+            const { buttonText, disabled, content, showGesture, rebateNoticeEmphasis, rebateNoticeNeedToKnow, showRebateNotice } = buttonData;
+            const html = ext.helper.util.fillTemplate(cashbackBtnComponentHtml, {
+                rebateNoticeHtml: showRebateNotice ? ext.helper.util.fillTemplate(rebateNoticeComponentHtml, {
+                    rebateNoticeEmphasis,
+                    rebateNoticeNeedToKnow
+                }) : "",
+                btnName
+            });
+
+            return ext.helper.util.fillTemplate(html, {
+                disabled: disabled ? "disabled" : "",
+                content:ext.helper.util.escapeHTML(JSON.stringify(content)),
+                buttonText,
+                gestureHtml: showGesture ? gestureComponentHtml : ""
+            });
+        };
+
+        this.generateScanHtml = (scanData) => {
+            if (!scanData) return "";
+            const { qrCodeBase64, conditionText } = scanData;
+            return ext.helper.util.fillTemplate(deactivateQrcodeHtml, { qrCodeBase64, conditionText });
+        };
+
+        this.getActivateEventConfig = () => {
+            return {
+                "notification": ".activate-widget__content .notification",
+                "model": ".jox-acq-cashback-btn-container > .jox-acq-cashback-btn",
+                "flyout": ".jox-acq-flyout .jox-acq-cashback-btn",
+                "scan": ".cashback-panel .jox-acq-activate-suggestion"
+            }
+        };
+    };
+
+
     /**
-     * Generate terms section HTML from terms data
-     * @param {*} terms - { exclusions, privacyLink, termTitle, terms }
-     * @returns {string}
+     * Detect page coupon/store list panel template and generation logic; depends on DetectCommonTemplateHelper.
+     * @param {*} ext
      */
-    this.generateTermsHtml = (terms) => {
-      if (!terms) return "";
-      const { exclusions, privacyLink, termTitle } = terms;
-      return ext.helper.util.fillTemplate(this.termsHtml, {
-        exclusions,
-        termsId: "toggle-terms-" + ext.helper.util.randomUUID(),
-        privacyLink,
-        termTitle,
-        terms: terms.terms
-      });
-    };
+    $.DetectCouponListTemplateHelper = function (ext, commonTemplate) {
 
-    this.generateCashbackBtnHtml = (buttonData, btnName) => {
-      if (!buttonData) return "";
-
-      const { buttonText, disabled, content, showGesture, rebateNoticeEmphasis, rebateNoticeNeedToKnow, showRebateNotice } = buttonData;
-      const html = ext.helper.util.fillTemplate(cashbackBtnComponentHtml, {
-        rebateNoticeHtml: showRebateNotice ? ext.helper.util.fillTemplate(rebateNoticeComponentHtml, {
-          rebateNoticeEmphasis,
-          rebateNoticeNeedToKnow
-        }) : "",
-        btnName
-      });
-
-      return ext.helper.util.fillTemplate(html, {
-        disabled: disabled ? "disabled" : "",
-        content: ext.helper.util.escapeHTML(JSON.stringify(content)),
-        buttonText,
-        gestureHtml: showGesture ? gestureComponentHtml : ""
-      });
-    };
-
-    this.generateScanHtml = (scanData) => {
-      if (!scanData) return "";
-      const { qrCodeBase64, conditionText } = scanData;
-      return ext.helper.util.fillTemplate(deactivateQrcodeHtml, { qrCodeBase64, conditionText });
-    };
-
-    this.getActivateEventConfig = () => {
-      return {
-        "notification": ".activate-widget__content .notification",
-        "model": ".jox-acq-cashback-btn-container > .jox-acq-cashback-btn",
-        "flyout": ".jox-acq-flyout .jox-acq-cashback-btn",
-        "scan": ".cashback-panel .jox-acq-activate-suggestion"
-      };
-    };
-  };
-
-
-  /**
-   * Detect page coupon/store list panel template and generation logic; depends on DetectCommonTemplateHelper.
-   * @param {*} ext
-   */
-  $.DetectCouponListTemplateHelper = function (ext, commonTemplate) {
-
-    // Button/event names (for external binding)
-    const cashbackBtnName = "cashback-click-event";
-    const clickToJumpBtnName = "jump-click-event";
-    const couponApplyBtnName = "coupon-apply-click-event";
-
-    // Sub-component templates
-    const discountComponentHtml = `
+        // Button/event names (for external binding)
+        const cashbackBtnName = "cashback-click-event";
+        const clickToJumpBtnName = "jump-click-event";
+        const couponApplyBtnName = "coupon-apply-click-event";
+        
+        // Sub-component templates
+        const discountComponentHtml = `
             <div class="jox-acq-coupon-item jox-acq-media-item">
                 #{imgHtml}
                 <div class="jox-acq-content">
@@ -33021,12 +33011,12 @@
                 </div>
             </div>
         `;
-    const discountImageComponentHtml = `
+        const discountImageComponentHtml = `
             <div class="jox-acq-img">
                 <img src="#{img}"></img>
             </div>
         `;
-    const withCouponCopyComponentHtml = `
+        const withCouponCopyComponentHtml = `
             <div class="jox-acq-coupon-item">
                 <div class="jox-acq-item-left">
                     <div class="item-coupon-text">#{code}</div>
@@ -33039,26 +33029,26 @@
                 </div>
             </div>
         `;
-    const storeComponentHtml = `
+        const storeComponentHtml = `
             <div class="jox-acq-store-item" data-content='#{content}' name="${clickToJumpBtnName}">
                 <div class="jox-acq-platform-logo"><img src="#{logo}"/></div>
                 <span>#{name}</span>
             </div>
         `;
-    const couponApplyComponentHtml = `
+        const couponApplyComponentHtml = `
             <div class="jox-acq-coupon-apply">
                 <span class="jox-acq-apply-inner jox-acq-apply-button" data-content='#{content}' name="${couponApplyBtnName}">#{applyText}</span>
             </div>
         `;
 
-    const rebateHtml = `
+        const rebateHtml = `
             <div class="cashback-panel">
                 #{onlineHtml}
                 #{guestHtml}
                 #{activateBtnHtml}
             </div>
         `;
-    const guestHtml = `
+        const guestHtml = `
             <div class="jox-acq-stepper">
                 <div class="jox-acq-step jox-acq-active">
                     <div class="jox-acq-circle"></div>
@@ -33076,7 +33066,7 @@
                 </div>
             </div>
         `;
-    const onlineHtml = `
+        const onlineHtml = `
             <div class="cashback-user-info">
                 <div class="jox-acq-user-avatar">
                     <a href="#{ucenter}" target="_blank"><img class="jox-acq-avatar-img" src="#{avatar}" alt="User Avatar"></a>
@@ -33094,7 +33084,7 @@
             </div>
         `;
 
-    const showMoreHtml = `
+        const showMoreHtml = `
             <div class="jox-acq-showmore-box">
                 <div class="showmore-pic">
                     <svg t="1773052718904" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="32005" width="80" height="80"><path d="M904.533333 617.813333l20.48 69.973334c8.533333 29.013333-8.533333 58.026667-35.84 66.56l-416.426666 119.466666c-29.013333 8.533333-58.026667-8.533333-66.56-35.84l-18.773334-64.853333c25.6-10.24 40.96-39.253333 32.426667-64.853333-6.826667-27.306667-34.133333-42.666667-61.44-37.546667l-22.186667-76.8c-8.533333-29.013333 8.533333-58.026667 35.84-66.56l416.426667-119.466667c29.013333-8.533333 58.026667 8.533333 66.56 35.84l22.186667 76.8c-25.6 10.24-40.96 37.546667-32.426667 63.146667s32.426667 39.253333 59.733333 34.133333z" fill="#FFD3D7" p-id="32006"></path><path d="M877.226667 609.28l17.066666 61.44c8.533333 29.013333-8.533333 58.026667-35.84 64.853333l-399.36 114.346667c-29.013333 8.533333-58.026667-8.533333-66.56-35.84l-17.066666-61.44c25.6-10.24 39.253333-37.546667 30.72-63.146667-6.826667-25.6-34.133333-42.666667-59.733334-37.546666L324.266667 578.56c-8.533333-29.013333 8.533333-58.026667 35.84-64.853333l399.36-114.346667c29.013333-8.533333 58.026667 8.533333 66.56 35.84l20.48 73.386667c-25.6 10.24-39.253333 37.546667-30.72 63.146666 8.533333 25.6 34.133333 40.96 61.44 37.546667z" fill="#FB560A" p-id="32007"></path><path d="M500.053333 788.48c-5.12 0-10.24-3.413333-11.946666-8.533333l-3.413334-11.946667c-1.706667-6.826667 1.706667-13.653333 8.533334-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533333l3.413333 11.946667c1.706667 6.826667-1.706667 13.653333-8.533333 15.36h-3.413334z m-17.066666-56.32c-5.12 0-10.24-3.413333-11.946667-8.533333l-3.413333-11.946667c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533333l3.413333 11.946667c1.706667 6.826667-1.706667 13.653333-8.533333 15.36h-3.413333z m-15.36-58.026667c-5.12 0-10.24-3.413333-11.946667-8.533333l-3.413333-11.946667c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533334l3.413333 11.946666c1.706667 6.826667-1.706667 13.653333-8.533333 15.36h-3.413333z m-17.066667-58.026666c-5.12 0-10.24-3.413333-11.946667-8.533334l-3.413333-11.946666c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533333l3.413334 11.946667c1.706667 6.826667-1.706667 13.653333-8.533334 15.36h-3.413333z m-15.36-56.32c-5.12 0-10.24-3.413333-11.946667-8.533334l-3.413333-11.946666c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533333l3.413334 11.946667c1.706667 6.826667-1.706667 13.653333-8.533334 15.36-1.706667-1.706667-1.706667 0-3.413333 0z" fill="#DAE9FF" p-id="32008"></path><path d="M493.226667 790.186667c-5.12 0-10.24-3.413333-11.946667-8.533334l-3.413333-11.946666c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533333l3.413333 11.946667c1.706667 6.826667-1.706667 13.653333-8.533333 15.36h-3.413333zM477.866667 733.866667c-5.12 0-10.24-3.413333-11.946667-8.533334l-3.413333-11.946666c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533333l3.413333 11.946667c1.706667 6.826667-1.706667 13.653333-8.533333 15.36-1.706667-1.706667-3.413333 0-3.413333 0z m-17.066667-58.026667c-5.12 0-10.24-3.413333-11.946667-8.533333l-3.413333-11.946667c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533333l3.413334 11.946667c1.706667 6.826667-1.706667 13.653333-8.533334 15.36H460.8z m-17.066667-58.026667c-5.12 0-10.24-3.413333-11.946666-8.533333l-1.706667-11.946667c-1.706667-6.826667 1.706667-13.653333 8.533333-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533334l3.413334 11.946666c1.706667 6.826667-1.706667 13.653333-8.533334 15.36H443.733333z m-15.36-56.32c-5.12 0-10.24-3.413333-11.946666-8.533333l-3.413334-11.946667c-1.706667-6.826667 1.706667-13.653333 8.533334-15.36 6.826667-1.706667 13.653333 1.706667 15.36 8.533334l3.413333 11.946666c1.706667 6.826667-1.706667 13.653333-8.533333 15.36h-3.413334z" fill="#FFFFFF" p-id="32009"></path><path d="M510.293333 580.266667c5.12-13.653333 20.48-29.013333 35.84-32.426667 0 0 59.733333-18.773333 97.28-29.013333l11.946667-3.413334c15.36-1.706667 30.72 8.533333 35.84 23.893334l-1.706667-3.413334c3.413333 15.36-5.12 32.426667-20.48 35.84l-116.053333 34.133334c-15.36 5.12-34.133333-3.413333-39.253333-18.773334l-3.413334-6.826666zM539.306667 667.306667c5.12-13.653333 20.48-29.013333 34.133333-32.426667l186.026667-52.906667c13.653333-3.413333 30.72 3.413333 35.84 17.066667l1.706666 3.413333c6.826667 15.36 0 30.72-15.36 34.133334l-194.56 56.32-3.413333 1.706666c-15.36 5.12-34.133333-3.413333-42.666667-17.066666l-3.413333-5.12 1.706667-5.12z" fill="#DAE9FF" p-id="32010"></path><path d="M527.36 551.253333l114.346667-32.426666c11.946667-3.413333 25.6 3.413333 29.013333 15.36 3.413333 11.946667-3.413333 25.6-15.36 29.013333l-114.346667 32.426667c-11.946667 3.413333-25.6-3.413333-29.013333-15.36-5.12-13.653333 1.706667-25.6 15.36-29.013334zM552.96 641.706667l204.8-58.026667c11.946667-3.413333 25.6 3.413333 29.013333 15.36 3.413333 11.946667-3.413333 25.6-15.36 29.013333l-204.8 58.026667c-11.946667 3.413333-25.6-3.413333-29.013333-15.36-5.12-13.653333 3.413333-25.6 15.36-29.013333z" fill="#FFFFFF" p-id="32011"></path><path d="M933.546667 395.946667l46.08 95.573333c18.773333 37.546667 3.413333 83.626667-34.133334 102.4l-563.2 273.066667c-37.546667 18.773333-83.626667 3.413333-102.4-35.84l-42.666666-88.746667c34.133333-20.48 47.786667-64.853333 29.013333-100.693333-17.066667-35.84-59.733333-52.906667-97.28-39.253334l-51.2-104.106666c-18.773333-37.546667-3.413333-83.626667 34.133333-102.4l563.2-273.066667c37.546667-18.773333 83.626667-3.413333 102.4 35.84l51.2 104.106667c-34.133333 20.48-47.786667 63.146667-30.72 97.28 15.36 34.133333 58.026667 49.493333 95.573334 35.84z" fill="#DAE9FF" p-id="32012"></path><path d="M892.586667 389.12l40.96 85.333333c18.773333 37.546667 3.413333 83.626667-35.84 102.4L361.813333 839.68c-37.546667 18.773333-83.626667 3.413333-102.4-35.84l-40.96-85.333333c32.426667-20.48 44.373333-63.146667 27.306667-98.986667s-58.026667-51.2-95.573333-39.253333L102.4 481.28c-18.773333-37.546667-3.413333-83.626667 35.84-102.4L674.133333 116.053333c37.546667-18.773333 83.626667-3.413333 102.4 35.84l49.493334 100.693334c-32.426667 20.48-44.373333 63.146667-27.306667 98.986666 17.066667 34.133333 58.026667 51.2 93.866667 37.546667z" fill="#3889FF" p-id="32013"></path><path d="M397.653333 733.866667c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826666-13.653334c-3.413333-8.533333 0-18.773333 8.533333-22.186666 8.533333-3.413333 18.773333 0 22.186667 8.533333l6.826666 15.36c3.413333 8.533333 0 18.773333-8.533333 22.186667h-6.826667z m-37.546666-76.8c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826667-15.36c-3.413333-8.533333 0-18.773333 8.533333-22.186667 8.533333-3.413333 18.773333 0 22.186667 8.533333l6.826667 15.36c3.413333 8.533333 0 18.773333-8.533334 22.186667-1.706667 1.706667-3.413333 1.706667-6.826666 1.706667zM324.266667 580.266667c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826667-15.36c-3.413333-8.533333 0-18.773333 8.533333-22.186667 8.533333-3.413333 18.773333 0 22.186667 8.533333l6.826667 15.36c3.413333 8.533333 0 18.773333-8.533334 22.186667-1.706667 1.706667-5.12 1.706667-6.826666 1.706667z m-37.546667-76.8c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826667-15.36c-3.413333-8.533333 0-18.773333 8.533334-22.186667 8.533333-3.413333 18.773333 0 22.186666 8.533333l6.826667 15.36c3.413333 8.533333 0 18.773333-8.533333 22.186667-1.706667 1.706667-3.413333 1.706667-6.826667 1.706667zM249.173333 426.666667c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826666-15.36c-3.413333-8.533333 0-18.773333 8.533333-22.186667 8.533333-3.413333 18.773333 0 22.186667 8.533333l6.826666 15.36c3.413333 8.533333 0 18.773333-8.533333 22.186667-1.706667 1.706667-3.413333 1.706667-6.826667 1.706667z" fill="#DAE9FF" p-id="32014"></path><path d="M389.12 737.28c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826667-15.36c-3.413333-8.533333 0-18.773333 8.533334-22.186667 8.533333-3.413333 18.773333 0 22.186666 8.533334l6.826667 15.36c3.413333 8.533333 0 18.773333-8.533333 22.186666-1.706667 1.706667-3.413333 1.706667-6.826667 1.706667z m-37.546667-76.8c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826666-15.36c-3.413333-8.533333 0-18.773333 8.533333-22.186667 8.533333-3.413333 18.773333 0 22.186667 8.533334l6.826666 15.36c3.413333 8.533333 0 18.773333-8.533333 22.186666-1.706667 1.706667-3.413333 1.706667-6.826667 1.706667z m-37.546666-75.093333c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826667-15.36c-3.413333-8.533333 0-18.773333 8.533333-22.186667 8.533333-3.413333 18.773333 0 22.186667 8.533333l6.826667 15.36c3.413333 8.533333 0 18.773333-8.533334 22.186667-1.706667 0-3.413333 1.706667-6.826666 1.706667z m-35.84-76.8c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826667-15.36c-3.413333-8.533333 0-18.773333 8.533333-22.186667s18.773333 0 22.186667 8.533333l6.826667 15.36c3.413333 8.533333 0 18.773333-8.533334 22.186667-1.706667 0-5.12 1.706667-6.826666 1.706667z m-37.546667-76.8c-6.826667 0-11.946667-3.413333-15.36-10.24l-6.826667-15.36c-3.413333-8.533333 0-18.773333 8.533334-22.186667 8.533333-3.413333 18.773333 0 22.186666 8.533333l6.826667 15.36c3.413333 8.533333 0 18.773333-8.533333 22.186667-1.706667 0-5.12 1.706667-6.826667 1.706667z" fill="#FFFFFF" p-id="32015"></path><path d="M365.226667 438.613333c3.413333-20.48 22.186667-46.08 42.666666-56.32 0 0 80.213333-42.666667 129.706667-66.56 49.493333-23.893333 15.36-6.826667 15.36-6.826666 22.186667-6.826667 47.786667 3.413333 58.026667 25.6l-1.706667-5.12c10.24 22.186667 0 47.786667-20.48 58.026666l-155.306667 76.8c-20.48 10.24-49.493333 3.413333-61.44-17.066666l-6.826666-8.533334zM428.373333 556.373333c3.413333-20.48 22.186667-44.373333 40.96-54.613333l250.88-121.173333c18.773333-8.533333 44.373333-3.413333 56.32 15.36l3.413334 5.12c13.653333 18.773333 6.826667 42.666667-13.653334 54.613333L501.76 580.266667l-3.413333 1.706666c-20.48 10.24-51.2 3.413333-66.56-13.653333L426.666667 563.2l1.706666-6.826667z" fill="#DAE9FF" p-id="32016"></path><path d="M380.586667 392.533333l153.6-75.093333c17.066667-8.533333 37.546667-1.706667 46.08 15.36s1.706667 37.546667-15.36 46.08l-153.6 75.093333c-17.066667 8.533333-37.546667 1.706667-46.08-15.36s0-37.546667 15.36-46.08zM442.026667 515.413333L716.8 380.586667c17.066667-8.533333 37.546667-1.706667 46.08 15.36s1.706667 37.546667-15.36 46.08l-274.773333 134.826666c-17.066667 8.533333-37.546667 1.706667-46.08-15.36s-1.706667-37.546667 15.36-46.08z" fill="#FFFFFF" p-id="32017"></path><path d="M204.8 887.466667a341.333333 34.133333 0 1 0 682.666667 0 341.333333 34.133333 0 1 0-682.666667 0Z" fill="#DAE9FF" p-id="32018"></path></svg>
@@ -33103,13 +33093,13 @@
                 <div class="showmore-btn" data-content='#{content}' name="${clickToJumpBtnName}">#{text}</div>
             </div>
         `;
-    const showMoreBrandsHtml = `
+        const showMoreBrandsHtml = `
             <div class="jox-acq-showmore-box">
                 <div class="showmore-btn" data-content='#{content}' name="${clickToJumpBtnName}">#{text}</div>
             </div>
         `;
 
-    const panelNavigationHtml = `
+        const panelNavigationHtml = `
             <div class="panel-navigation">
                 <ul>
                     <li>
@@ -33126,7 +33116,7 @@
             </div>
         `;
 
-    const rootHtml = `
+        const rootHtml = `
             <div class="notranslate panel-container scroll-box" data-lang="#{lang}" data-direction="#{direction}">
                     #{rebateHtml}
                     #{panelNavigationHtml}
@@ -33155,191 +33145,191 @@
                 </div>
         `;
 
-    const generateTermsHtml = (terms) => commonTemplate.generateTermsHtml(terms);
+        const generateTermsHtml = (terms) => commonTemplate.generateTermsHtml(terms);
 
-    const generateCouponItemsHtml = (coupons) => {
-      if (!coupons) return "";
-      return coupons.map((coupon) => {
-        const { code, content, copyCode, desc, image, off, title, type } = coupon;
-        if (type === "code") {
-          return ext.helper.util.fillTemplate(withCouponCopyComponentHtml, {
-            code,
-            content: ext.helper.util.escapeHTML(JSON.stringify(content)),
-            desc, copyCode
-          });
-        }
-        if (type === "discount") {
-          return ext.helper.util.fillTemplate(discountComponentHtml, {
-            title,
-            desc,
-            content: ext.helper.util.escapeHTML(JSON.stringify(content)),
-            off,
-            imgHtml: image ? ext.helper.util.fillTemplate(discountImageComponentHtml, { img: image }) : ""
-          });
-        }
-        return "";
-      }).join("");
+        const generateCouponItemsHtml = (coupons) => {
+            if (!coupons) return "";
+            return coupons.map((coupon) => {
+                const {code, content, copyCode, desc, image, off, title, type} = coupon;
+                if (type === "code") {
+                    return ext.helper.util.fillTemplate(withCouponCopyComponentHtml, {
+                        code, 
+                        content:ext.helper.util.escapeHTML(JSON.stringify(content)), 
+                        desc, copyCode
+                    });
+                }
+                if (type === "discount") {
+                    return ext.helper.util.fillTemplate(discountComponentHtml, {
+                        title,
+                        desc,
+                        content:ext.helper.util.escapeHTML(JSON.stringify(content)),
+                        off,
+                        imgHtml: image ? ext.helper.util.fillTemplate(discountImageComponentHtml, { img: image }) : ""
+                    });
+                }
+                return "";
+            }).join("");
+        };
+
+        const generateCouponShowMoreHtml = (showMore) => {
+            if (!showMore) return "";
+            const { content, text, subTitle } = showMore;
+            return ext.helper.util.fillTemplate(showMoreHtml, {
+                content:ext.helper.util.escapeHTML(JSON.stringify(content)),
+                text,
+                subTitle
+            });
+        };
+
+        const generateStoreShowMoreHtml = (showMoreBrands) => {
+            if (!showMoreBrands) return "";
+            const { content, text } = showMoreBrands;
+            return ext.helper.util.fillTemplate(showMoreBrandsHtml, {
+                content:ext.helper.util.escapeHTML(JSON.stringify(content)),
+                text
+            });
+        };
+
+        const generateStoresHtml = (brands) => {
+            if (!brands) return "";
+            return brands.map(({ content, logoBase64, name }) =>
+                ext.helper.util.fillTemplate(storeComponentHtml, {
+                    content:ext.helper.util.escapeHTML(JSON.stringify(content)),
+                    name,
+                    logo: logoBase64
+                })
+            ).join("");
+        };
+
+        const generatePanelNavigationHtml = (tabs) => {
+            if (!tabs || tabs.navigationHidden) return "";
+            const { couponTabText, storeTabText, couponActive, storeActive } = tabs;
+            return ext.helper.util.fillTemplate(panelNavigationHtml, {
+                couponTabText,
+                storeTabText,
+                couponActive: couponActive ? "active" : "",
+                storeActive: storeActive ? "active" : ""
+            });
+        };
+
+        const generateRebateHtml = (rebate) => {
+            let guestHtmlStr = "", onlineHtmlStr = "", activateButtonHtmlStr = "";
+            if (rebate) {
+                const { activateButton, guest, online } = rebate;
+                if (guest) {
+                    guestHtmlStr = ext.helper.util.fillTemplate(guestHtml, {
+                        activatedText: guest.activatedText,
+                        purchaseText: guest.purchaseText,
+                        withdrawText: guest.withdrawText
+                    });
+                }
+                if (online) {
+                    const { avatar, confirmedAmount, confirmedLabel, email, level, pendingAmount, pendingLabel, ucenterUrl } = online;
+                    onlineHtmlStr = ext.helper.util.fillTemplate(onlineHtml, {
+                        ucenter: ucenterUrl,
+                        avatar,
+                        level: level,
+                        confirmedLabel,
+                        confirmedAmount,
+                        pendingLabel,
+                        pendingAmount,
+                        email
+                    });
+                }
+                if (activateButton) {
+                    const { mode, qrCodeBase64 } = activateButton;
+                    if (mode === "scan" && qrCodeBase64) {
+                        activateButtonHtmlStr += commonTemplate.generateScanHtml(activateButton);
+                    }
+                    if (mode === "normal") {
+                        activateButtonHtmlStr += commonTemplate.generateCashbackBtnHtml(activateButton, cashbackBtnName);
+                    }
+                }
+            }
+
+            // If none exist, return empty string and skip template processing
+            if(activateButtonHtmlStr || guestHtmlStr || onlineHtmlStr){
+                return ext.helper.util.fillTemplate(rebateHtml, {
+                    activateBtnHtml: activateButtonHtmlStr,
+                    guestHtml: guestHtmlStr,
+                    onlineHtml: onlineHtmlStr
+                });
+            }
+
+            return "";
+        };
+
+        const generateApplyHtml = (applyCoupon) => {
+            if (!applyCoupon) return "";
+            const { content, applyText } = applyCoupon;
+
+            return ext.helper.util.fillTemplate(couponApplyComponentHtml, {
+                applyText,
+                content:ext.helper.util.escapeHTML(JSON.stringify(content))
+            });
+        };
+        
+        this.getActivateEventConfig = () => {
+            return commonTemplate.getActivateEventConfig();
+        };
+
+        this.generate = async (payload) => {
+            if (!payload) return {};
+            const styleObj = await ext.helper.styleHelper.readCssContent(["shadow/detect", "shadow/detectCouponList"]);
+            const css = (styleObj["shadow/detect"] || "") + "\n" + (styleObj["shadow/detectCouponList"] || "");
+            const { applyCoupon, brands, coupons, direction, lang, rebate, showMore, moreBrands, tabs, terms } = payload;
+            
+            const termsHtml = generateTermsHtml(terms);
+            const couponItemsHtml = generateCouponItemsHtml(coupons);
+            const couponShowMoreHtml = generateCouponShowMoreHtml(showMore);
+            const storeShowMoreHtml = generateStoreShowMoreHtml(moreBrands);
+            const storesHtml = generateStoresHtml(brands);
+            const panelNavigationHtml = generatePanelNavigationHtml(tabs);
+            const rebateHtml = generateRebateHtml(rebate);
+            const applyHtml = generateApplyHtml(applyCoupon);
+
+            const html = ext.helper.util.fillTemplate(rootHtml, {
+                direction,
+                lang,
+                couponActive: tabs?.couponActive ? "active" : "",
+                storeActive: tabs?.storeActive ? "active" : "",
+                termsHtml,
+                couponItemsHtml,
+                couponShowMoreHtml,
+                storeShowMoreHtml,
+                storesHtml,
+                panelNavigationHtml,
+                rebateHtml,
+                applyHtml
+            });
+
+            return {
+                css,
+                html,
+                names: { clickToJumpBtnName, cashbackBtnName, couponApplyBtnName }
+            };
+        };
     };
 
-    const generateCouponShowMoreHtml = (showMore) => {
-      if (!showMore) return "";
-      const { content, text, subTitle } = showMore;
-      return ext.helper.util.fillTemplate(showMoreHtml, {
-        content: ext.helper.util.escapeHTML(JSON.stringify(content)),
-        text,
-        subTitle
-      });
-    };
 
-    const generateStoreShowMoreHtml = (showMoreBrands) => {
-      if (!showMoreBrands) return "";
-      const { content, text } = showMoreBrands;
-      return ext.helper.util.fillTemplate(showMoreBrandsHtml, {
-        content: ext.helper.util.escapeHTML(JSON.stringify(content)),
-        text
-      });
-    };
+    /**
+     * Detect page Flyout popup template and generation logic; depends on DetectCommonTemplateHelper.
+     * Uses a dedicated name prefix to avoid conflicts with detectCouponList.
+     * @param {*} ext
+     */
+    $.DetectFlyoutTemplateHelper = function (ext, commonTemplate) {
 
-    const generateStoresHtml = (brands) => {
-      if (!brands) return "";
-      return brands.map(({ content, logoBase64, name }) =>
-      ext.helper.util.fillTemplate(storeComponentHtml, {
-        content: ext.helper.util.escapeHTML(JSON.stringify(content)),
-        name,
-        logo: logoBase64
-      })
-      ).join("");
-    };
+        // Container/button names (for external binding) use an independent prefix to avoid conflicts
+        const flyOutContainerName = "flyout-container-dom";
+        const flyOutCashbackBtnName = "flyout-cashback-click-event";
+        const flyOutCouponApplyBtnName = "flyout-coupon-apply-click-event";
+        const flyOutCloseBtn = "jox-acq-close-btn";
 
-    const generatePanelNavigationHtml = (tabs) => {
-      if (!tabs || tabs.navigationHidden) return "";
-      const { couponTabText, storeTabText, couponActive, storeActive } = tabs;
-      return ext.helper.util.fillTemplate(panelNavigationHtml, {
-        couponTabText,
-        storeTabText,
-        couponActive: couponActive ? "active" : "",
-        storeActive: storeActive ? "active" : ""
-      });
-    };
-
-    const generateRebateHtml = (rebate) => {
-      let guestHtmlStr = "",onlineHtmlStr = "",activateButtonHtmlStr = "";
-      if (rebate) {
-        const { activateButton, guest, online } = rebate;
-        if (guest) {
-          guestHtmlStr = ext.helper.util.fillTemplate(guestHtml, {
-            activatedText: guest.activatedText,
-            purchaseText: guest.purchaseText,
-            withdrawText: guest.withdrawText
-          });
-        }
-        if (online) {
-          const { avatar, confirmedAmount, confirmedLabel, email, level, pendingAmount, pendingLabel, ucenterUrl } = online;
-          onlineHtmlStr = ext.helper.util.fillTemplate(onlineHtml, {
-            ucenter: ucenterUrl,
-            avatar,
-            level: level,
-            confirmedLabel,
-            confirmedAmount,
-            pendingLabel,
-            pendingAmount,
-            email
-          });
-        }
-        if (activateButton) {
-          const { mode, qrCodeBase64 } = activateButton;
-          if (mode === "scan" && qrCodeBase64) {
-            activateButtonHtmlStr += commonTemplate.generateScanHtml(activateButton);
-          }
-          if (mode === "normal") {
-            activateButtonHtmlStr += commonTemplate.generateCashbackBtnHtml(activateButton, cashbackBtnName);
-          }
-        }
-      }
-
-      // If none exist, return empty string and skip template processing
-      if (activateButtonHtmlStr || guestHtmlStr || onlineHtmlStr) {
-        return ext.helper.util.fillTemplate(rebateHtml, {
-          activateBtnHtml: activateButtonHtmlStr,
-          guestHtml: guestHtmlStr,
-          onlineHtml: onlineHtmlStr
-        });
-      }
-
-      return "";
-    };
-
-    const generateApplyHtml = (applyCoupon) => {
-      if (!applyCoupon) return "";
-      const { content, applyText } = applyCoupon;
-
-      return ext.helper.util.fillTemplate(couponApplyComponentHtml, {
-        applyText,
-        content: ext.helper.util.escapeHTML(JSON.stringify(content))
-      });
-    };
-
-    this.getActivateEventConfig = () => {
-      return commonTemplate.getActivateEventConfig();
-    };
-
-    this.generate = async (payload) => {
-      if (!payload) return {};
-      const styleObj = await ext.helper.styleHelper.readCssContent(["shadow/detect", "shadow/detectCouponList"]);
-      const css = (styleObj["shadow/detect"] || "") + "\n" + (styleObj["shadow/detectCouponList"] || "");
-      const { applyCoupon, brands, coupons, direction, lang, rebate, showMore, moreBrands, tabs, terms } = payload;
-
-      const termsHtml = generateTermsHtml(terms);
-      const couponItemsHtml = generateCouponItemsHtml(coupons);
-      const couponShowMoreHtml = generateCouponShowMoreHtml(showMore);
-      const storeShowMoreHtml = generateStoreShowMoreHtml(moreBrands);
-      const storesHtml = generateStoresHtml(brands);
-      const panelNavigationHtml = generatePanelNavigationHtml(tabs);
-      const rebateHtml = generateRebateHtml(rebate);
-      const applyHtml = generateApplyHtml(applyCoupon);
-
-      const html = ext.helper.util.fillTemplate(rootHtml, {
-        direction,
-        lang,
-        couponActive: tabs?.couponActive ? "active" : "",
-        storeActive: tabs?.storeActive ? "active" : "",
-        termsHtml,
-        couponItemsHtml,
-        couponShowMoreHtml,
-        storeShowMoreHtml,
-        storesHtml,
-        panelNavigationHtml,
-        rebateHtml,
-        applyHtml
-      });
-
-      return {
-        css,
-        html,
-        names: { clickToJumpBtnName, cashbackBtnName, couponApplyBtnName }
-      };
-    };
-  };
-
-
-  /**
-   * Detect page Flyout popup template and generation logic; depends on DetectCommonTemplateHelper.
-   * Uses a dedicated name prefix to avoid conflicts with detectCouponList.
-   * @param {*} ext
-   */
-  $.DetectFlyoutTemplateHelper = function (ext, commonTemplate) {
-
-    // Container/button names (for external binding) use an independent prefix to avoid conflicts
-    const flyOutContainerName = "flyout-container-dom";
-    const flyOutCashbackBtnName = "flyout-cashback-click-event";
-    const flyOutCouponApplyBtnName = "flyout-coupon-apply-click-event";
-    const flyOutCloseBtn = "jox-acq-close-btn";
-
-    // Sub-component templates
-    const closeComponentHtml = `
+        // Sub-component templates
+        const closeComponentHtml = `
             <button class="${flyOutCloseBtn}">×</button>
         `;
-    const couponApplyComponentHtml = `
+        const couponApplyComponentHtml = `
             <div class="jox-acq-coupon-apply-btn-container">
                 <div class="jox-acq-activate-suggestion">
                     <span class="hand-down-animate">👇</span>
@@ -33351,7 +33341,7 @@
             </div>
         `;
 
-    const rootHtml = `
+        const rootHtml = `
             <div class="jox-acq-container #{activateState}" name="${flyOutContainerName}" style="z-index:2147483647 !important;">
                 <div class="jox-acq-flyout #{position}">
                     <div class="jox-acq-flyout-header">
@@ -33369,83 +33359,83 @@
             </div>
         `;
 
-    const deactivateHtml = `
+        const deactivateHtml = `
            #{cashbackBtnComponentHtml}
         `;
 
-    const activateHtml = `
+        const activateHtml = `
             <span class="jox-acq-activate-state">
                #{stateText}
             </span>
         `;
 
-    const overrideHtml = `
+        const overrideHtml = `
             <span class="jox-acq-activate-state">#{stateText}</span>
             #{cashbackBtnComponentHtml}
         `;
 
-    const reminderHtml = `
+        const reminderHtml = `
             #{cashbackBtnComponentHtml}
             #{couponApplyComponentHtml}
         `;
 
-    const generateMainContentHtml = (body) => {
-      const { reminder, activate, override, type, deactivate } = body;
-      if (!type) return "";
+        const generateMainContentHtml = (body) => {
+            const { reminder, activate, override, type, deactivate } = body;
+            if (!type) return "";
 
-      if (type === "deactivate" && deactivate) {
-        const { qrCodeBase64, mode } = deactivate.activateButton;
-        let html = "";
-        if (mode === "scan" && qrCodeBase64) {
-          html += commonTemplate.generateScanHtml(deactivate.activateButton);
-        }
-        if (mode === "normal") {
-          html += ext.helper.util.fillTemplate(deactivateHtml, {
-            cashbackBtnComponentHtml: commonTemplate.generateCashbackBtnHtml(deactivate.activateButton, flyOutCashbackBtnName)
-          });
-        }
-        return html;
-      }
+            if (type === "deactivate" && deactivate) {
+                const { qrCodeBase64, mode } = deactivate.activateButton;
+                let html = "";
+                if (mode === "scan" && qrCodeBase64) {
+                    html += commonTemplate.generateScanHtml(deactivate.activateButton);
+                }
+                if (mode === "normal") {
+                    html += ext.helper.util.fillTemplate(deactivateHtml, {
+                        cashbackBtnComponentHtml: commonTemplate.generateCashbackBtnHtml(deactivate.activateButton, flyOutCashbackBtnName)
+                    });
+                }
+                return html;
+            }
 
-      if (type === "activate" && activate) {
-        return ext.helper.util.fillTemplate(activateHtml, { stateText: activate.stateText });
-      }
+            if (type === "activate" && activate) {
+                return ext.helper.util.fillTemplate(activateHtml, { stateText: activate.stateText });
+            }
 
-      if (type === "reminder" && reminder && reminder.showReminder) {
-        const { activateButton, couponApply, showActivateButton, showCouponApply } = reminder;
-        const cashbackPart = showActivateButton && activateButton ?
-        commonTemplate.generateCashbackBtnHtml(activateButton, flyOutCashbackBtnName) : "";
+            if (type === "reminder" && reminder && reminder.showReminder) {
+                const { activateButton, couponApply, showActivateButton, showCouponApply } = reminder;
+                const cashbackPart = showActivateButton && activateButton 
+                    ? commonTemplate.generateCashbackBtnHtml(activateButton, flyOutCashbackBtnName) : "";
 
-        const couponPart = showCouponApply && couponApply ?
-        ext.helper.util.fillTemplate(couponApplyComponentHtml, {
-          content: ext.helper.util.escapeHTML(JSON.stringify(couponApply.content)),
-          hintText: couponApply.hintText,
-          couponBtnText: couponApply.couponBtnText
-        }) : "";
+                const couponPart = showCouponApply && couponApply
+                    ? ext.helper.util.fillTemplate(couponApplyComponentHtml, {
+                        content:ext.helper.util.escapeHTML(JSON.stringify(couponApply.content)),
+                        hintText: couponApply.hintText,
+                        couponBtnText: couponApply.couponBtnText
+                    }) : "";
 
-        return ext.helper.util.fillTemplate(reminderHtml, {
-          cashbackBtnComponentHtml: cashbackPart,
-          couponApplyComponentHtml: couponPart
-        });
-      }
+                return ext.helper.util.fillTemplate(reminderHtml, {
+                    cashbackBtnComponentHtml: cashbackPart,
+                    couponApplyComponentHtml: couponPart
+                });
+            }
 
-      if (type === "override" && override) {
-        const { stateText, activateButton } = override;
-        return ext.helper.util.fillTemplate(overrideHtml, {
-          cashbackBtnComponentHtml: commonTemplate.generateCashbackBtnHtml(activateButton, flyOutCashbackBtnName),
-          stateText
-        });
-      }
+            if (type === "override" && override) {
+                const { stateText, activateButton } = override;
+                return ext.helper.util.fillTemplate(overrideHtml, {
+                    cashbackBtnComponentHtml: commonTemplate.generateCashbackBtnHtml(activateButton, flyOutCashbackBtnName),
+                    stateText
+                });
+            }
 
-      return "";
-    };
+            return "";
+        };
 
-    const generateTermsHtml = (terms) => commonTemplate.generateTermsHtml(terms);
+        const generateTermsHtml = (terms) => commonTemplate.generateTermsHtml(terms);
 
-    const generateExtraAnimationCss = (animation) => {
-      if (!animation) return "";
-      const { cggContainerAnimation, cggCggFlyoutAnimation, handBounceAnimation, handLeftAnimation } = animation;
-      return `
+        const generateExtraAnimationCss = (animation) => {
+            if (!animation) return "";
+            const { cggContainerAnimation, cggCggFlyoutAnimation, handBounceAnimation, handLeftAnimation } = animation;
+            return `
                 .jox-acq-container {
                     ${cggContainerAnimation}!important;
                 }
@@ -33459,69 +33449,69 @@
                     ${handLeftAnimation}!important;
                 }
             `;
+        };
+
+        this.getActivateEventConfig = () => {
+            return commonTemplate.getActivateEventConfig();
+        };
+
+        this.generate = async (payload) => {
+            ext.logger("info", "DetectFlyoutTemplateHelper", "payload", payload);
+            if (!payload) return {};
+            const { activateState, showClose, conf, logoBase64, position, body, title, animation } = payload;
+            const styleObj = await ext.helper.styleHelper.readCssContent(["shadow/detect", "shadow/detectFlyout"]);
+            const css = (styleObj["shadow/detect"] || "") + "\n" + (styleObj["shadow/detectFlyout"] || "") + generateExtraAnimationCss(animation);
+            const mainHtml = generateMainContentHtml(body);
+            const termsHtml = generateTermsHtml(body.terms);
+            const html = ext.helper.util.fillTemplate(rootHtml, {
+                closeHtml: showClose ? closeComponentHtml : "",
+                activateState,
+                position: "jox-acq-" + position,
+                title,
+                logoBase64,
+                mainHtml,
+                termsHtml
+            });
+            return {
+                css,
+                html,
+                conf: {
+                    flyOutContainerName,
+                    flyOutCashbackBtnName,
+                    flyOutCouponApplyBtnName,
+                    delay: conf.delay,
+                    closeAnimation: conf.showAnimation ? "jox-acq-fade-out" : "",
+                    flyOutCloseBtnClassName: "." + flyOutCloseBtn
+                }
+            };
+        };
     };
 
-    this.getActivateEventConfig = () => {
-      return commonTemplate.getActivateEventConfig();
-    };
 
-    this.generate = async (payload) => {
-      ext.logger("info", "DetectFlyoutTemplateHelper", "payload", payload);
-      if (!payload) return {};
-      const { activateState, showClose, conf, logoBase64, position, body, title, animation } = payload;
-      const styleObj = await ext.helper.styleHelper.readCssContent(["shadow/detect", "shadow/detectFlyout"]);
-      const css = (styleObj["shadow/detect"] || "") + "\n" + (styleObj["shadow/detectFlyout"] || "") + generateExtraAnimationCss(animation);
-      const mainHtml = generateMainContentHtml(body);
-      const termsHtml = generateTermsHtml(body.terms);
-      const html = ext.helper.util.fillTemplate(rootHtml, {
-        closeHtml: showClose ? closeComponentHtml : "",
-        activateState,
-        position: "jox-acq-" + position,
-        title,
-        logoBase64,
-        mainHtml,
-        termsHtml
-      });
-      return {
-        css,
-        html,
-        conf: {
-          flyOutContainerName,
-          flyOutCashbackBtnName,
-          flyOutCouponApplyBtnName,
-          delay: conf.delay,
-          closeAnimation: conf.showAnimation ? "jox-acq-fade-out" : "",
-          flyOutCloseBtnClassName: "." + flyOutCloseBtn
-        }
-      };
-    };
-  };
+    /**
+     * UI dialog helper. Styles are encapsulated in Shadow DOM; class prefix ext-ui-dialog avoids conflicts with page CSS.
+     * @constructor
+     */
+    $.DialogHelper = function (name="default-dialog") {
+        const createElements = (params) => {
+            const container = document.createElement("div");
+            container.setAttribute("style", "all: initial!important;z-index:2147483647!important;display:block!important;");
+            container.setAttribute("data-model", name);
+            (document.documentElement || document.body).appendChild(container);
 
+            const mask = document.createElement("div");
+            mask.classList.add("ext-ui-dialog-mask");
+            const shadowRoot = container.attachShadow({ mode: "open" });
+            shadowRoot.appendChild(mask);
 
-  /**
-   * UI dialog helper. Styles are encapsulated in Shadow DOM; class prefix ext-ui-dialog avoids conflicts with page CSS.
-   * @constructor
-   */
-  $.DialogHelper = function (name = "default-dialog") {
-    const createElements = (params) => {
-      const container = document.createElement("div");
-      container.setAttribute("style", "all: initial!important;z-index:2147483647!important;display:block!important;");
-      container.setAttribute("data-model", name);
-      (document.documentElement || document.body).appendChild(container);
+            const content = document.createElement("div");
+            content.classList.add("ext-ui-dialog-container");
+            if (Object.prototype.hasOwnProperty.call(params, "direction")) {
+                content.setAttribute("data-extension-direction", params.direction);
+            }
+            mask.appendChild(content);
 
-      const mask = document.createElement("div");
-      mask.classList.add("ext-ui-dialog-mask");
-      const shadowRoot = container.attachShadow({ mode: "open" });
-      shadowRoot.appendChild(mask);
-
-      const content = document.createElement("div");
-      content.classList.add("ext-ui-dialog-container");
-      if (Object.prototype.hasOwnProperty.call(params, "direction")) {
-        content.setAttribute("data-extension-direction", params.direction);
-      }
-      mask.appendChild(content);
-
-      let styleText = `
+            let styleText = `
                 *[data-extension-direction='rtl'] { direction: rtl!important; }
                 .ext-ui-dialog-mask {
                     width: 100%; height: 100%;
@@ -33557,101 +33547,101 @@
                     padding: 15px; max-height: 400px; overflow: auto;
                 }
             `;
-      if (Object.prototype.hasOwnProperty.call(params, "styleSheet")) {
-        styleText += params.styleSheet;
-      }
-      const dialogStyle = document.createElement("style");
-      dialogStyle.textContent = styleText;
-      shadowRoot.insertBefore(dialogStyle, shadowRoot.firstChild);
+            if (Object.prototype.hasOwnProperty.call(params, "styleSheet")) {
+                styleText += params.styleSheet;
+            }
+            const dialogStyle = document.createElement("style");
+            dialogStyle.textContent = styleText;
+            shadowRoot.insertBefore(dialogStyle, shadowRoot.firstChild);
 
-      this.container = container;
-      this.mask = mask;
-      this.content = content;
-      this.dialogStyle = dialogStyle;
-      this.shadowRoot = shadowRoot;
+            this.container = container;
+            this.mask = mask;
+            this.content = content;
+            this.dialogStyle = dialogStyle;
+            this.shadowRoot = shadowRoot;
+        };
+
+        const middleBox = (params) => {
+            const { content } = this;
+            content.replaceChildren();
+
+            const title = document.createElement("div");
+            title.classList.add("ext-ui-dialog-title");
+            let titleText = "";
+            if (typeof params === "string") {
+                titleText = params;
+            } else if (typeof params === "object" && params.title) {
+                titleText = params.title;
+            }
+
+            const span = document.createElement("span");
+            span.textContent = titleText;
+            span.setAttribute("langue-extension-text", "setting_modal_title");
+            title.appendChild(span);
+
+            const closeBtn = document.createElement("span");
+            closeBtn.textContent = "×";
+            closeBtn.classList.add("ext-ui-dialog-close-btn");
+            closeBtn.onclick = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                this.close();
+            };
+            title.appendChild(closeBtn);
+            content.appendChild(title);
+            this.closeBtn = closeBtn;
+        };
+
+        this.showMake = function (params) {
+            createElements(params);
+            middleBox(params);
+            this.params = params;
+
+            const { content } = this;
+            const dialogContent = document.createElement("div");
+            dialogContent.classList.add("ext-ui-dialog-content");
+            dialogContent.insertAdjacentHTML("beforeend", params.content || "");
+            content.appendChild(dialogContent);
+            this.dialogContent = dialogContent;
+
+            if (typeof params.onContentReady === "function") {
+                params.onContentReady(this);
+            }
+        };
+
+        this.close = function () {
+            if (this.container) {
+                this.container.remove();
+            }
+            const params = this.params;
+            if (params && typeof params.onContentReady === "function") {
+                params.onClose();
+            }
+            this.params = null;
+        };
     };
 
-    const middleBox = (params) => {
-      const { content } = this;
-      content.replaceChildren();
+    /**
+     * Toast helper. Class prefix ext-ui-toast avoids conflicts with page CSS.
+     * @constructor
+     */
+    $.ToastHelper = function () {
+        this.show = (params) => {
+            let time = params.time;
+            let background = params.background;
+            let color = params.color;
+            let position = params.position;
+            const defaultMarginValue = 50;
 
-      const title = document.createElement("div");
-      title.classList.add("ext-ui-dialog-title");
-      let titleText = "";
-      if (typeof params === "string") {
-        titleText = params;
-      } else if (typeof params === "object" && params.title) {
-        titleText = params.title;
-      }
+            if (time == undefined || time == "") {
+                time = 1500;
+            }
+            if (position == undefined || position == "") {
+                position = "center-bottom";
+            }
 
-      const span = document.createElement("span");
-      span.textContent = titleText;
-      span.setAttribute("langue-extension-text", "setting_modal_title");
-      title.appendChild(span);
-
-      const closeBtn = document.createElement("span");
-      closeBtn.textContent = "×";
-      closeBtn.classList.add("ext-ui-dialog-close-btn");
-      closeBtn.onclick = (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        this.close();
-      };
-      title.appendChild(closeBtn);
-      content.appendChild(title);
-      this.closeBtn = closeBtn;
-    };
-
-    this.showMake = function (params) {
-      createElements(params);
-      middleBox(params);
-      this.params = params;
-
-      const { content } = this;
-      const dialogContent = document.createElement("div");
-      dialogContent.classList.add("ext-ui-dialog-content");
-      dialogContent.insertAdjacentHTML("beforeend", params.content || "");
-      content.appendChild(dialogContent);
-      this.dialogContent = dialogContent;
-
-      if (typeof params.onContentReady === "function") {
-        params.onContentReady(this);
-      }
-    };
-
-    this.close = function () {
-      if (this.container) {
-        this.container.remove();
-      }
-      const params = this.params;
-      if (params && typeof params.onContentReady === "function") {
-        params.onClose();
-      }
-      this.params = null;
-    };
-  };
-
-  /**
-   * Toast helper. Class prefix ext-ui-toast avoids conflicts with page CSS.
-   * @constructor
-   */
-  $.ToastHelper = function () {
-    this.show = (params) => {
-      let time = params.time;
-      let background = params.background;
-      let color = params.color;
-      let position = params.position;
-      const defaultMarginValue = 50;
-
-      if (time == undefined || time == "") {
-        time = 1500;
-      }
-      if (position == undefined || position == "") {
-        position = "center-bottom";
-      }
-
-      const style = document.createElement("style");
-      style.textContent = `
+            const style = document.createElement("style");
+            style.textContent = `
                 @keyframes ext-ui-toast-fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
                 @-webkit-keyframes ext-ui-toast-fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
                 @-moz-keyframes ext-ui-toast-fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
@@ -33673,52 +33663,52 @@
                 .ext-ui-toast-in { -webkit-animation: ext-ui-toast-fadeIn .5s; animation: ext-ui-toast-fadeIn .5s; }
                 .ext-ui-toast-out { -webkit-animation: ext-ui-toast-fadeOut .5s; animation: ext-ui-toast-fadeOut .5s; }
             `;
-      const el = document.createElement("div");
-      if (background != undefined && background != "") {
-        el.style.backgroundColor = background;
-      }
-      if (color != undefined && color != "") {
-        el.style.color = color;
-      }
-      el.setAttribute("class", "ext-ui-toast");
-      el.innerText = params.message;
-      el.style.zIndex = 999999999;
-      if (position === "center-bottom") {
-        el.style.bottom = defaultMarginValue + "px";
-      } else {
-        el.style.top = defaultMarginValue + "px";
-      }
+            const el = document.createElement("div");
+            if (background != undefined && background != "") {
+                el.style.backgroundColor = background;
+            }
+            if (color != undefined && color != "") {
+                el.style.color = color;
+            }
+            el.setAttribute("class", "ext-ui-toast");
+            el.innerText = params.message;
+            el.style.zIndex = 999999999;
+            if (position === "center-bottom") {
+                el.style.bottom = defaultMarginValue + "px";
+            } else {
+                el.style.top = defaultMarginValue + "px";
+            }
 
-      document.body.appendChild(el);
-      document.head.appendChild(style);
-      el.classList.add("ext-ui-toast-in");
+            document.body.appendChild(el);
+            document.head.appendChild(style);
+            el.classList.add("ext-ui-toast-in");
 
-      const removeToast = () => {
-        if (el.parentNode) document.body.removeChild(el);
-        if (style.parentNode) document.head.removeChild(style);
-      };
-      setTimeout(function () {
-        el.classList.remove("ext-ui-toast-in");
-        el.classList.add("ext-ui-toast-out");
-        el.addEventListener("animationend", removeToast);
-        el.addEventListener("webkitAnimationEnd", removeToast);
-      }, time);
+            const removeToast = () => {
+                if (el.parentNode) document.body.removeChild(el);
+                if (style.parentNode) document.head.removeChild(style);
+            };
+            setTimeout(function () {
+                el.classList.remove("ext-ui-toast-in");
+                el.classList.add("ext-ui-toast-out");
+                el.addEventListener("animationend", removeToast);
+                el.addEventListener("webkitAnimationEnd", removeToast);
+            }, time);
+        };
     };
-  };
 
-  /**
-   * Alert helper: icon + message, auto-remove after delay.
-   * Class prefix ext-ui-alert + random suffix avoids conflicts with page CSS.
-   * @constructor
-   */
-  $.AlertHelper = function () {
     /**
-     * @param {Object} params - icon, message, delay
+     * Alert helper: icon + message, auto-remove after delay.
+     * Class prefix ext-ui-alert + random suffix avoids conflicts with page CSS.
+     * @constructor
      */
-    this.show = function (params) {
-      const suffix = "_" + Math.ceil(Math.random() * 100000000);
-      const style = document.createElement("style");
-      style.textContent = `
+    $.AlertHelper = function () {
+        /**
+         * @param {Object} params - icon, message, delay
+         */
+        this.show = function (params) {
+            const suffix = "_" + Math.ceil(Math.random() * 100000000);
+            const style = document.createElement("style");
+            style.textContent = `
                 .ext-ui-alert-container` + suffix + ` {
                     position: fixed; bottom: 30px; left: 50%;
                     -webkit-transform: translateX(-50%);
@@ -33755,2087 +33745,2087 @@
                 }
             `;
 
-      const container = document.createElement("div");
-      container.className = "ext-ui-alert-container" + suffix;
-      const alertContent = document.createElement("div");
-      alertContent.className = "ext-ui-alert-content" + suffix;
-      container.appendChild(alertContent);
+            const container = document.createElement("div");
+            container.className = "ext-ui-alert-container" + suffix;
+            const alertContent = document.createElement("div");
+            alertContent.className = "ext-ui-alert-content" + suffix;
+            container.appendChild(alertContent);
 
-      if (params.icon) {
-        const icon = document.createElement("div");
-        icon.className = "ext-ui-alert-icon" + suffix;
-        icon.innerHTML = params.icon;
-        alertContent.appendChild(icon);
-      }
-
-      const text = document.createElement("div");
-      text.className = "ext-ui-alert-message" + suffix;
-      text.textContent = params.message;
-      alertContent.appendChild(text);
-
-      document.body.appendChild(container);
-      document.head.appendChild(style);
-
-      const onAlertFadeOut = () => {
-        container.remove();
-        style.remove();
-      };
-      setTimeout(() => {
-        alertContent.style.webkitAnimation = "ext-ui-alert-fadeout" + suffix + " 0.5s";
-        alertContent.style.animation = "ext-ui-alert-fadeout" + suffix + " 0.5s";
-        alertContent.addEventListener("animationend", onAlertFadeOut);
-        alertContent.addEventListener("webkitAnimationEnd", onAlertFadeOut);
-      }, params.delay);
-    };
-  };
-
-  /**
-   * @param {*} ext
-   */
-  $.MaskHelper = function (ext) {
-    this.generate = function () {
-      const maskStyles = Object.freeze({
-        position: "fixed",
-        top: "0",
-        left: "0",
-        width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0, 0, 0, 0.2)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: "2147483647",
-        webkitTransition: "opacity 0.3s ease, visibility 0.3s ease",
-        transition: "opacity 0.3s ease, visibility 0.3s ease"
-      });
-      return ext.helper.elementUtil.createElement("div", { style: maskStyles });
-    };
-  };
-
-  /**
-   * Generates a skeleton UI for loading state of coupon list widget.
-   * @constructor
-   * @param {*} ext - Extension context
-   * @param {string} containerId - Container element ID
-   * @param {number} cardCount - Number of skeleton cards to generate
-   */
-  $.CouponListWidgetSkeleton = function (ext, cardCount = 10) {
-
-    const containerId = "widget-skeleton";
-    const containerIdOuter = "widget-skeleton-outer";
-
-    /**
-     * Create skeleton avatar element
-     * @returns {HTMLElement}
-     */
-    const createAvatar = () => {
-      return ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-avatar'
-      });
-    };
-
-    /**
-     * Create skeleton lines row (for amount placeholders)
-     * @returns {HTMLElement}
-     */
-    const createLinesRow = () => {
-      const confirmed = ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-line'
-      });
-      const pending = ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-line'
-      });
-      return ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-lines-row',
-        children: [confirmed, pending]
-      });
-    };
-
-    /**
-     * Create skeleton button element
-     * @returns {HTMLElement}
-     */
-    const createButton = () => {
-      return ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-button'
-      });
-    };
-
-    /**
-     * Create skeleton tabs element
-     * @param {number} tabCount - Number of tabs
-     * @returns {HTMLElement}
-     */
-    const createTabs = (tabCount = 2) => {
-      const tabs = [];
-      for (let i = 0; i < tabCount; i++) {
-        tabs.push(ext.helper.elementUtil.createElement('div', {
-          className: 'skeleton-tab'
-        }));
-      }
-      return ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-tabs',
-        children: tabs
-      });
-    };
-
-    /**
-     * Create skeleton card element
-     * @returns {HTMLElement}
-     */
-    const createCard = () => {
-      const title = ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-title'
-      });
-      const desc = ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-desc'
-      });
-      const left = ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-card-left',
-        children: [title, desc]
-      });
-      const btn = ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-btn'
-      });
-      return ext.helper.elementUtil.createElement('div', {
-        className: 'skeleton-card',
-        children: [left, btn]
-      });
-    };
-
-    /**
-     * Create skeleton cards list
-     * @param {number} count - Number of cards to create
-     * @returns {HTMLElement[]}
-     */
-    const createCards = (count) => {
-      const cards = [];
-      for (let i = 0; i < count; i++) {
-        cards.push(createCard());
-      }
-      return cards;
-    };
-
-    /**
-     * Generate complete skeleton structure
-     * @returns {HTMLElement}
-     */
-    const generateSkeleton = () => {
-      const container = ext.helper.elementUtil.createElement('div', {
-        attributes: {
-          id: containerId
-        }
-      });
-      const loadding = ext.helper.elementUtil.createElement('div', {
-        className: "loading"
-      });
-      const containerOuter = ext.helper.elementUtil.createElement('div', {
-        attributes: {
-          id: containerIdOuter
-        },
-        children: [
-        container,
-        loadding]
-
-      });
-
-      const skeletonElements = [
-      createAvatar(),
-      // createLinesRow(),
-      createButton(),
-      createTabs(2),
-      ...createCards(cardCount)];
-
-      skeletonElements.forEach((element) => {
-        container.appendChild(element);
-      });
-      return containerOuter;
-    };
-
-    /**
-     * Generate and return skeleton structure
-     * @returns {HTMLElement}
-     */
-    this.generate = function () {
-      return generateSkeleton();
-    };
-  };
-
-
-  /**
-   * @param {object} ext
-   * @constructor
-   */
-  $.DaoHelper = function (ext) {
-    // Data stored separately for easy management.
-    const scopes = [
-    { name: "position", alias: "p" },
-    { name: "setting", alias: "s" },
-    { name: "history", alias: "h" },
-    { name: "website", alias: "w" }];
-
-
-    const defaults = {
-      p: {
-        logoTop: 150
-      },
-      s: {},
-      h: {
-        record: {},
-        offset: { right: 10, bottom: 10 },
-        number: 100,
-        number_min: 10,
-        number_max: 500,
-        toolbar_number: 4
-      },
-      w: {
-        supportObj: null,
-        userToken: "",
-        exchangeInfo: {
-          certificate: "",
-          redirect: ""
-        }
-      }
-    };
-
-    let data = {};
-
-    this.getDefaults = () => {
-      return defaults;
-    };
-
-    /**
-     * Initialises the model
-     *
-     * @returns {Promise}
-     */
-    this.init = () => {
-      return new Promise((resolve) => {
-        Promise.all([refresh()]).then(resolve);
-      }).catch(() => {});
-    };
-
-    /**
-     * Sends a message to the background script and resolves when receiving a response
-     *
-     * @param {string} key
-     * @param {object} opts
-     * @param {number} retry
-     * @returns {Promise}
-     */
-    this.call = async (key, opts = {}, retry = 0) => {
-      let backendDead = false;
-      opts.type = key;
-
-      let response = await $.api.runtime.sendMessage(opts).catch((err) => {
-        if (err && ("" + err).includes("Could not establish connection")) {
-          backendDead = true;
-        } else {
-          if ($.isDev) {
-
-          }
-        }
-      });
-
-      if (backendDead && retry < 50) {
-        await $.delay(100);
-        response = await this.call(key, opts, retry + 1);
-      }
-
-      return response;
-    };
-
-    /**
-     * Returns the name of the given alias
-     * e.g. "b" -> "behaviour"
-     *
-     * @param alias
-     * @returns {*}
-     */
-    const getNameByAlias = (alias) => {
-      const scope = scopes.find((scope) => scope.alias === alias);
-      if (scope) {
-        return scope.name;
-      }
-      return null;
-    };
-
-    /**
-     * @returns {Promise}
-     */
-    const refresh = () => {
-      return new Promise((resolve) => {
-        if ($.api.runtime.id === undefined) {
-          resolve();
-          return;
-        }
-
-        const keys = scopes.map((scope) => scope.name);
-        const newData = {};
-        const len = keys.length;
-        let loaded = 0;
-
-        keys.forEach((key) => {
-          $.api.storage.local.get([key], (obj) => {
-            newData[key] = obj[key] || {};
-            if (++loaded === len) {
-              data = newData;
-              resolve();
+            if (params.icon) {
+                const icon = document.createElement("div");
+                icon.className = "ext-ui-alert-icon" + suffix;
+                icon.innerHTML = params.icon;
+                alertContent.appendChild(icon);
             }
-          });
-        });
-      });
+
+            const text = document.createElement("div");
+            text.className = "ext-ui-alert-message" + suffix;
+            text.textContent = params.message;
+            alertContent.appendChild(text);
+
+            document.body.appendChild(container);
+            document.head.appendChild(style);
+
+            const onAlertFadeOut = () => {
+                container.remove();
+                style.remove();
+            };
+            setTimeout(() => {
+                alertContent.style.webkitAnimation = "ext-ui-alert-fadeout" + suffix + " 0.5s";
+                alertContent.style.animation = "ext-ui-alert-fadeout" + suffix + " 0.5s";
+                alertContent.addEventListener("animationend", onAlertFadeOut);
+                alertContent.addEventListener("webkitAnimationEnd", onAlertFadeOut);
+            }, params.delay);
+        };
     };
 
     /**
-     * Retrieves the stored values for the given keys,
-     * if a value is undefined, it will be set to the default value
-     *
-     * @param {object|string} keys
-     * @param {boolean} defaultVal
+     * @param {*} ext
      */
-    this.getData = (keys, defaultVal = false) => {
-      let configKeys = keys;
-      if (typeof configKeys === "string") {
-        configKeys = [configKeys];
-      }
-
-      const result = {};
-      configKeys.forEach((keyInfo) => {
-        const parts = keyInfo.split("/");
-        const alias = parts[0];
-        const key = parts[1];
-        let value = null;
-        let needsDefault = false;
-
-        const scopeName = getNameByAlias(alias);
-        if (scopeName && data[scopeName]) {
-          if (typeof data[scopeName][key] !== "undefined") {
-            value = data[scopeName][key];
-          } else {
-            needsDefault = true;
-          }
-        } else {
-          needsDefault = true;
-        }
-
-        if (needsDefault && defaultVal) {
-          if (typeof defaults[alias] !== "undefined" && typeof defaults[alias][key] !== "undefined") {
-            value = defaults[alias][key];
-          }
-        }
-        result[key] = value;
-      });
-
-      if (typeof keys === "string") {
-        const key = keys.split("/")[1];
-        return result[key];
-      }
-      return result;
-    };
-
-    this.setDataByKey = (key, value) => {
-      const update = {};
-      update[key] = value;
-      return this.setData(update);
+    $.MaskHelper = function (ext) {
+        this.generate = function () {
+            const maskStyles = Object.freeze({
+                position: "fixed",
+                top: "0",
+                left: "0",
+                width: "100%",
+                height: "100%",
+                backgroundColor: "rgba(0, 0, 0, 0.2)",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: "2147483647",
+                webkitTransition: "opacity 0.3s ease, visibility 0.3s ease",
+                transition: "opacity 0.3s ease, visibility 0.3s ease"
+            });
+            return ext.helper.elementUtil.createElement("div", { style: maskStyles });
+        };
     };
 
     /**
-     * Saves the given values in the storage
-     *
-     * @param {object} values
-     * @returns {Promise}
+     * Generates a skeleton UI for loading state of coupon list widget.
+     * @constructor
+     * @param {*} ext - Extension context
+     * @param {string} containerId - Container element ID
+     * @param {number} cardCount - Number of skeleton cards to generate
      */
-    this.setData = (values) => {
-      return new Promise((resolve) => {
-        refresh().then(() => {
-          Object.keys(values).forEach((keyInfo) => {
-            const parts = keyInfo.split("/");
-            const alias = parts[0];
-            const key = parts[1];
-            const value = values[keyInfo];
+    $.CouponListWidgetSkeleton = function(ext, cardCount = 10){
+
+        const containerId = "widget-skeleton";
+        const containerIdOuter = "widget-skeleton-outer";
+
+        /**
+         * Create skeleton avatar element
+         * @returns {HTMLElement}
+         */
+        const createAvatar = () => {
+            return ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-avatar'
+            });
+        };
+
+        /**
+         * Create skeleton lines row (for amount placeholders)
+         * @returns {HTMLElement}
+         */
+        const createLinesRow = () => {
+            const confirmed = ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-line'
+            });
+            const pending = ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-line'
+            });
+            return ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-lines-row',
+                children: [confirmed, pending]
+            });
+        };
+
+        /**
+         * Create skeleton button element
+         * @returns {HTMLElement}
+         */
+        const createButton = () => {
+            return ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-button'
+            });
+        };
+
+        /**
+         * Create skeleton tabs element
+         * @param {number} tabCount - Number of tabs
+         * @returns {HTMLElement}
+         */
+        const createTabs = (tabCount = 2) => {
+            const tabs = [];
+            for (let i = 0; i < tabCount; i++) {
+                tabs.push(ext.helper.elementUtil.createElement('div', {
+                    className: 'skeleton-tab'
+                }));
+            }
+            return ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-tabs',
+                children: tabs
+            });
+        };
+
+        /**
+         * Create skeleton card element
+         * @returns {HTMLElement}
+         */
+        const createCard = () => {
+            const title = ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-title'
+            });
+            const desc = ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-desc'
+            });
+            const left = ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-card-left',
+                children: [title, desc]
+            });
+            const btn = ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-btn'
+            });
+            return ext.helper.elementUtil.createElement('div', {
+                className: 'skeleton-card',
+                children: [left, btn]
+            });
+        };
+
+        /**
+         * Create skeleton cards list
+         * @param {number} count - Number of cards to create
+         * @returns {HTMLElement[]}
+         */
+        const createCards = (count) => {
+            const cards = [];
+            for (let i = 0; i < count; i++) {
+                cards.push(createCard());
+            }
+            return cards;
+        };
+
+        /**
+         * Generate complete skeleton structure
+         * @returns {HTMLElement}
+         */
+        const generateSkeleton = () => {
+            const container = ext.helper.elementUtil.createElement('div', {
+                attributes:{
+                    id: containerId
+                },
+            });
+            const loadding = ext.helper.elementUtil.createElement('div', {
+                className: "loading"
+            });
+            const containerOuter = ext.helper.elementUtil.createElement('div', {
+                attributes:{
+                    id: containerIdOuter
+                },
+                children: [
+                    container,
+                    loadding
+                ]
+            });
+
+            const skeletonElements = [
+                createAvatar(),
+                // createLinesRow(),
+                createButton(),
+                createTabs(2),
+                ...createCards(cardCount)
+            ];
+            skeletonElements.forEach(element => {
+                container.appendChild(element);
+            });
+            return containerOuter;
+        };
+
+        /**
+         * Generate and return skeleton structure
+         * @returns {HTMLElement}
+         */
+        this.generate = function () {
+            return generateSkeleton();
+        };
+    };
+
+
+    /**
+     * @param {object} ext
+     * @constructor
+     */
+    $.DaoHelper = function (ext) {
+        // Data stored separately for easy management.
+        const scopes = [
+            { name: "position", alias: "p" },
+            { name: "setting", alias: "s" },
+            { name: "history", alias: "h" },
+            { name: "website", alias: "w" }
+        ];
+
+        const defaults = {
+            p: {
+                logoTop: 150
+            },
+            s: {},
+            h: {
+                record: {},
+                offset: { right: 10, bottom: 10 },
+                number: 100,
+                number_min: 10,
+                number_max: 500,
+                toolbar_number: 4
+            },
+            w: {
+                supportObj: null,
+                userToken: "",
+                exchangeInfo: {
+                    certificate: "",
+                    redirect: ""
+                }
+            }
+        };
+
+        let data = {};
+
+        this.getDefaults = () => {
+            return defaults;
+        };
+
+        /**
+         * Initialises the model
+         *
+         * @returns {Promise}
+         */
+        this.init = () => {
+            return new Promise((resolve) => {
+                Promise.all([refresh()]).then(resolve);
+            }).catch(() => {});
+        };
+
+        /**
+         * Sends a message to the background script and resolves when receiving a response
+         *
+         * @param {string} key
+         * @param {object} opts
+         * @param {number} retry
+         * @returns {Promise}
+         */
+        this.call = async (key, opts = {}, retry = 0) => {
+            let backendDead = false;
+            opts.type = key;
+
+            let response = await $.api.runtime.sendMessage(opts).catch((err) => {
+                if (err && ("" + err).includes("Could not establish connection")) {
+                    backendDead = true;
+                } else {
+                    if ($.isDev) {
+                        console.log(err);
+                    }
+                }
+            });
+
+            if (backendDead && retry < 50) {
+                await $.delay(100);
+                response = await this.call(key, opts, retry + 1);
+            }
+
+            return response;
+        };
+
+        /**
+         * Returns the name of the given alias
+         * e.g. "b" -> "behaviour"
+         *
+         * @param alias
+         * @returns {*}
+         */
+        const getNameByAlias = (alias) => {
             const scope = scopes.find((scope) => scope.alias === alias);
             if (scope) {
-              data[scope.name][key] = value;
+                return scope.name;
             }
-          });
-
-          const saved = () => {
-            resolve();
-          };
-          try {
-            $.api.storage.local.set({
-              position: data.position,
-              setting: data.setting,
-              history: data.history,
-              website: data.website
-            }, () => {
-              const error = $.api.runtime.lastError;
-              if (error && error.message) {}
-              saved();
-            });
-          } catch (e) {
-            resolve();
-          }
-        });
-      });
-    };
-
-    this.getEid = () => {
-      return this.call("getEid");
-    };
-  };
-
-
-  /**
-   * Utility for DOM element creation and manipulation.
-   * @constructor
-   * @param {*} ext - Extension context (e.g. for helper.util, helper.cacheContainers).
-   */
-  $.ElementUtilHelper = function (ext) {
-
-    /**
-     * Create an HTML element with optional text/html, style, class, attributes, props, events, children.
-     * @param {string} tag - Tag name.
-     * @param {Object} [options] - text, html, style, className, attributes, props, on, children.
-     * @returns {HTMLElement}
-     */
-    this.createElement = function (tag, { text, html, style, className, attributes, props, on, children } = {}) {
-      const el = document.createElement(tag);
-
-      if (text != null) {
-        el.textContent = text;
-      } else if (html != null) {
-        el.innerHTML = html;
-      }
-      if (style) {
-        Object.assign(el.style, style);
-      }
-      if (className) {
-        el.className = className;
-      }
-      if (attributes) {
-        for (const [k, v] of Object.entries(attributes)) {
-          el.setAttribute(k, v);
-        }
-      }
-      if (props) {
-        for (const [k, v] of Object.entries(props)) {
-          el[k] = v;
-        }
-      }
-      if (on) {
-        for (const [event, handler] of Object.entries(on)) {
-          el.addEventListener(event, handler);
-        }
-      }
-      if (children) {
-        const frag = document.createDocumentFragment();
-        const normalize = (c) =>
-        c == null || c === false ? null : c instanceof Node ? c : document.createTextNode(c);
-        const list = Array.isArray(children) ? children : [children];
-        list.map(normalize).filter(Boolean).forEach((c) => frag.appendChild(c));
-        el.appendChild(frag);
-      }
-      return el;
-    };
-
-    this.removeClass = function (element, className) {
-      element.classList.remove(className);
-    };
-
-    this.addClass = function (element, className) {
-      element.classList.add(className);
-    };
-
-    this.toggleClass = function (element, className) {
-      element.classList.toggle(className);
-    };
-
-    this.hasClass = function (element, className) {
-      return element.classList.contains(className);
-    };
-
-    this.getStyle = function (element, styleName) {
-      return window.getComputedStyle(element).getPropertyValue(styleName);
-    };
-
-    /**
-     * Resolve when document.body is available (e.g. when run_at = document_start).
-     * Polls every 100ms if body is not yet present.
-     * @returns {Promise<HTMLBodyElement>}
-     */
-    this.getAvailableBody = function () {
-      return new Promise((resolve) => {
-        if (document.body) {
-          resolve(document.body);
-          return;
-        }
-        const interval = setInterval(() => {
-          if (document.body) {
-            clearInterval(interval);
-            resolve(document.body);
-          }
-        }, 100);
-      });
-    };
-
-    /**
-     * Whether the element is displayed (offsetParent or computed display not "none").
-     * @param {Element} element
-     * @returns {boolean}
-     */
-    this.isElementDisplayed = function (element) {
-      if (element.offsetParent !== null) {
-        return true;
-      }
-      const style = window.getComputedStyle(element);
-      return style.display !== "none";
-    };
-
-    /**
-     * Create a shadow DOM root: outer div + shadow root + optional move-to-end observer and AliExpress anchor cleanup.
-     * @param {string} name - Root name (used for action, id, style id).
-     * @param {string} [css=""] - CSS to inject into shadow root.
-     * @param {string} [dir="ltr"] - data-extension-direction value.
-     * @param {boolean} [moveToEnd=false] - If true, use MutationObserver to keep root at end of insertRootElement.
-     * @param {number} [observerTime=20000] - Max ms to run move-to-end observer.
-     * @returns {{ outerDIV: HTMLElement, shadowRoot: ShadowRoot }}
-     */
-    this.generateShadowDomRoot = function (name, css = "", dir = "ltr", moveToEnd = false, observerTime = 20000) {
-      const insertRootElement = document.documentElement || document.body;
-      const root = this.createElement("div", {
-        attributes: {
-          'style': "all: initial!important;z-index:2147483647!important;display:block!important;",
-          'data-model': `${$.attr.shadowNamePrefix}${name}`
-        }
-      });
-
-      // Prevent wheel event from bubbling up to the document.documentElement.
-      // Scrolling is not possible on some websites like invideo.io/.
-      root.addEventListener('wheel', (e) => {
-        e.stopImmediatePropagation();
-      }, { passive: false, capture: true });
-      insertRootElement.appendChild(root);
-
-      const outerDIV = this.createElement("div", {
-        attributes: {
-          "data-extension-direction": dir,
-          id: `root-${name}`
-        }
-      });
-      const shadowRoot = root.attachShadow({ mode: "open" });
-      this.addShadowRootStyle(shadowRoot, name, css);
-      shadowRoot.appendChild(outerDIV);
-
-      const now = Date.now();
-      if (moveToEnd) {
-        const observer = new MutationObserver(() => {
-          const lastChild = insertRootElement.lastElementChild;
-          if (
-          lastChild !== root &&
-          !lastChild.getAttribute("action") &&
-          document.documentElement)
-          {
-            if (Date.now() - now <= observerTime) {
-              insertRootElement.appendChild(root);
-            } else {
-              observer.disconnect();
-            }
-          }
-        });
-        observer.observe(insertRootElement, {
-          childList: true,
-          subtree: false,
-          attributes: false,
-          characterData: false
-        });
-      }
-      if (name && name.includes("aliexpress")) {
-        setInterval(() => {
-          outerDIV.querySelectorAll("*[data-re-mark-tag='aliexpress']").forEach((element) => {
-            ext.helper.util.removeAnchorsByNode(element);
-          });
-        }, 3000);
-      }
-      ext.helper.cacheContainers.add(shadowRoot);
-      return { outerDIV, shadowRoot };
-    };
-
-    /**
-     * Add a style element to shadow root (id style-{name}), or append after first existing style.
-     * @param {ShadowRoot} shadowRoot
-     * @param {string} name - Style id suffix.
-     * @param {string} css - CSS text.
-     */
-    this.addShadowRootStyle = function (shadowRoot, name, css) {
-      if (shadowRoot.querySelector(`#style-${name}`)) {
-        return;
-      }
-      const newStyle = document.createElement("style");
-      newStyle.id = `style-${name}`;
-      newStyle.textContent = css;
-      const existingStyle = shadowRoot.querySelector("style");
-      if (existingStyle) {
-        existingStyle.after(newStyle);
-      } else {
-        shadowRoot.insertBefore(newStyle, shadowRoot.firstChild);
-      }
-    };
-  };
-
-
-  /**
-   * Feature toggle: temporarily disable / session disable / enable, with per-site keys.
-   * Uses chrome.storage.session when available; falls back to sessionStorage (e.g. Firefox, Safari).
-   * @constructor
-   * @param {*} ext - Extension context (helper.dao, logger).
-   * @param {*} [platformConfig] - Platform config object with .platformId; used for key namespacing.
-   */
-  $.FeatureToggleHelper = function (ext, platformConfig) {
-
-    /**
-     * Session storage shim: chrome.storage.session or sessionStorage.
-     */
-    const sessionStorageShim = {
-      set: (items) => {
-        if ($.api.storage.session) {
-          return ext.helper.dao.call("storageSessionSet", { params: items });
-        }
-        for (const [key, value] of Object.entries(items)) {
-          sessionStorage.setItem(key, JSON.stringify(value));
-        }
-        return Promise.resolve();
-      },
-      get: (keys) => {
-        if ($.api.storage.session) {
-          return ext.helper.dao.call("storageSessionGet", { params: keys });
-        }
-        const result = {};
-        if (Array.isArray(keys)) {
-          for (const key of keys) {
-            const value = sessionStorage.getItem(key);
-            result[key] = value ? JSON.parse(value) : undefined;
-          }
-        } else if (typeof keys === "string") {
-          const value = sessionStorage.getItem(keys);
-          result[keys] = value ? JSON.parse(value) : undefined;
-        } else if (keys != null && typeof keys === "object") {
-          for (const key in keys) {
-            const value = sessionStorage.getItem(key);
-            result[key] = value ? JSON.parse(value) : keys[key];
-          }
-        } else {
-          for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i);
-            result[key] = JSON.parse(sessionStorage.getItem(key));
-          }
-        }
-        return Promise.resolve(result);
-      },
-      remove: (keys) => {
-        if ($.api.storage.session) {
-          return ext.helper.dao.call("storageSessionRemove", { params: keys });
-        }
-        const list = Array.isArray(keys) ? keys : [keys];
-        list.forEach((key) => sessionStorage.removeItem(key));
-        return Promise.resolve();
-      },
-      clear: () => {
-        if ($.api.storage.session) {
-          return ext.helper.dao.call("storageSessionClear");
-        }
-        sessionStorage.clear();
-        return Promise.resolve();
-      }
-    };
-
-    const platform = platformConfig && platformConfig.platformId ? platformConfig.platformId : "unknown";
-
-    /** Generate storage key names for a feature (per-site). */
-    const createFeatureKey = (key) => ({
-      until: `${key}_${platform}_disabledUntil`,
-      session: `${key}_${platform}_sessionDisabled`
-    });
-
-    /**
-     * Temporarily disable feature for durationMs.
-     * @param {string} key - Feature identifier
-     * @param {number} durationMs - Disable duration (ms)
-     */
-    this.disableTemporarily = async (key, durationMs) => {
-      const until = Date.now() + durationMs;
-      await $.api.storage.local.set({
-        [createFeatureKey(key).until]: until
-      });
-    };
-
-    /**
-     * Disable feature for current session.
-     * @param {string} key - Feature identifier
-     */
-    this.disableForSession = async (key) => {
-      await sessionStorageShim.set({
-        [createFeatureKey(key).session]: "true"
-      });
-    };
-
-    /**
-     * Enable feature (clear disabled state).
-     * @param {string} key - Feature identifier
-     */
-    this.enable = async (key) => {
-      const { until, session } = createFeatureKey(key);
-      await $.api.storage.local.remove(until);
-      await sessionStorageShim.remove(session);
-    };
-
-    /**
-     * Whether the feature is currently enabled (not session-disabled nor time-disabled).
-     * @param {string} key - Feature identifier
-     * @returns {Promise<boolean>}
-     */
-    this.isEnabled = async (key) => {
-      const { until, session } = createFeatureKey(key);
-      const [sessionResult, localResult] = await Promise.all([
-      sessionStorageShim.get(session),
-      $.api.storage.local.get(until)]
-      );
-      if (sessionResult[session] === "true") {
-        return false;
-      }
-      const disabledUntil = localResult[until];
-      if (disabledUntil && Date.now() < disabledUntil) {
-        return false;
-      }
-      return true;
-    };
-
-    /**
-     * Run callback only when feature is enabled; otherwise log.
-     * @param {string} key - Feature identifier
-     * @param {Function} callback - Function to run when enabled
-     */
-    this.runIfEnabled = async (key, callback) => {
-      const enabled = await this.isEnabled(key);
-      if (enabled) {
-        callback();
-      } else {
-        ext.logger("info", "FeatureToggleHelper", "runIfEnabled", `[FeatureToggle] -- "${key}" is currently disabled`);
-      }
-    };
-  };
-
-
-  /**
-   * @param {object} ext
-   * @constructor
-   */
-  $.FileHelper = function (ext) {
-    /**
-     * @param {*} root The root directory of the file, includes /
-     * @param {*} files [{"name":"file1", "ext":"txt"},{"name":"file2", "ext":"txt"}]
-     * @returns Returns a map distinguished by file name.
-     */
-    this.readContent = (root, files) => {
-      const normalizedRoot = root.endsWith("/") ? root : root + "/";
-      return new Promise((resolve, reject) => {
-        let loaded = 0;
-        const contents = {};
-        const total = files.length;
-
-        files.forEach((file) => {
-          const url = $.api.runtime.getURL(`${normalizedRoot}${file.name}.${file.ext}`);
-          $.fetch(url).
-          then((res) => res.text()).
-          then((data) => {
-            contents[file.name] = data;
-            loaded++;
-            if (loaded >= total) {
-              resolve(contents);
-            }
-          }).
-          catch((err) => {
-            reject(err);
-          });
-        });
-      });
-    };
-  };
-
-
-  /**
-   * @param {object} ext
-   * @constructor
-   */
-  $.I18nHelper = function (ext) {
-    let language = null;
-    let languageLabel = null;
-    let langVars = {};
-    let dir = null;
-
-    /**
-     * Initialises the language file
-     *
-     * @returns {Promise}
-     */
-    this.init = async () => {
-      const langvarsCall = async () => {
-        const bgLangvars = await ext.helper.dao.call("langvars");
-        if (bgLangvars && bgLangvars.language) {
-          language = bgLangvars.language;
-          languageLabel = bgLangvars.languageLabel;
-          langVars = bgLangvars.vars;
-          dir = bgLangvars.dir;
-        }
-      };
-
-      return new Promise(async (resolve) => {
-        await langvarsCall();
-
-        const retryDelay = 500;
-        const maxDelay = 4 * 1000;
-        let allDelay = 0;
-
-        if (!langVars || Object.keys(langVars).length === 0) {
-          const interval = setInterval(async () => {
-            await langvarsCall();
-            if (langVars && Object.keys(langVars).length !== 0) {
-              clearInterval(interval);
-              resolve();
-            }
-            if (allDelay >= maxDelay) {
-              clearInterval(interval);
-              resolve();
-            }
-            allDelay += retryDelay;
-          }, retryDelay);
-        } else {
-          resolve();
-        }
-      });
-    };
-
-    /**
-     * Returns the language which is used for the language variables
-     *
-     * @returns {string}
-     */
-    this.getLanguage = () => {
-      return language;
-    };
-
-    this.getLanguageLabel = () => {
-      return languageLabel;
-    };
-
-    /**
-     * Returns whether the direction of the current language is right-to-left
-     *
-     * @returns {boolean}
-     */
-    this.isRtl = () => {
-      return dir === "rtl";
-    };
-
-    this.getDir = () => {
-      return dir;
-    };
-
-    /**
-     * Returns the UI language of the browser in the format "de_DE" or "de"
-     *
-     * @returns {string}
-     */
-    this.getUILanguage = () => {
-      try {
-        let ret = $.api.i18n.getUILanguage();
-        ret = ret.replace("-", "_");
-        return ret;
-      } catch (err) {}
-      return $.opts.manifest.default_locale;
-    };
-
-    /**
-     * Returns the default language of the extension
-     *
-     * @returns {string}
-     */
-    this.getDefaultLanguage = () => {
-      return $.opts.manifest.default_locale;
-    };
-
-    /**
-     * Sorts the Collator for comparing strings
-     *
-     * @returns {Intl.Collator}
-     */
-    this.getLocaleSortCollator = () => {
-      return new Intl.Collator([this.getUILanguage(), this.getDefaultLanguage()]);
-    };
-
-    /**
-     * Returns the given date in local specific format
-     *
-     * @param dateObj
-     * @returns {string}
-     */
-    this.getLocaleDate = (dateObj) => {
-      if (typeof dateObj === "number") {
-        dateObj = new Date(dateObj);
-      }
-      return dateObj.toLocaleDateString([this.getUILanguage(), this.getDefaultLanguage()], {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      });
-    };
-
-    this.parseHtml = (context) => {
-      $(context).find(`[${$.attr.i18n}]`).forEach((elm) => {
-        let msg = null;
-        const val = $(elm).attr($.attr.i18n);
-
-        if (val) {
-          let replaces = [];
-          const replacesRaw = $(elm).attr($.attr.i18nReplaces);
-          if (replacesRaw) {
-            replaces = replacesRaw.split(",");
-          }
-          msg = this.get(val, replaces);
-        }
-
-        if (msg) {
-          $(elm).removeAttr($.attr.i18n);
-          $(elm).removeAttr($.attr.i18nReplaces);
-          $(elm).html(msg);
-        } else {
-          $(elm).remove();
-        }
-      });
-    };
-
-    /**
-     * Returns the translated string matching the given message
-     *
-     * @param {string} msg
-     * @param {Array} replaces
-     * @param {boolean} encoded
-     * @returns {string}
-     */
-    this.get = (msg, replaces = [], encoded = false) => {
-      let ret = "";
-      const langVar = langVars[msg];
-
-      if (langVar && langVar.message) {
-        ret = langVar.message;
-        ret = ret.replace(/\{browserName\}/gi, $.browserName);
-
-        if (replaces && replaces.length > 0) {
-          replaces.forEach((replace, i) => {
-            ret = ret.replace(new RegExp(`\\{${i + 1}\\}`), replace);
-          });
-        }
-
-        ret = ret.replace(/\[b\](.*)\[\/b\]/, "<strong>$1</strong>");
-        ret = ret.replace(/\[a\](.*)\[\/a\]/, "<a href='#'>$1</a>");
-        ret = ret.replace(/\[em\](.*)\[\/em\]/, "<em>$1</em>");
-      }
-
-      if (encoded) {
-        ret = ret.replace(/'/g, "&#x27;");
-      }
-      return ret;
-    };
-  };
-
-
-  /**
-   * @param {*} ext
-   */
-  $.LoggerHelper = function (ext) {
-    /**
-     * Format log messages
-     * @param {string} level - Log level (info/error)
-     * @param {string} className - Class name
-     * @param {string} methodName - Method name
-     * @param {...*} messages - Log messages
-     */
-    this.log = (level = "info", className, methodName, ...messages) => {
-      const prefix = `[${className || "Unknown"}][${methodName || "Unknown"}]: `;
-      const formattedMessages = messages.length > 0 && typeof messages[0] === "string" ?
-      [prefix + messages[0], ...messages.slice(1)] :
-      [prefix, ...messages];
-
-      const levelLower = level.toLowerCase();
-      if (levelLower === "info") {
-
-      } else if (levelLower === "error") {
-        console.error(...formattedMessages);
-      } else {
-
-      }
-    };
-  };
-
-
-  /**
-   * @param {*} ext
-   * @param {*} platformConfig
-   * @param {*} platformConfigs
-   */
-  $.RequestHelper = function (ext, platformConfig, platformConfigs) {
-    platformConfig = platformConfig || { platformId: "unsupported" };
-
-    const cacheRequestMap = {};
-    const baseUrl = $.opts.baseUrl;
-    const urls = {
-      exchangeInfo: { method: "GET", url: baseUrl + "/ext/deep/link" },
-      couponExistConf: { method: "GET", url: baseUrl + "/ext/conf/load" },
-      couponExist: { method: "GET", url: baseUrl + "/ext/c/e" },
-      couponQrCode: { method: "GET", url: baseUrl + "/ext/c/c" },
-      couponQuery: { method: "GET", url: baseUrl + "/ext/c/q" },
-      detectCtrl: { method: "POST", url: baseUrl + "/ext/client/ctrl" },
-      detectData: { method: "POST", url: baseUrl + "/ext/client/data" }
-    };
-
-    // -------------------------------------------------------------------------
-    // Private: base params & extra params
-    // -------------------------------------------------------------------------
-
-    const getBaseParams = async () => {
-      const eId = await ext.helper.dao.getEid();
-      const token = ext.helper.dao.getData($.opts.storageKeys.website.token, "");
-      const params = {
-        v: $.opts.apiVersion,
-        version: $.opts.apiVersion,
-        no: $.opts.number,
-        eId: eId || "",
-        token: token || ""
-      };
-      ext.logger("info", "RequestHelper", "getBaseParams", "BaseParams url:", params);
-      return params;
-    };
-
-    const addExtraParams = (params) => {
-      if (!params.hasOwnProperty("url")) {
-        params.url = encodeURIComponent(window.location.href);
-      }
-      return params;
-    };
-
-    /**
-     * Build merged params and final GET URL for coupon-style requests.
-     * @param {object} urlConfig - { method, url }
-     * @param {object} params - request params
-     * @param {string} logLabel - label for ext.logger
-     * @returns {{ finalUrl: string, method: string, params: object }}
-     */
-    const buildCouponGetRequest = async (urlConfig, params, logLabel) => {
-      const baseParams = await getBaseParams();
-      params = addExtraParams(params);
-      params = Object.assign({}, params, baseParams);
-
-      const queryString = Object.entries(params).
-      map(([key, value]) => `${key}=${value}`).
-      join("&");
-      const finalUrl = urlConfig.url + "?" + queryString;
-      ext.logger("info", "RequestHelper", "buildCouponGetRequest", logLabel, finalUrl);
-
-      return { finalUrl, method: urlConfig.method, params };
-    };
-
-    /**
-     * Call dao.request and resolve with result or null (no JSON parse).
-     */
-    const callRequestResolveResult = (requestOpts) => {
-      return new Promise((resolve) => {
-        ext.helper.dao.
-        call("request", requestOpts).
-        then((data) => {
-          resolve(data.code === "success" && !!data.result ? data.result : null);
-        }).
-        catch(() => resolve(null));
-      });
-    };
-
-    /**
-     * Call dao.request and resolve with parsed JSON or null.
-     */
-    const callRequestResolveJson = (requestOpts) => {
-      return new Promise((resolve) => {
-        ext.helper.dao.
-        call("request", requestOpts).
-        then((data) => {
-          if (data.code === "success" && !!data.result) {
-            resolve(JSON.parse(data.result));
-          } else {
-            resolve(null);
-          }
-        }).
-        catch(() => resolve(null));
-      });
-    };
-
-    // -------------------------------------------------------------------------
-    // Public: XHR & cache
-    // -------------------------------------------------------------------------
-
-    this.requestAndSaveSate = function (method, url, param) {
-      return new Promise((resolve) => {
-        const key = "key_" + Date.now();
-        const xhr = new XMLHttpRequest();
-        cacheRequestMap[key] = xhr;
-
-        if (method === "GET") {
-          let queryString = "";
-          if (param) {
-            queryString = "?" + new URLSearchParams(param).toString();
-          }
-
-          xhr.open(method, url + queryString);
-          xhr.send();
-        } else if (method === "POST") {
-          xhr.open(method, url);
-          xhr.setRequestHeader("Content - Type", "application/json");
-          xhr.send(JSON.stringify(param));
-        } else {
-          resolve({ code: "error", requestKey: key, result: null });
-          return;
-        }
-
-        xhr.onreadystatechange = function () {
-          if (xhr.readyState !== 4) return;
-          const ok = xhr.status >= 200 && xhr.status < 300;
-          try {
-            resolve({
-              code: ok ? "success" : "error",
-              requestKey: key,
-              result: ok ? xhr.responseText : null
-            });
-          } catch (e) {
-            resolve({ code: "error", requestKey: key, result: null });
-          }
+            return null;
         };
-      });
-    };
 
-    this.removeRequest = function (requestKey) {
-      delete cacheRequestMap[requestKey];
-    };
-
-    this.abortAllRequests = function () {
-      Object.keys(cacheRequestMap).forEach((key) => {
-        cacheRequestMap[key].abort();
-        delete cacheRequestMap[key];
-      });
-    };
-
-    // -------------------------------------------------------------------------
-    // Public: Coupon query (details page)
-    // -------------------------------------------------------------------------
-
-    /**
-     * Coupon Inquiry on Details Page
-     */
-    this.getCouponQuery = async (params) => {
-      const { finalUrl, method, params: mergedParams } = await buildCouponGetRequest(
-        urls.couponQuery,
-        params,
-        "couponQuery url:"
-      );
-      return ext.helper.dao.call("request", {
-        url: finalUrl,
-        method,
-        params: mergedParams
-      });
-    };
-
-    /**
-     * Pull QR code on the details page
-     */
-    this.getCouponQrCode = async (params) => {
-      const { finalUrl, method, params: mergedParams } = await buildCouponGetRequest(
-        urls.couponQrCode,
-        params,
-        "couponQrCode url:"
-      );
-      return ext.helper.dao.call("request", {
-        url: finalUrl,
-        method,
-        params: mergedParams
-      });
-    };
-
-    /**
-     * Search interface query whether the coupon exists (cross-origin, high frequency).
-     * Ebay, Aliexpress
-     */
-    this.getCouponExist = async (params) => {
-      const { finalUrl, method } = await buildCouponGetRequest(
-        urls.couponExist,
-        params,
-        "getCouponExist url:"
-      );
-      return this.requestAndSaveSate(method, finalUrl, null);
-    };
-
-    /**
-     * Pull configuration file (coupon query).
-     */
-    this.requestCouponExistConf = function () {
-      const { method, url } = urls.couponExistConf;
-      return callRequestResolveResult({ url, method, params: null });
-    };
-
-    // -------------------------------------------------------------------------
-    // Public: Coupon exploration (detect)
-    // -------------------------------------------------------------------------
-
-    const getDynamicParams = async (platform) => {
-      let marketplace = "",
-        currency = "",
-        countryCode = "";
-      try {
-        if (platform === platformConfigs.aliexpress.platformId) {
-          const aliexpress = ext.helper.coupon.aliexpress;
-          marketplace = await aliexpress.getMarketplace();
-          currency = await aliexpress.getCurrency();
-
-        } else {
-          countryCode = ext.helper.util.getCommonMarketplace();
-          marketplace = encodeURIComponent(
-            JSON.stringify({ countryCode, className: "", html: "" })
-          );
-        }
-      } catch (error) {
-        ext.logger("error", "RequestHelper", "getDynamicParams", "getDynamicParams===========>", error);
-      }
-      ext.logger("info", "RequestHelper", "getDynamicParams", "getDynamicParams===========>", platform, marketplace, currency);
-      return { marketplace, currency };
-    };
-
-    const getDetectDataParams = async () => {
-      const platform = platformConfig.platformId;
-      const { marketplace, currency } = await getDynamicParams(platform);
-      let lang = ext.helper.i18n.getLanguage();
-      if (lang === "default") {
-        lang = $.opts.manifest.default_locale;
-      }
-      const params = {
-        platform: platformConfig.platformId,
-        url: window.location.href,
-        lang,
-        marketplace,
-        currency
-      };
-      const baseParams = await getBaseParams();
-      return Object.assign({}, params, baseParams);
-    };
-
-    /**
-     * Configuration file for obtaining coupon list.
-     */
-    this.getDetectCtrlResult = async function () {
-      const params = await getDetectDataParams();
-      const { method, url } = urls.detectCtrl;
-      ext.logger("info", "RequestHelper", "getDetectCtrlResult", "detect info result params===========>", method, url, JSON.stringify(params));
-      return callRequestResolveJson({ url, method, params });
-    };
-
-    /**
-     * Get coupon list
-     */
-    this.getDetectDataResult = async function () {
-      const params = await getDetectDataParams();
-      const { method, url } = urls.detectData;
-      ext.logger("info", "RequestHelper", "getDetectDataResult", "detect coupon result params===========>", method, url, JSON.stringify(params));
-      return callRequestResolveJson({ url, method, params });
-    };
-
-    // -------------------------------------------------------------------------
-    // Public: Init (tokens, exchange info)
-    // -------------------------------------------------------------------------
-
-    this.getactivateEvent = async (ticket) => {
-      const { method, url } = { url: baseUrl + ticket, method: "POST" };
-      const baseParams = await getBaseParams();
-      return callRequestResolveJson({ url, method, params: baseParams });
-    };
-
-    /**
-     * Get token, combine 2 steps together.
-     */
-    this.initRequestData = async () => {
-      try {
-        const now = Date.now();
-        let exchangeInfoLocal = ext.helper.dao.getData(
-          $.opts.storageKeys.website.exchangeInfo,
-          null
-        );
-
-        ext.logger("info", "RequestHelper", "initRequestData", "local=====>", exchangeInfoLocal, $.opts.updateExchangeInfoDelay);
-        const needFetchConfig = !exchangeInfoLocal || exchangeInfoLocal.time && now - exchangeInfoLocal.time > $.opts.updateExchangeInfoDelay;
-        if (needFetchConfig) {
-          try {
-            const { url, method } = urls.exchangeInfo;
-            const exchangeInfoServer = await ext.helper.dao.call("request", {
-              url,
-              method,
-              params: null
-            });
-            ext.logger("info", "RequestHelper", "initRequestData", "exchangeInfo====>", url, method);
-            if (
-            exchangeInfoServer.code === "success" &&
-            !!exchangeInfoServer.result)
-            {
-              const exchangeInfoJsonServer = JSON.parse(exchangeInfoServer.result);
-              const { certificate, redirect } = exchangeInfoJsonServer;
-              exchangeInfoLocal = {
-                certificate,
-                redirect,
-                time: now
-              };
-              ext.logger("info", "RequestHelper", "initRequestData", "server update=====>", exchangeInfoLocal);
-              await ext.helper.dao.setDataByKey(
-                $.opts.storageKeys.website.exchangeInfo,
-                exchangeInfoLocal
-              );
-            } else {
-              ext.logger("error", "RequestHelper", "initRequestData", "exchangeInfo====>null");
-            }
-          } catch (error) {
-            ext.logger("error", "RequestHelper", "initRequestData", "exchangeInfo====>error", error);
-          }
-        }
-
-        if (!exchangeInfoLocal || !exchangeInfoLocal.certificate) {
-          exchangeInfoLocal = ext.helper.dao.getDefaults().w.exchangeInfo;
-        }
-
-        try {
-          const tokenData = await ext.helper.dao.call("request", {
-            url: exchangeInfoLocal.certificate,
-            method: "post",
-            params: null
-          });
-          if (tokenData.code === "success" && !!tokenData.result) {
-            const { token } = JSON.parse(tokenData.result);
-            await ext.helper.dao.setDataByKey(
-              $.opts.storageKeys.website.token,
-              !!token ? encodeURIComponent(token) : ""
-            );
-            ext.logger("info", "RequestHelper", "initRequestData", "token====>", token);
-          } else {
-            ext.logger("info", "RequestHelper", "initRequestData", "Token====>null");
-          }
-        } catch (error) {
-          ext.logger("error", "RequestHelper", "initRequestData", "get token error====>", error);
-        }
-      } catch (error) {
-        ext.logger("error", "RequestHelper", "initRequestData", "get token error====>", error);
-      }
-    };
-  };
-
-
-  /**
-   * @param {object} ext
-   * @constructor
-   */
-  $.StyleHelper = function (ext) {
-    /**
-     * Get insert target (head or body when head is missing).
-     * @returns {jQuery}
-     */
-    const getInsertObj = () => {
-      const context = $(document);
-      return context.find("head").length() === 0 ?
-      context.find("body") :
-      context.find("head");
-    };
-
-    /**
-     * Adds the stylesheets to the document.
-     * @param {Array<string>} files - CSS file names (without .css)
-     */
-    this.addStylesheets = (files) => {
-      return this.readCss(files, getInsertObj());
-    };
-
-    /**
-     * Adds inline style by content and optional name.
-     * @param {string} css - CSS text
-     * @param {string} [name] - Optional name for selector
-     * @param {jQuery} [head] - Optional insert target (default: getInsertObj())
-     */
-    this.addStylesheetsByContent = (css, name, head = null) => {
-      if (head == null) {
-        head = getInsertObj();
-      }
-      if (name) {
-        name = name.replaceAll("/", "-");
-      }
-      if ($.cl && $.cl.page && $.cl.page.style && $.attr && $.attr.name) {
-        const selector = "style." + $.cl.page.style + "[" + $.attr.name + "='" + name + "']";
-        head.find(selector).remove();
-        head.append(
-          "<style class='" + $.cl.page.style + "' " + $.attr.name + "='" + name + "'>" + css + "</style>"
-        );
-      } else {
-        head.append("<style>" + css + "</style>");
-      }
-    };
-
-    /**
-     * Load CSS files and inject them into document.
-     * @param {Array<string>} files - CSS file names (without .css)
-     * @param {jQuery} [head] - Optional insert target
-     * @returns {Promise<void>}
-     */
-    this.readCss = (files, head = null) => {
-      return this.readCssContent(files).
-      then((cssObj) => {
-        for (const key in cssObj) {
-          this.addStylesheetsByContent(cssObj[key], key, head);
-        }
-      }).
-      catch(() => {});
-    };
-
-    /**
-     * Read CSS file contents by file names.
-     * @param {Array<string>} files - File names without .css
-     * @returns {Promise<Object<string, string>>} - Map of file name to CSS text
-     */
-    this.readCssContent = (files) => {
-      return new Promise((resolve) => {
-        let loaded = 0;
-        const text = {};
-        files.forEach((file) => {
-          $.fetch($.api.runtime.getURL("css/" + file + ".css")).
-          then((res) => {
-            res.text().then((data) => {
-              text[file] = data;
-              loaded++;
-              if (loaded >= files.length) {
-                resolve(text);
-              }
-            });
-          }).
-          catch(() => {
-            resolve(text);
-          });
-        });
-      });
-    };
-  };
-
-
-  /**
-   * @param {*} ext
-   * Coupon-specific methods, such as automatic redirection, unique encryption methods, etc.
-   */
-  $.UtilHelper = function (ext) {
-    /**
-     * Add an immediate loop task
-     * @param callback
-     * @param delay
-     * @returns
-     */
-    this.loopTask = function (callback, delay = 1500) {
-      if (!callback) return;
-      callback();
-      setInterval(() => {
-        callback();
-      }, delay);
-    };
-
-    /**
-     * @param {*} date
-     * @param {*} format "dd/MM"
-     * @returns
-     */
-    this.dateFormat = function (date, format) {
-      const showDate = {
-        "M+": date.getMonth() + 1,
-        "d+": date.getDate(),
-        "h+": date.getHours(),
-        "m+": date.getMinutes(),
-        "s+": date.getSeconds(),
-        "q+": Math.floor((date.getMonth() + 3) / 3),
-        "S+": date.getMilliseconds()
-      };
-      if (/(y+)/i.test(format)) {
-        format = format.replace(RegExp.$1, (date.getFullYear() + "").substr(4 - RegExp.$1.length));
-      }
-      for (let k in showDate) {
-        if (new RegExp(`(${k})`).test(format)) {
-          format = format.replace(RegExp.$1, RegExp.$1.length === 1 ?
-          showDate[k] : ("00" + showDate[k]).substr(("" + showDate[k]).length));
-        }
-      }
-      return format;
-    };
-
-    this.getSearchParameter = function (paramsString = window.location.href, tag) {
-      if (paramsString.indexOf("?") !== -1) {
-        paramsString = paramsString.split("?")[1];
-      }
-      const params = new URLSearchParams(paramsString);
-      return params.get(tag);
-    };
-
-    this.getGoodsIdByLink = function (url = window.location.href) {
-      if (url.indexOf("?") !== -1) {
-        url = url.split("?")[0];
-      }
-      if (url.indexOf("#") !== -1) {
-        url = url.split("#")[0];
-      }
-
-      const suffix = "html|htm|id|p";
-      let regex = new RegExp(`\\/([^\\/]*?)\\.(${suffix})`);
-      if (/lazada\./.test(url)) {
-        regex = new RegExp("-i(\\d+)(?:-s(\\d+))?\\.html");
-      } else if (/ebay\./.test(url)) {
-        regex = new RegExp("\\/itm\\/(\\d+)");
-      } else if (/banggood\./.test(url)) {
-        regex = new RegExp("-p-(\\d+)\\.html");
-      } else if (/amazon\./.test(url)) {
-        regex = new RegExp("\\/(?:dp|gp\\/product|gp\\/aw\\/d|gp\\/offer-listing)\\/([A-Za-z0-9]{8,15})");
-      }
-      const match = url.match(regex);
-      return match ? match[1] : null;
-    };
-
-    this.randomNumber = function () {
-      return Math.ceil(Math.random() * 100000000);
-    };
-
-    this.generateRandomString = function (length = 10) {
-      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-      let result = "";
-      for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length));
-      }
-      return result;
-    };
-
-    this.distinguishRemoveAndTry = function (distinguish, callback) {
-      const distinguishElements = distinguish.map((name) => document.querySelector(`*[name='${name}']`));
-      const validateRs = distinguishElements.some((ele) => ele === null || ele === undefined);
-      if (validateRs) {
-        distinguishElements.reverse().forEach((element) => {
-          if (element) {
-            element.remove();
-          }
-        });
-        callback();
-      }
-    };
-
-    this.getDomain = function (url) {
-      try {
-        const hostname = new URL(url).hostname;
-        const parts = hostname.split(".");
-        if (parts.length > 2) {
-          return `${parts[parts.length - 2]}.${parts[parts.length - 1]}`;
-        }
-        return hostname;
-      } catch (error) {
-        return null;
-      }
-    };
-
-    this.getCommonMarketplace = function (url = window.location.href) {
-      try {
-        const domainParts = new URL(url).hostname.split(".");
-        const countryCode = domainParts[domainParts.length - 1];
-        return countryCode;
-      } catch (error) {}
-      return null;
-    };
-
-    this.decryptStr = function (str) {
-      if (!str) {
-        return str;
-      }
-      const result = atob(str);
-      return result.split("").reverse().join("");
-    };
-
-    this.encryptStr = function (str) {
-      if (!str) {
-        return str;
-      }
-      const result = str.split("").reverse().join("");
-      return btoa(result);
-    };
-
-    this.bindCustomEvent = function (element, callback = {}) {
-      if (!element) {
-        return;
-      }
-      element.addEventListener("click", () => {
-        try {
-          const dataContent = element.getAttribute("data-content");
-          const operate = element.getAttribute("name");
-          const json = JSON.parse(dataContent);
-          this.customOpenUrl(element, json, operate, callback);
-        } catch (e) {}
-      });
-    };
-
-    this.bindApplyCouponsEvent = function (button, callback = {}) {
-      if (!button) {
-        return;
-      }
-      button.addEventListener("click", () => {
-        const dataContent = button.getAttribute("data-content");
-        if (dataContent) {
-          const dataContentJson = JSON.parse(dataContent)[0];
-          if (dataContentJson.hasOwnProperty("codes") &&
-          dataContentJson.hasOwnProperty("platform") &&
-          dataContentJson.hasOwnProperty("check")) {
-            callback(dataContentJson);
-          }
-        }
-      });
-    };
-
-    this.customOpenUrl = function (element, json, operate = "clickToJump", callback = {}) {
-      const options = [];
-      for (let i = 0; i < json.length; i++) {
-        const item = json[i];
-        const option = {
-          "affLink": this.decryptStr(item.affLink),
-          "close": item.close,
-          "pause": item.pause,
-          "delay": item.delay,
-          "target": item.target,
-          "active": item.active,
-          "position": item.position,
-          "dismissAfter": item.dismissAfter,
-          "callbackEvent": item.callbackEvent,
-          "pinned": item.pinned
-        };
-        const code = item.code;
-        const msg = item.msg;
-        if (code) {
-          this.setClipboard(this.decryptStr(code));
-          if (element) {
-            element.innerText = msg;
-          }
-        }
-        options.push(option);
-        if (callback && typeof callback === "function") {
-          callback(option);
-        }
-      }
-      // Analyze the data first, then agree to execute the jump mission.
-      options.sort((a, b) => a.target === "_blank" ? -1 : b.target === "_blank" ? 1 : 0).
-      forEach((option, index) => {
-        setTimeout(() => {
-          this.openUrl(option);
-        }, index * 100); // Each delay index * 100ms
-      });
-    };
-
-    /**
-     * @param {Object} active  Whether it is active
-     * @param {Object} affLink The link to open
-     * @param {Object} close true: need to close the opened tab
-     * @param {Object} pause, delay close
-     * @param {Object} delay, delay opening
-     * @param {Object} position begin end after
-     * @param {Object} target  _self,_blank,_replace
-     * @param {Object} pinned true: fixed tab, only meaningful when target=_blank
-     * _blank uses the interface GM_openInTab provided by Tampermonkey, while others use window.location.replace or window.location.href.
-     */
-    this.openUrl = function (options) {
-      const { active, affLink, close, pause, delay, position, target, pinned } = options;
-      let realAffLink = affLink;
-      if (!realAffLink) {
-        return;
-      }
-      if (realAffLink.indexOf("http") === -1) {
-        realAffLink = this.decryptStr(affLink);
-      }
-      let extensionTabPosition = null;
-      if (position) {
-        if (position === "begin") {
-          extensionTabPosition = "beforeFirst";
-        } else if (position === "end") {
-          extensionTabPosition = "afterLast";
-        }
-      }
-
-      if (target === "_blank") {
-        setTimeout(() => {
-          ext.helper.dao.call("openLink", {
-            href: realAffLink,
-            newTab: true,
-            active: active,
-            position: extensionTabPosition,
-            pinned: pinned === "true" || pinned === true
-          }).then((tabId) => {
-            if (close && tabId) {
-              setTimeout(() => {
-                ext.helper.dao.call("closeLink", { id: tabId });
-              }, pause);
-            }
-          });
-        }, delay);
-      } else if (target === "_self") {
-        setTimeout(() => {
-          window.location.href = realAffLink;
-        }, delay);
-      } else if (target === "_replace") {
-        setTimeout(() => {
-          window.location.replace(realAffLink);
-        }, delay);
-      }
-    };
-
-    this.openInTab = function (url) {
-      ext.helper.dao.call("openLink", {
-        href: url,
-        newTab: true,
-        active: true
-      }).then((tabId) => {});
-    };
-
-    this.setClipboard = function (text) {
-      return new Promise((resolve, reject) => {
-        navigator.clipboard.writeText(text).then(() => {
-          resolve();
-        }).catch(() => {
-          resolve();
-        });
-      });
-    };
-
-    this.removeAnchorsByNode = function (node) {
-      const tagName = node.tagName;
-      if (!tagName) return;
-
-      const exist = ["A", "IMG", "DIV", "SPAN", "LABEL", "TABLE", "TR", "TD", "CANVAS"].some((name) => name === tagName);
-      if (exist) {
-        node.removeAttribute("data-spm-anchor-id");
-        for (let i = 0; i < node.childNodes.length; i++) {
-          this.removeAnchorsByNode(node.childNodes[i]);
-        }
-      }
-    };
-
-    this.getGoodsLinkByElement = function (element, findTag) {
-      let searchElement = null;
-      if (findTag === "this") {
-        searchElement = element;
-      } else if (/^child@/.test(findTag)) {
-        searchElement = element.querySelector(findTag.replace(/^child@/, ""));
-      }
-      return searchElement;
-    };
-
-    this.calcRequestGroup = function (array, itemsPerGroup = 20) {
-      const groups = [];
-      for (let i = 0; i < array.length; i += itemsPerGroup) {
-        groups.push(array.slice(i, i + itemsPerGroup));
-      }
-      return groups;
-    };
-
-    this.pickupGoodsItem = function (platform, confString) {
-      const visitHref = window.location.href;
-      const selectorElementList = [];
-      let confFilter = confString;
-      try {
-        confFilter = confFilter.replace(/\\\\/g, "\\");
-      } catch (e) {}
-
-      const confJson = JSON.parse(confFilter)[platform];
-      for (let i = 0; i < confJson.length; i++) {
-        const itemJson = confJson[i];
-        if (!itemJson.hasOwnProperty("elements") || !itemJson.hasOwnProperty("matches")) {
-          continue;
-        }
-        const { elements, matches } = itemJson;
-        const isMatch = matches.map((reg) => new RegExp(reg, "i").test(visitHref)).some((res) => res);
-        if (isMatch) {
-          for (let j = 0; j < elements.length; j++) {
-            selectorElementList.push({
-              "element": elements[j]["element"],
-              "findA": elements[j]["findA"],
-              "page": elements[j]["page"],
-              "price": elements[j]["price"]
-            });
-          }
-        }
-      }
-      return selectorElementList;
-    };
-
-    this.getGoodsPriceByElement = function (element, tag) {
-      if (!element || !tag) {
-        return "";
-      }
-      const goodsPrice = element.querySelector(tag);
-      let price = goodsPrice === null ? "" : goodsPrice.innerText;
-      if (price) {
-        price = price.replace(/\s|,/g, "");
-      }
-      return price;
-    };
-
-    this.getGoodsPrice = function (content) {
-      content = content.replace(/,/g, "");
-      const amount = content.match(/(?:₱|\$|฿|₫|Rp|RM|￥)\n?\d+(?:(?:\.\d{1,3})*)?/);
-      let price = amount ? amount[0] : "";
-      if (price && price.indexOf("Rp") !== -1) {
-        price = price.replace(/\./g, "");
-      }
-      price = price.replace(/\n|,/g, "");
-      return price;
-    };
-
-    /**
-     * Generate random id
-     */
-    this.generatorPageIdentifier = function () {
-      let counter = 0;
-      const seed = Math.floor(Math.random() * 1e6).toString(36);
-      return function getUUID() {
-        const prefix = Date.now().toString(36);
-        return `${seed}${prefix}${(counter++).toString(36)}`;
-      };
-    }();
-
-    this.addActivateCallbackEvent = function (outerDIV, option, configs) {
-      if (!outerDIV || !option) {
-        return;
-      }
-      if (!option.callbackEvent) {
-        return;
-      }
-      const { sevlet, max, period } = option.callbackEvent;
-      // const decrypLink = ext.helper.util.decryptStr(link);
-      let count = 0;
-      let isRequesting = false; // Is it being requested, and is the request an asynchronous request]
-
-      ext.logger("info", "UtilHelper", "addActivateCallbackEvent >>>callbackEvent", option);
-      const intervalId = setInterval(async () => {
-        if (count >= max) {
-          clearInterval(intervalId);
-          return;
-        }
-        count += period;
-        if (isRequesting) {
-          return;
-        }
-        try {
-          isRequesting = true;
-          const loopJson = await ext.helper.request.getactivateEvent(sevlet);
-          if (loopJson.hasOwnProperty("code") && loopJson.code === "ok") {
-            clearInterval(intervalId);
-
-            if (loopJson.hasOwnProperty("data") && loopJson.data) {
-              const { replacement } = loopJson.data;
-              for (let i = 0; i < replacement.length; i++) {
-                const { style, html, on } = replacement[i];
-                const config = configs[on];
-                if (config) {
-                  const configElements = outerDIV.querySelectorAll(config);
-                  configElements.forEach((configElement) => {
-                    configElement.innerHTML = html;
-                    // In modal and flyout, only update the HTML, not the styles.
-                    // Use local styles directly.
-                    if (on != "model" && on != "flyout") {
-                      const handlerStyle = configElement.getAttribute("style") || "";
-                      configElement.setAttribute("style", style + ";" + handlerStyle);
-                    } else {
-                      configElement.classList.add("disabled");
-                    }
-                  });
+        /**
+         * @returns {Promise}
+         */
+        const refresh = () => {
+            return new Promise((resolve) => {
+                if ($.api.runtime.id === undefined) {
+                    resolve();
+                    return;
                 }
-              }
+
+                const keys = scopes.map((scope) => scope.name);
+                const newData = {};
+                const len = keys.length;
+                let loaded = 0;
+
+                keys.forEach((key) => {
+                    $.api.storage.local.get([key], (obj) => {
+                        newData[key] = obj[key] || {};
+                        if (++loaded === len) {
+                            data = newData;
+                            resolve();
+                        }
+                    });
+                });
+            });
+        };
+
+        /**
+         * Retrieves the stored values for the given keys,
+         * if a value is undefined, it will be set to the default value
+         *
+         * @param {object|string} keys
+         * @param {boolean} defaultVal
+         */
+        this.getData = (keys, defaultVal = false) => {
+            let configKeys = keys;
+            if (typeof configKeys === "string") {
+                configKeys = [configKeys];
             }
 
-          }
-        } catch (error) {
-        } finally {
-          isRequesting = false;
-        }
-      }, period);
+            const result = {};
+            configKeys.forEach((keyInfo) => {
+                const parts = keyInfo.split("/");
+                const alias = parts[0];
+                const key = parts[1];
+                let value = null;
+                let needsDefault = false;
+
+                const scopeName = getNameByAlias(alias);
+                if (scopeName && data[scopeName]) {
+                    if (typeof data[scopeName][key] !== "undefined") {
+                        value = data[scopeName][key];
+                    } else {
+                        needsDefault = true;
+                    }
+                } else {
+                    needsDefault = true;
+                }
+
+                if (needsDefault && defaultVal) {
+                    if (typeof defaults[alias] !== "undefined" && typeof defaults[alias][key] !== "undefined") {
+                        value = defaults[alias][key];
+                    }
+                }
+                result[key] = value;
+            });
+
+            if (typeof keys === "string") {
+                const key = keys.split("/")[1];
+                return result[key];
+            }
+            return result;
+        };
+
+        this.setDataByKey = (key, value) => {
+            const update = {};
+            update[key] = value;
+            return this.setData(update);
+        };
+
+        /**
+         * Saves the given values in the storage
+         *
+         * @param {object} values
+         * @returns {Promise}
+         */
+        this.setData = (values) => {
+            return new Promise((resolve) => {
+                refresh().then(() => {
+                    Object.keys(values).forEach((keyInfo) => {
+                        const parts = keyInfo.split("/");
+                        const alias = parts[0];
+                        const key = parts[1];
+                        const value = values[keyInfo];
+                        const scope = scopes.find((scope) => scope.alias === alias);
+                        if (scope) {
+                            data[scope.name][key] = value;
+                        }
+                    });
+
+                    const saved = () => {
+                        resolve();
+                    };
+                    try {
+                        $.api.storage.local.set({
+                            position: data.position,
+                            setting: data.setting,
+                            history: data.history,
+                            website: data.website
+                        }, () => {
+                            const error = $.api.runtime.lastError;
+                            if (error && error.message) {}
+                            saved();
+                        });
+                    } catch (e) {
+                        resolve();
+                    }
+                });
+            });
+        };
+
+        this.getEid = () => {
+            return this.call("getEid");
+        };
     };
 
-    this.addImportant = function (cssText) {
-      const sheet = new CSSStyleSheet();
-      sheet.replaceSync(cssText);
-
-      let result = '';
-      for (const rule of sheet.cssRules) {
-        if (rule instanceof CSSStyleRule) {
-          const style = rule.style;
-          for (let i = 0; i < style.length; i++) {
-            const prop = style[i];
-            style.setProperty(prop, style.getPropertyValue(prop), 'important');
-          }
-        }
-        result += rule.cssText + '\n';
-      }
-      return result;
-    };
-
-    this.randomUUID = function () {
-      return "a" + crypto.randomUUID().replace(/-/g, '');
-    };
-
-    this.fillTemplate = (template, placeholders = {}) => {
-      return template.replace(/#\{([^}]+)\}/g, (match, key) => {
-        return key in placeholders ? String(placeholders[key]) : match;
-      });
-    };
-
-    this.escapeHTML = function (str) {
-      return str.
-      replace(/&/g, "&amp;").
-      replace(/</g, "&lt;").
-      replace(/>/g, "&gt;").
-      replace(/"/g, "&quot;").
-      replace(/'/g, "&#39;");
-    };
-  };
-
-
-  /**
-   * This JavaScript will only run on websites supported by
-   * `PlatformConfigsHelper` (platform configs) and `SubscribeHelper.websites`,
-   * and will not run on other websites.
-   */
-  const Extension = function () {
-
-    // ----------------------------------------
-    // Public API
-    // ----------------------------------------
 
     /**
-     * For unsupported platforms, the icon is grayed out.
-     * 
-     * This method allows you to clearly see whether an extension is running on the website.
-     * @returns 
+     * Utility for DOM element creation and manipulation.
+     * @constructor
+     * @param {*} ext - Extension context (e.g. for helper.util, helper.cacheContainers).
      */
-    this.run = () => {
-      const { platformConfig, platformConfigs } = new $.PlatformConfigsHelper().getConfigForUrl(window.location.href);
-      if (!platformConfig) {
-        return;
-      }
-      this.sendBackgroundMessage($.opts.messageActions.iconAvailable, {});
+    $.ElementUtilHelper = function (ext) {
 
-      initHelpers(platformConfig, platformConfigs);
-      init(platformConfig, platformConfigs);
-      addMessageListener();
+        /**
+         * Create an HTML element with optional text/html, style, class, attributes, props, events, children.
+         * @param {string} tag - Tag name.
+         * @param {Object} [options] - text, html, style, className, attributes, props, on, children.
+         * @returns {HTMLElement}
+         */
+        this.createElement = function (tag, { text, html, style, className, attributes, props, on, children } = {}) {
+            const el = document.createElement(tag);
+
+            if (text != null) {
+                el.textContent = text;
+            } else if (html != null) {
+                el.innerHTML = html;
+            }
+            if (style) {
+                Object.assign(el.style, style);
+            }
+            if (className) {
+                el.className = className;
+            }
+            if (attributes) {
+                for (const [k, v] of Object.entries(attributes)) {
+                    el.setAttribute(k, v);
+                }
+            }
+            if (props) {
+                for (const [k, v] of Object.entries(props)) {
+                    el[k] = v;
+                }
+            }
+            if (on) {
+                for (const [event, handler] of Object.entries(on)) {
+                    el.addEventListener(event, handler);
+                }
+            }
+            if (children) {
+                const frag = document.createDocumentFragment();
+                const normalize = (c) =>
+                    c == null || c === false ? null : c instanceof Node ? c : document.createTextNode(c);
+                const list = Array.isArray(children) ? children : [children];
+                list.map(normalize).filter(Boolean).forEach((c) => frag.appendChild(c));
+                el.appendChild(frag);
+            }
+            return el;
+        };
+
+        this.removeClass = function (element, className) {
+            element.classList.remove(className);
+        };
+
+        this.addClass = function (element, className) {
+            element.classList.add(className);
+        };
+
+        this.toggleClass = function (element, className) {
+            element.classList.toggle(className);
+        };
+
+        this.hasClass = function (element, className) {
+            return element.classList.contains(className);
+        };
+
+        this.getStyle = function (element, styleName) {
+            return window.getComputedStyle(element).getPropertyValue(styleName);
+        };
+
+        /**
+         * Resolve when document.body is available (e.g. when run_at = document_start).
+         * Polls every 100ms if body is not yet present.
+         * @returns {Promise<HTMLBodyElement>}
+         */
+        this.getAvailableBody = function () {
+            return new Promise((resolve) => {
+                if (document.body) {
+                    resolve(document.body);
+                    return;
+                }
+                const interval = setInterval(() => {
+                    if (document.body) {
+                        clearInterval(interval);
+                        resolve(document.body);
+                    }
+                }, 100);
+            });
+        };
+
+        /**
+         * Whether the element is displayed (offsetParent or computed display not "none").
+         * @param {Element} element
+         * @returns {boolean}
+         */
+        this.isElementDisplayed = function (element) {
+            if (element.offsetParent !== null) {
+                return true;
+            }
+            const style = window.getComputedStyle(element);
+            return style.display !== "none";
+        };
+
+        /**
+         * Create a shadow DOM root: outer div + shadow root + optional move-to-end observer and AliExpress anchor cleanup.
+         * @param {string} name - Root name (used for action, id, style id).
+         * @param {string} [css=""] - CSS to inject into shadow root.
+         * @param {string} [dir="ltr"] - data-extension-direction value.
+         * @param {boolean} [moveToEnd=false] - If true, use MutationObserver to keep root at end of insertRootElement.
+         * @param {number} [observerTime=20000] - Max ms to run move-to-end observer.
+         * @returns {{ outerDIV: HTMLElement, shadowRoot: ShadowRoot }}
+         */
+        this.generateShadowDomRoot = function (name, css = "", dir = "ltr", moveToEnd = false, observerTime = 20000) {
+            const insertRootElement = document.documentElement || document.body;
+            const root = this.createElement("div", {
+                attributes: {
+                    'style': "all: initial!important;z-index:2147483647!important;display:block!important;",
+                    'data-model': `${$.attr.shadowNamePrefix}${name}`
+                }
+            });
+
+            // Prevent wheel event from bubbling up to the document.documentElement.
+            // Scrolling is not possible on some websites like invideo.io/.
+            root.addEventListener('wheel', e => {
+                e.stopImmediatePropagation();
+            }, { passive: false, capture: true });
+            insertRootElement.appendChild(root);
+
+            const outerDIV = this.createElement("div", {
+                attributes: {
+                    "data-extension-direction": dir,
+                    id: `root-${name}`
+                }
+            });
+            const shadowRoot = root.attachShadow({ mode: "open" });
+            this.addShadowRootStyle(shadowRoot, name, css);
+            shadowRoot.appendChild(outerDIV);
+
+            const now = Date.now();
+            if (moveToEnd) {
+                const observer = new MutationObserver(() => {
+                    const lastChild = insertRootElement.lastElementChild;
+                    if (
+                        lastChild !== root &&
+                        !lastChild.getAttribute("action") &&
+                        document.documentElement
+                    ) {
+                        if (Date.now() - now <= observerTime) {
+                            insertRootElement.appendChild(root);
+                        } else {
+                            observer.disconnect();
+                        }
+                    }
+                });
+                observer.observe(insertRootElement, {
+                    childList: true,
+                    subtree: false,
+                    attributes: false,
+                    characterData: false
+                });
+            }
+            if (name && name.includes("aliexpress")) {
+                setInterval(() => {
+                    outerDIV.querySelectorAll("*[data-re-mark-tag='aliexpress']").forEach((element) => {
+                        ext.helper.util.removeAnchorsByNode(element);
+                    });
+                }, 3000);
+            }
+            ext.helper.cacheContainers.add(shadowRoot);
+            return { outerDIV, shadowRoot };
+        };
+
+        /**
+         * Add a style element to shadow root (id style-{name}), or append after first existing style.
+         * @param {ShadowRoot} shadowRoot
+         * @param {string} name - Style id suffix.
+         * @param {string} css - CSS text.
+         */
+        this.addShadowRootStyle = function (shadowRoot, name, css) {
+            if (shadowRoot.querySelector(`#style-${name}`)) {
+                return;
+            }
+            const newStyle = document.createElement("style");
+            newStyle.id = `style-${name}`;
+            newStyle.textContent = css;
+            const existingStyle = shadowRoot.querySelector("style");
+            if (existingStyle) {
+                existingStyle.after(newStyle);
+            } else {
+                shadowRoot.insertBefore(newStyle, shadowRoot.firstChild);
+            }
+        };
     };
 
-    this.sendBackgroundMessage = (action, value) => {
-      $.api.runtime.sendMessage({ action, value });
-    };
 
-    this.logger = (level = "info", ...messages) => {
-      if ($.isDev) this.helper.logger.log(level, ...messages);
-    };
+    /**
+     * Feature toggle: temporarily disable / session disable / enable, with per-site keys.
+     * Uses chrome.storage.session when available; falls back to sessionStorage (e.g. Firefox, Safari).
+     * @constructor
+     * @param {*} ext - Extension context (helper.dao, logger).
+     * @param {*} [platformConfig] - Platform config object with .platformId; used for key namespacing.
+     */
+    $.FeatureToggleHelper = function (ext, platformConfig) {
 
-    // ----------------------------------------
-    // Private: Helpers setup
-    // ----------------------------------------
+        /**
+         * Session storage shim: chrome.storage.session or sessionStorage.
+         */
+        const sessionStorageShim = {
+            set: (items) => {
+                if ($.api.storage.session) {
+                    return ext.helper.dao.call("storageSessionSet", { params: items });
+                }
+                for (const [key, value] of Object.entries(items)) {
+                    sessionStorage.setItem(key, JSON.stringify(value));
+                }
+                return Promise.resolve();
+            },
+            get: (keys) => {
+                if ($.api.storage.session) {
+                    return ext.helper.dao.call("storageSessionGet", { params: keys });
+                }
+                const result = {};
+                if (Array.isArray(keys)) {
+                    for (const key of keys) {
+                        const value = sessionStorage.getItem(key);
+                        result[key] = value ? JSON.parse(value) : undefined;
+                    }
+                } else if (typeof keys === "string") {
+                    const value = sessionStorage.getItem(keys);
+                    result[keys] = value ? JSON.parse(value) : undefined;
+                } else if (keys != null && typeof keys === "object") {
+                    for (const key in keys) {
+                        const value = sessionStorage.getItem(key);
+                        result[key] = value ? JSON.parse(value) : keys[key];
+                    }
+                } else {
+                    for (let i = 0; i < sessionStorage.length; i++) {
+                        const key = sessionStorage.key(i);
+                        result[key] = JSON.parse(sessionStorage.getItem(key));
+                    }
+                }
+                return Promise.resolve(result);
+            },
+            remove: (keys) => {
+                if ($.api.storage.session) {
+                    return ext.helper.dao.call("storageSessionRemove", { params: keys });
+                }
+                const list = Array.isArray(keys) ? keys : [keys];
+                list.forEach((key) => sessionStorage.removeItem(key));
+                return Promise.resolve();
+            },
+            clear: () => {
+                if ($.api.storage.session) {
+                    return ext.helper.dao.call("storageSessionClear");
+                }
+                sessionStorage.clear();
+                return Promise.resolve();
+            },
+        };
 
-    const initHelpers = (platformConfig, platformConfigs) => {
-      this.helper = {
-        dao: new $.DaoHelper(this),
-        i18n: new $.I18nHelper(this),
-        cacheContainers: new $.DataStoreHelper(),
-        toast: new $.ToastHelper(),
-        logger: new $.LoggerHelper(this),
-        styleHelper: new $.StyleHelper(this),
-        file: new $.FileHelper(this),
-        util: new $.UtilHelper(this),
-        elementUtil: new $.ElementUtilHelper(this),
-        request: new $.RequestHelper(this, platformConfig, platformConfigs),
-        featureToggle: new $.FeatureToggleHelper(this, platformConfig),
-        coupon: {
-          couponInspectHelper: new $.CouponInspectHelper(this, platformConfig, platformConfigs),
-          historyRecordControl: new $.HistoryRecordControl(this, platformConfig),
-          itemsHistory: new $.ItemsHistoryHelper(this, platformConfig),
-          itemsRecord: new $.ItemsRecordHelper(this, platformConfig)
-        }
-      };
-    };
+        const platform = platformConfig && platformConfig.platformId ? platformConfig.platformId : "unknown";
 
-    const init = (platformConfig, platformConfigs) => {
-      if ($.browserName === "safari") {
-        this.sendBackgroundMessage($.opts.messageActions.updateToolbar, {
-          text: "",
-          toolbarIconFlash: false
+        /** Generate storage key names for a feature (per-site). */
+        const createFeatureKey = (key) => ({
+            until: `${key}_${platform}_disabledUntil`,
+            session: `${key}_${platform}_sessionDisabled`,
         });
-      }
-      this.helper.dao.init().then(() => Promise.all([
-      this.helper.i18n.init(),
-      this.helper.request.initRequestData()]
-      )).
-      then(() => {
-        $.onPageLoad(() => {
-          runPlatformAndTasks(platformConfig, platformConfigs);
-        });
-      });
+
+        /**
+         * Temporarily disable feature for durationMs.
+         * @param {string} key - Feature identifier
+         * @param {number} durationMs - Disable duration (ms)
+         */
+        this.disableTemporarily = async (key, durationMs) => {
+            const until = Date.now() + durationMs;
+            await $.api.storage.local.set({
+                [createFeatureKey(key).until]: until,
+            });
+        };
+
+        /**
+         * Disable feature for current session.
+         * @param {string} key - Feature identifier
+         */
+        this.disableForSession = async (key) => {
+            await sessionStorageShim.set({
+                [createFeatureKey(key).session]: "true",
+            });
+        };
+
+        /**
+         * Enable feature (clear disabled state).
+         * @param {string} key - Feature identifier
+         */
+        this.enable = async (key) => {
+            const { until, session } = createFeatureKey(key);
+            await $.api.storage.local.remove(until);
+            await sessionStorageShim.remove(session);
+        };
+
+        /**
+         * Whether the feature is currently enabled (not session-disabled nor time-disabled).
+         * @param {string} key - Feature identifier
+         * @returns {Promise<boolean>}
+         */
+        this.isEnabled = async (key) => {
+            const { until, session } = createFeatureKey(key);
+            const [sessionResult, localResult] = await Promise.all([
+                sessionStorageShim.get(session),
+                $.api.storage.local.get(until),
+            ]);
+            if (sessionResult[session] === "true") {
+                return false;
+            }
+            const disabledUntil = localResult[until];
+            if (disabledUntil && Date.now() < disabledUntil) {
+                return false;
+            }
+            return true;
+        };
+
+        /**
+         * Run callback only when feature is enabled; otherwise log.
+         * @param {string} key - Feature identifier
+         * @param {Function} callback - Function to run when enabled
+         */
+        this.runIfEnabled = async (key, callback) => {
+            const enabled = await this.isEnabled(key);
+            if (enabled) {
+                callback();
+            } else {
+                ext.logger("info", "FeatureToggleHelper", "runIfEnabled", `[FeatureToggle] -- "${key}" is currently disabled`);
+            }
+        };
     };
 
-    const runPlatformAndTasks = (platformConfig, platformConfigs) => {
-      const platform = platformConfig.platformId;
-      const tasksMap = {};
 
-      const addPlatformWithDetect = (key, MainHelper, DetectHelper, config) => {
-        const main = new MainHelper(this, config);
-        const detect = new DetectHelper(this, config);
-        this.helper.coupon[key] = main;
-        this.helper.coupon[key + "Detect"] = detect;
-        tasksMap[key] = [{ o: main, f: "run", p: null }];
-        tasksMap[key + "Detect"] = [{ o: detect, f: "run", p: null }];
-      };
+    /**
+     * @param {object} ext
+     * @constructor
+     */
+    $.FileHelper = function (ext) {
+        /**
+         * @param {*} root The root directory of the file, includes /
+         * @param {*} files [{"name":"file1", "ext":"txt"},{"name":"file2", "ext":"txt"}]
+         * @returns Returns a map distinguished by file name.
+         */
+        this.readContent = (root, files) => {
+            const normalizedRoot = root.endsWith("/") ? root : root + "/";
+            return new Promise((resolve, reject) => {
+                let loaded = 0;
+                const contents = {};
+                const total = files.length;
 
-      const addPlatform = (key, Helper, config) => {
-        const instance = new Helper(this, config);
-        this.helper.coupon[key] = instance;
-        tasksMap[key] = [{ o: instance, f: "run", p: null }];
-      };
-
-      // Those css files will be inserted into the page.
-      this.helper.styleHelper.addStylesheets(["page/base"]);
-      if (platform === platformConfigs.aliexpress.platformId) {
-        addPlatformWithDetect("aliexpress", $.AliexpressHelper, $.AliexpressDetectHelper, platformConfigs.aliexpress);
-      } else if (platform === platformConfigs.ebay.platformId) {
-        addPlatformWithDetect("ebay", $.EbayHelper, $.EbayDetectHelper, platformConfigs.ebay);
-      } else if (platform === platformConfigs.banggood.platformId) {
-        addPlatformWithDetect("banggood", $.BanggoodHelper, $.BanggoodDetectHelper, platformConfigs.banggood);
-      } else if (platform === platformConfigs.amazon.platformId) {
-        addPlatform("amazon", $.AmazonHelper, platformConfigs.amazon);
-      }
-
-      this.helper.coupon.couponInspectHelper.run();
-      this.helper.coupon.itemsRecord.run();
-      for (const key in tasksMap) {
-        tasksMap[key].forEach((task) => task.o[task.f](task.p));
-      }
+                files.forEach((file) => {
+                    const url = $.api.runtime.getURL(`${normalizedRoot}${file.name}.${file.ext}`);
+                    $.fetch(url)
+                        .then((res) => res.text())
+                        .then((data) => {
+                            contents[file.name] = data;
+                            loaded++;
+                            if (loaded >= total) {
+                                resolve(contents);
+                            }
+                        })
+                        .catch((err) => {
+                            reject(err);
+                        });
+                });
+            });
+        };
     };
 
-    const addMessageListener = () => {
-      $.api.runtime.onMessage.addListener((message) => {
-        if (message.action === $.opts.messageActions.toolbarIconClick) {
-          this.helper.coupon.couponInspectHelper.run(2);
+
+    /**
+     * @param {object} ext
+     * @constructor
+     */
+    $.I18nHelper = function (ext) {
+        let language = null;
+        let languageLabel = null;
+        let langVars = {};
+        let dir = null;
+
+        /**
+         * Initialises the language file
+         *
+         * @returns {Promise}
+         */
+        this.init = async () => {
+            const langvarsCall = async () => {
+                const bgLangvars = await ext.helper.dao.call("langvars");
+                if (bgLangvars && bgLangvars.language) {
+                    language = bgLangvars.language;
+                    languageLabel = bgLangvars.languageLabel;
+                    langVars = bgLangvars.vars;
+                    dir = bgLangvars.dir;
+                }
+            };
+
+            return new Promise(async (resolve) => {
+                await langvarsCall();
+
+                const retryDelay = 500;
+                const maxDelay = 4 * 1000;
+                let allDelay = 0;
+
+                if (!langVars || Object.keys(langVars).length === 0) {
+                    const interval = setInterval(async () => {
+                        await langvarsCall();
+                        if (langVars && Object.keys(langVars).length !== 0) {
+                            clearInterval(interval);
+                            resolve();
+                        }
+                        if (allDelay >= maxDelay) {
+                            clearInterval(interval);
+                            resolve();
+                        }
+                        allDelay += retryDelay;
+                    }, retryDelay);
+                } else {
+                    resolve();
+                }
+            });
+        };
+
+        /**
+         * Returns the language which is used for the language variables
+         *
+         * @returns {string}
+         */
+        this.getLanguage = () => {
+            return language;
+        };
+
+        this.getLanguageLabel = () => {
+            return languageLabel;
+        };
+
+        /**
+         * Returns whether the direction of the current language is right-to-left
+         *
+         * @returns {boolean}
+         */
+        this.isRtl = () => {
+            return dir === "rtl";
+        };
+
+        this.getDir = () => {
+            return dir;
+        };
+
+        /**
+         * Returns the UI language of the browser in the format "de_DE" or "de"
+         *
+         * @returns {string}
+         */
+        this.getUILanguage = () => {
+            try {
+                let ret = $.api.i18n.getUILanguage();
+                ret = ret.replace("-", "_");
+                return ret;
+            } catch (err) {}
+            return $.opts.manifest.default_locale;
+        };
+
+        /**
+         * Returns the default language of the extension
+         *
+         * @returns {string}
+         */
+        this.getDefaultLanguage = () => {
+            return $.opts.manifest.default_locale;
+        };
+
+        /**
+         * Sorts the Collator for comparing strings
+         *
+         * @returns {Intl.Collator}
+         */
+        this.getLocaleSortCollator = () => {
+            return new Intl.Collator([this.getUILanguage(), this.getDefaultLanguage()]);
+        };
+
+        /**
+         * Returns the given date in local specific format
+         *
+         * @param dateObj
+         * @returns {string}
+         */
+        this.getLocaleDate = (dateObj) => {
+            if (typeof dateObj === "number") {
+                dateObj = new Date(dateObj);
+            }
+            return dateObj.toLocaleDateString([this.getUILanguage(), this.getDefaultLanguage()], {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit"
+            });
+        };
+
+        this.parseHtml = (context) => {
+            $(context).find(`[${$.attr.i18n}]`).forEach((elm) => {
+                let msg = null;
+                const val = $(elm).attr($.attr.i18n);
+
+                if (val) {
+                    let replaces = [];
+                    const replacesRaw = $(elm).attr($.attr.i18nReplaces);
+                    if (replacesRaw) {
+                        replaces = replacesRaw.split(",");
+                    }
+                    msg = this.get(val, replaces);
+                }
+
+                if (msg) {
+                    $(elm).removeAttr($.attr.i18n);
+                    $(elm).removeAttr($.attr.i18nReplaces);
+                    $(elm).html(msg);
+                } else {
+                    $(elm).remove();
+                }
+            });
+        };
+
+        /**
+         * Returns the translated string matching the given message
+         *
+         * @param {string} msg
+         * @param {Array} replaces
+         * @param {boolean} encoded
+         * @returns {string}
+         */
+        this.get = (msg, replaces = [], encoded = false) => {
+            let ret = "";
+            const langVar = langVars[msg];
+
+            if (langVar && langVar.message) {
+                ret = langVar.message;
+                ret = ret.replace(/\{browserName\}/gi, $.browserName);
+
+                if (replaces && replaces.length > 0) {
+                    replaces.forEach((replace, i) => {
+                        ret = ret.replace(new RegExp(`\\{${i + 1}\\}`), replace);
+                    });
+                }
+
+                ret = ret.replace(/\[b\](.*)\[\/b\]/, "<strong>$1</strong>");
+                ret = ret.replace(/\[a\](.*)\[\/a\]/, "<a href='#'>$1</a>");
+                ret = ret.replace(/\[em\](.*)\[\/em\]/, "<em>$1</em>");
+            }
+
+            if (encoded) {
+                ret = ret.replace(/'/g, "&#x27;");
+            }
+            return ret;
+        };
+    };
+
+
+    /**
+     * @param {*} ext
+     */
+    $.LoggerHelper = function (ext) {
+        /**
+         * Format log messages
+         * @param {string} level - Log level (info/error)
+         * @param {string} className - Class name
+         * @param {string} methodName - Method name
+         * @param {...*} messages - Log messages
+         */
+        this.log = (level = "info", className, methodName, ...messages) => {
+            const prefix = `[${className || "Unknown"}][${methodName || "Unknown"}]: `;
+            const formattedMessages = messages.length > 0 && typeof messages[0] === "string" 
+                ? [prefix + messages[0], ...messages.slice(1)]
+                : [prefix, ...messages];
+            
+            const levelLower = level.toLowerCase();
+            if (levelLower === "info") {
+                console.info(...formattedMessages);
+            } else if (levelLower === "error") {
+                console.error(...formattedMessages);
+            } else {
+                console.log(...formattedMessages);
+            }
+        };
+    };
+
+
+    /**
+     * @param {*} ext
+     * @param {*} platformConfig
+     * @param {*} platformConfigs
+     */
+    $.RequestHelper = function (ext, platformConfig, platformConfigs) {
+        platformConfig = platformConfig || { platformId: "unsupported" };
+
+        const cacheRequestMap = {};
+        const baseUrl = $.opts.baseUrl;
+        const urls = {
+            exchangeInfo: { method: "GET", url: baseUrl + "/ext/deep/link" },
+            couponExistConf: { method: "GET", url: baseUrl + "/ext/conf/load" },
+            couponExist: { method: "GET", url: baseUrl + "/ext/c/e" },
+            couponQrCode: { method: "GET", url: baseUrl + "/ext/c/c" },
+            couponQuery: { method: "GET", url: baseUrl + "/ext/c/q" },
+            detectCtrl: { method: "POST", url: baseUrl + "/ext/client/ctrl" },
+            detectData: { method: "POST", url: baseUrl + "/ext/client/data" }
+        };
+
+        // -------------------------------------------------------------------------
+        // Private: base params & extra params
+        // -------------------------------------------------------------------------
+
+        const getBaseParams = async () => {
+            const eId = await ext.helper.dao.getEid();
+            const token = ext.helper.dao.getData($.opts.storageKeys.website.token, "");
+            const params = {
+                v: $.opts.apiVersion,
+                version: $.opts.apiVersion,
+                no: $.opts.number,
+                eId: eId || "",
+                token: token || ""
+            };
+            ext.logger("info", "RequestHelper", "getBaseParams", "BaseParams url:", params);
+            return params;
+        };
+
+        const addExtraParams = (params) => {
+            if (!params.hasOwnProperty("url")) {
+                params.url = encodeURIComponent(window.location.href);
+            }
+            return params;
+        };
+
+        /**
+         * Build merged params and final GET URL for coupon-style requests.
+         * @param {object} urlConfig - { method, url }
+         * @param {object} params - request params
+         * @param {string} logLabel - label for ext.logger
+         * @returns {{ finalUrl: string, method: string, params: object }}
+         */
+        const buildCouponGetRequest = async (urlConfig, params, logLabel) => {
+            const baseParams = await getBaseParams();
+            params = addExtraParams(params);
+            params = Object.assign({}, params, baseParams);
+
+            const queryString = Object.entries(params)
+                .map(([key, value]) => `${key}=${value}`)
+                .join("&");
+            const finalUrl = urlConfig.url + "?" + queryString;
+            ext.logger("info", "RequestHelper", "buildCouponGetRequest", logLabel, finalUrl);
+            
+            return { finalUrl, method: urlConfig.method, params };
+        };
+
+        /**
+         * Call dao.request and resolve with result or null (no JSON parse).
+         */
+        const callRequestResolveResult = (requestOpts) => {
+            return new Promise((resolve) => {
+                ext.helper.dao
+                    .call("request", requestOpts)
+                    .then((data) => {
+                        resolve(data.code === "success" && !!data.result ? data.result : null);
+                    })
+                    .catch(() => resolve(null));
+            });
+        };
+
+        /**
+         * Call dao.request and resolve with parsed JSON or null.
+         */
+        const callRequestResolveJson = (requestOpts) => {
+            return new Promise((resolve) => {
+                ext.helper.dao
+                    .call("request", requestOpts)
+                    .then((data) => {
+                        if (data.code === "success" && !!data.result) {
+                            resolve(JSON.parse(data.result));
+                        } else {
+                            resolve(null);
+                        }
+                    })
+                    .catch(() => resolve(null));
+            });
+        };
+
+        // -------------------------------------------------------------------------
+        // Public: XHR & cache
+        // -------------------------------------------------------------------------
+
+        this.requestAndSaveSate = function (method, url, param) {
+            return new Promise((resolve) => {
+                const key = "key_" + Date.now();
+                const xhr = new XMLHttpRequest();
+                cacheRequestMap[key] = xhr;
+
+                if (method === "GET") {
+                    let queryString = "";
+                    if (param) {
+                        queryString = "?" + new URLSearchParams(param).toString();
+                    }
+                    console.log("request get:", url + queryString);
+                    xhr.open(method, url + queryString);
+                    xhr.send();
+                } else if (method === "POST") {
+                    xhr.open(method, url);
+                    xhr.setRequestHeader("Content - Type", "application/json");
+                    xhr.send(JSON.stringify(param));
+                } else {
+                    resolve({ code: "error", requestKey: key, result: null });
+                    return;
+                }
+
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) return;
+                    const ok = xhr.status >= 200 && xhr.status < 300;
+                    try {
+                        resolve({
+                            code: ok ? "success" : "error",
+                            requestKey: key,
+                            result: ok ? xhr.responseText : null
+                        });
+                    } catch (e) {
+                        resolve({ code: "error", requestKey: key, result: null });
+                    }
+                };
+            });
+        };
+
+        this.removeRequest = function (requestKey) {
+            delete cacheRequestMap[requestKey];
+        };
+
+        this.abortAllRequests = function () {
+            Object.keys(cacheRequestMap).forEach((key) => {
+                cacheRequestMap[key].abort();
+                delete cacheRequestMap[key];
+            });
+        };
+
+        // -------------------------------------------------------------------------
+        // Public: Coupon query (details page)
+        // -------------------------------------------------------------------------
+
+        /**
+         * Coupon Inquiry on Details Page
+         */
+        this.getCouponQuery = async (params) => {
+            const { finalUrl, method, params: mergedParams } = await buildCouponGetRequest(
+                urls.couponQuery,
+                params,
+                "couponQuery url:"
+            );
+            return ext.helper.dao.call("request", {
+                url: finalUrl,
+                method,
+                params: mergedParams
+            });
+        };
+
+        /**
+         * Pull QR code on the details page
+         */
+        this.getCouponQrCode = async (params) => {
+            const { finalUrl, method, params: mergedParams } = await buildCouponGetRequest(
+                urls.couponQrCode,
+                params,
+                "couponQrCode url:"
+            );
+            return ext.helper.dao.call("request", {
+                url: finalUrl,
+                method,
+                params: mergedParams
+            });
+        };
+
+        /**
+         * Search interface query whether the coupon exists (cross-origin, high frequency).
+         * Ebay, Aliexpress
+         */
+        this.getCouponExist = async (params) => {
+            const { finalUrl, method } = await buildCouponGetRequest(
+                urls.couponExist,
+                params,
+                "getCouponExist url:"
+            );
+            return this.requestAndSaveSate(method, finalUrl, null);
+        };
+
+        /**
+         * Pull configuration file (coupon query).
+         */
+        this.requestCouponExistConf = function () {
+            const { method, url } = urls.couponExistConf;
+            return callRequestResolveResult({ url, method, params: null });
+        };
+
+        // -------------------------------------------------------------------------
+        // Public: Coupon exploration (detect)
+        // -------------------------------------------------------------------------
+
+        const getDynamicParams = async (platform) => {
+            let marketplace = "",
+                currency = "",
+                countryCode = "";
+            try {
+                if (platform === platformConfigs.aliexpress.platformId) {
+                    const aliexpress = ext.helper.coupon.aliexpress;
+                    marketplace = await aliexpress.getMarketplace();
+                    currency = await aliexpress.getCurrency();
+
+                } else {
+                    countryCode = ext.helper.util.getCommonMarketplace();
+                    marketplace = encodeURIComponent(
+                        JSON.stringify({ countryCode, className: "", html: "" })
+                    );
+                }
+            } catch (error) {
+                ext.logger("error", "RequestHelper", "getDynamicParams", "getDynamicParams===========>", error);
+            }
+            ext.logger("info", "RequestHelper", "getDynamicParams", "getDynamicParams===========>", platform, marketplace, currency);
+            return { marketplace, currency };
+        };
+
+        const getDetectDataParams = async () => {
+            const platform = platformConfig.platformId;
+            const { marketplace, currency } = await getDynamicParams(platform);
+            let lang = ext.helper.i18n.getLanguage();
+            if (lang === "default") {
+                lang = $.opts.manifest.default_locale;
+            }
+            const params = {
+                platform: platformConfig.platformId,
+                url: window.location.href,
+                lang,
+                marketplace,
+                currency
+            };
+            const baseParams = await getBaseParams();
+            return Object.assign({}, params, baseParams);
+        };
+
+        /**
+         * Configuration file for obtaining coupon list.
+         */
+        this.getDetectCtrlResult = async function () {
+            const params = await getDetectDataParams();
+            const { method, url } = urls.detectCtrl;
+            ext.logger("info", "RequestHelper", "getDetectCtrlResult", "detect info result params===========>", method, url, JSON.stringify(params));
+            return callRequestResolveJson({ url, method, params });
+        };
+
+        /**
+         * Get coupon list
+         */
+        this.getDetectDataResult = async function () {
+            const params = await getDetectDataParams();
+            const { method, url } = urls.detectData;
+            ext.logger("info", "RequestHelper", "getDetectDataResult", "detect coupon result params===========>", method, url, JSON.stringify(params));
+            return callRequestResolveJson({ url, method, params });
+        };
+
+        // -------------------------------------------------------------------------
+        // Public: Init (tokens, exchange info)
+        // -------------------------------------------------------------------------
+
+        this.getactivateEvent = async (ticket) =>{
+            const { method, url } = {url: baseUrl+ticket, method: "POST"};
+            const baseParams = await getBaseParams();
+            return callRequestResolveJson({ url, method, params: baseParams });
+        };
+
+        /**
+         * Get token, combine 2 steps together.
+         */
+        this.initRequestData = async () => {
+            try {
+                const now = Date.now();
+                let exchangeInfoLocal = ext.helper.dao.getData(
+                    $.opts.storageKeys.website.exchangeInfo,
+                    null
+                );
+                
+                ext.logger("info", "RequestHelper", "initRequestData", "local=====>", exchangeInfoLocal, $.opts.updateExchangeInfoDelay);
+                const needFetchConfig = !exchangeInfoLocal || (exchangeInfoLocal.time && now - exchangeInfoLocal.time > $.opts.updateExchangeInfoDelay);
+                if (needFetchConfig) {
+                    try {
+                        const { url, method } = urls.exchangeInfo;
+                        const exchangeInfoServer = await ext.helper.dao.call("request", {
+                            url,
+                            method,
+                            params: null
+                        });
+                        ext.logger("info", "RequestHelper", "initRequestData", "exchangeInfo====>", url, method);
+                        if (
+                            exchangeInfoServer.code === "success" &&
+                            !!exchangeInfoServer.result
+                        ) {
+                            const exchangeInfoJsonServer = JSON.parse(exchangeInfoServer.result);
+                            const { certificate, redirect } = exchangeInfoJsonServer;
+                            exchangeInfoLocal = {
+                                certificate,
+                                redirect,
+                                time: now
+                            };
+                            ext.logger("info", "RequestHelper", "initRequestData", "server update=====>", exchangeInfoLocal);
+                            await ext.helper.dao.setDataByKey(
+                                $.opts.storageKeys.website.exchangeInfo,
+                                exchangeInfoLocal
+                            );
+                        } else {
+                            ext.logger("error", "RequestHelper", "initRequestData", "exchangeInfo====>null");
+                        }
+                    } catch (error) {
+                        ext.logger("error", "RequestHelper", "initRequestData", "exchangeInfo====>error", error);
+                    }
+                }
+
+                if (!exchangeInfoLocal || !exchangeInfoLocal.certificate) {
+                    exchangeInfoLocal = ext.helper.dao.getDefaults().w.exchangeInfo;
+                }
+
+                try {
+                    const tokenData = await ext.helper.dao.call("request", {
+                        url: exchangeInfoLocal.certificate,
+                        method: "post",
+                        params: null
+                    });
+                    if (tokenData.code === "success" && !!tokenData.result) {
+                        const { token } = JSON.parse(tokenData.result);
+                        await ext.helper.dao.setDataByKey(
+                            $.opts.storageKeys.website.token,
+                            !!token ? encodeURIComponent(token) : ""
+                        );
+                        ext.logger("info", "RequestHelper", "initRequestData", "token====>", token);
+                    } else {
+                        ext.logger("info", "RequestHelper", "initRequestData", "Token====>null");
+                    }
+                } catch (error) {
+                    ext.logger("error", "RequestHelper", "initRequestData", "get token error====>", error);
+                }
+            } catch (error) {
+                ext.logger("error", "RequestHelper", "initRequestData", "get token error====>", error);
+            }
+        };
+    };
+
+
+    /**
+     * @param {object} ext
+     * @constructor
+     */
+    $.StyleHelper = function (ext) {
+        /**
+         * Get insert target (head or body when head is missing).
+         * @returns {jQuery}
+         */
+        const getInsertObj = () => {
+            const context = $(document);
+            return context.find("head").length() === 0
+                ? context.find("body")
+                : context.find("head");
+        };
+
+        /**
+         * Adds the stylesheets to the document.
+         * @param {Array<string>} files - CSS file names (without .css)
+         */
+        this.addStylesheets = (files) => {
+            return this.readCss(files, getInsertObj());
+        };
+
+        /**
+         * Adds inline style by content and optional name.
+         * @param {string} css - CSS text
+         * @param {string} [name] - Optional name for selector
+         * @param {jQuery} [head] - Optional insert target (default: getInsertObj())
+         */
+        this.addStylesheetsByContent = (css, name, head = null) => {
+            if (head == null) {
+                head = getInsertObj();
+            }
+            if(name){
+                name = name.replaceAll("/","-");
+            }
+            if ($.cl && $.cl.page && $.cl.page.style && $.attr && $.attr.name) {
+                const selector = "style." + $.cl.page.style + "[" + $.attr.name + "='" + name + "']";
+                head.find(selector).remove();
+                head.append(
+                    "<style class='" + $.cl.page.style + "' " + $.attr.name + "='" + name + "'>" + css + "</style>"
+                );
+            } else {
+                head.append("<style>" + css + "</style>");
+            }
+        };
+
+        /**
+         * Load CSS files and inject them into document.
+         * @param {Array<string>} files - CSS file names (without .css)
+         * @param {jQuery} [head] - Optional insert target
+         * @returns {Promise<void>}
+         */
+        this.readCss = (files, head = null) => {
+            return this.readCssContent(files)
+                .then((cssObj) => {
+                    for (const key in cssObj) {
+                        this.addStylesheetsByContent(cssObj[key], key, head);
+                    }
+                })
+                .catch(() => {});
+        };
+
+        /**
+         * Read CSS file contents by file names.
+         * @param {Array<string>} files - File names without .css
+         * @returns {Promise<Object<string, string>>} - Map of file name to CSS text
+         */
+        this.readCssContent = (files) => {
+            return new Promise((resolve) => {
+                let loaded = 0;
+                const text = {};
+                files.forEach((file) => {
+                    $.fetch($.api.runtime.getURL("css/" + file + ".css"))
+                        .then((res) => {
+                            res.text().then((data) => {
+                                text[file] = data;
+                                loaded++;
+                                if (loaded >= files.length) {
+                                    resolve(text);
+                                }
+                            });
+                        })
+                        .catch(() => {
+                            resolve(text);
+                        });
+                });
+            });
+        };
+    };
+
+
+    /**
+     * @param {*} ext
+     * Coupon-specific methods, such as automatic redirection, unique encryption methods, etc.
+     */
+    $.UtilHelper = function (ext) {
+        /**
+         * Add an immediate loop task
+         * @param callback
+         * @param delay
+         * @returns
+         */
+        this.loopTask = function (callback, delay = 1500) {
+            if (!callback) return;
+            callback();
+            setInterval(() => {
+                callback();
+            }, delay);
+        };
+
+        /**
+         * @param {*} date
+         * @param {*} format "dd/MM"
+         * @returns
+         */
+        this.dateFormat = function (date, format) {
+            const showDate = {
+                "M+": date.getMonth() + 1,
+                "d+": date.getDate(),
+                "h+": date.getHours(),
+                "m+": date.getMinutes(),
+                "s+": date.getSeconds(),
+                "q+": Math.floor((date.getMonth() + 3) / 3),
+                "S+": date.getMilliseconds()
+            };
+            if (/(y+)/i.test(format)) {
+                format = format.replace(RegExp.$1, (date.getFullYear() + "").substr(4 - RegExp.$1.length));
+            }
+            for (let k in showDate) {
+                if (new RegExp(`(${k})`).test(format)) {
+                    format = format.replace(RegExp.$1, RegExp.$1.length === 1
+                        ? showDate[k] : ("00" + showDate[k]).substr(("" + showDate[k]).length));
+                }
+            }
+            return format;
+        };
+
+        this.getSearchParameter = function (paramsString = window.location.href, tag) {
+            if (paramsString.indexOf("?") !== -1) {
+                paramsString = paramsString.split("?")[1];
+            }
+            const params = new URLSearchParams(paramsString);
+            return params.get(tag);
+        };
+
+        this.getGoodsIdByLink = function (url = window.location.href) {
+            if (url.indexOf("?") !== -1) {
+                url = url.split("?")[0];
+            }
+            if (url.indexOf("#") !== -1) {
+                url = url.split("#")[0];
+            }
+
+            const suffix = "html|htm|id|p";
+            let regex = new RegExp(`\\/([^\\/]*?)\\.(${suffix})`);
+            if (/lazada\./.test(url)) {
+                regex = new RegExp("-i(\\d+)(?:-s(\\d+))?\\.html");
+            } else if (/ebay\./.test(url)) {
+                regex = new RegExp("\\/itm\\/(\\d+)");
+            } else if (/banggood\./.test(url)) {
+                regex = new RegExp("-p-(\\d+)\\.html");
+            } else if (/amazon\./.test(url)) {
+                regex = new RegExp("\\/(?:dp|gp\\/product|gp\\/aw\\/d|gp\\/offer-listing)\\/([A-Za-z0-9]{8,15})");
+            }
+            const match = url.match(regex);
+            return match ? match[1] : null;
+        };
+
+        this.randomNumber = function () {
+            return Math.ceil(Math.random() * 100000000);
+        };
+
+        this.generateRandomString = function (length = 10) {
+            const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let result = "";
+            for (let i = 0; i < length; i++) {
+                result += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            return result;
+        };
+
+        this.distinguishRemoveAndTry = function (distinguish, callback) {
+            const distinguishElements = distinguish.map((name) => document.querySelector(`*[name='${name}']`));
+            const validateRs = distinguishElements.some((ele) => ele === null || ele === undefined);
+            if (validateRs) {
+                distinguishElements.reverse().forEach((element) => {
+                    if (element) {
+                        element.remove();
+                    }
+                });
+                callback();
+            }
+        };
+
+        this.getDomain = function (url) {
+            try {
+                const hostname = new URL(url).hostname;
+                const parts = hostname.split(".");
+                if (parts.length > 2) {
+                    return `${parts[parts.length - 2]}.${parts[parts.length - 1]}`;
+                }
+                return hostname;
+            } catch (error) {
+                return null;
+            }
+        };
+
+        this.getCommonMarketplace = function (url = window.location.href) {
+            try {
+                const domainParts = new URL(url).hostname.split(".");
+                const countryCode = domainParts[domainParts.length - 1];
+                return countryCode;
+            } catch (error) {}
+            return null;
+        };
+
+        this.decryptStr = function (str) {
+            if (!str) {
+                return str;
+            }
+            const result = atob(str);
+            return result.split("").reverse().join("");
+        };
+
+        this.encryptStr = function (str) {
+            if (!str) {
+                return str;
+            }
+            const result = str.split("").reverse().join("");
+            return btoa(result);
+        };
+
+        this.bindCustomEvent = function (element, callback = {}) {
+            if (!element) {
+                return;
+            }
+            element.addEventListener("click", () => {
+                try {
+                    const dataContent = element.getAttribute("data-content");
+                    const operate = element.getAttribute("name");
+                    const json = JSON.parse(dataContent);
+                    this.customOpenUrl(element, json, operate, callback);
+                } catch (e) {}
+            });
+        };
+
+        this.bindApplyCouponsEvent = function (button, callback = {}) {
+            if (!button) {
+                return;
+            }
+            button.addEventListener("click", () => {
+                const dataContent = button.getAttribute("data-content");
+                if (dataContent) {
+                    const dataContentJson = JSON.parse(dataContent)[0];
+                    if (dataContentJson.hasOwnProperty("codes")
+                        && dataContentJson.hasOwnProperty("platform")
+                        && dataContentJson.hasOwnProperty("check")) {
+                        callback(dataContentJson);
+                    }
+                }
+            });
+        };
+
+        this.customOpenUrl = function (element, json, operate = "clickToJump", callback = {}) {
+            const options = [];
+            for (let i = 0; i < json.length; i++) {
+                const item = json[i];
+                const option = {
+                    "affLink": this.decryptStr(item.affLink),
+                    "close": item.close,
+                    "pause": item.pause,
+                    "delay": item.delay,
+                    "target": item.target,
+                    "active": item.active,
+                    "position": item.position,
+                    "dismissAfter": item.dismissAfter,
+                    "callbackEvent": item.callbackEvent,
+                    "pinned": item.pinned
+                };
+                const code = item.code;
+                const msg = item.msg;
+                if (code) {
+                    this.setClipboard(this.decryptStr(code));
+                    if (element) {
+                        element.innerText = msg;
+                    }
+                }
+                options.push(option);
+                if (callback && typeof callback === "function") {
+                    callback(option);
+                }
+            }
+            // Analyze the data first, then agree to execute the jump mission.
+            options.sort((a, b) => (a.target === "_blank" ? -1 : b.target === "_blank" ? 1 : 0))
+                .forEach((option, index) => {
+                    setTimeout(() => {
+                        this.openUrl(option);
+                    }, index * 100); // Each delay index * 100ms
+                });
+        };
+
+        /**
+         * @param {Object} active  Whether it is active
+         * @param {Object} affLink The link to open
+         * @param {Object} close true: need to close the opened tab
+         * @param {Object} pause, delay close
+         * @param {Object} delay, delay opening
+         * @param {Object} position begin end after
+         * @param {Object} target  _self,_blank,_replace
+         * @param {Object} pinned true: fixed tab, only meaningful when target=_blank
+         * _blank uses the interface GM_openInTab provided by Tampermonkey, while others use window.location.replace or window.location.href.
+         */
+        this.openUrl = function (options) {
+            const { active, affLink, close, pause, delay, position, target, pinned } = options;
+            let realAffLink = affLink;
+            if (!realAffLink) {
+                return;
+            }
+            if (realAffLink.indexOf("http") === -1) {
+                realAffLink = this.decryptStr(affLink);
+            }
+            let extensionTabPosition = null;
+            if (position) {
+                if (position === "begin") {
+                    extensionTabPosition = "beforeFirst";
+                } else if (position === "end") {
+                    extensionTabPosition = "afterLast";
+                }
+            }
+
+            if (target === "_blank") {
+                setTimeout(() => {
+                    ext.helper.dao.call("openLink", {
+                        href: realAffLink,
+                        newTab: true,
+                        active: active,
+                        position: extensionTabPosition,
+                        pinned: (pinned === "true" || pinned === true)
+                    }).then((tabId) => {
+                        if (close && tabId) {
+                            setTimeout(() => {
+                                ext.helper.dao.call("closeLink", { id: tabId });
+                            }, pause);
+                        }
+                    });
+                }, delay);
+            } else if (target === "_self") {
+                setTimeout(() => {
+                    window.location.href = realAffLink;
+                }, delay);
+            } else if (target === "_replace") {
+                setTimeout(() => {
+                    window.location.replace(realAffLink);
+                }, delay);
+            }
+        };
+
+        this.openInTab = function (url) {
+            ext.helper.dao.call("openLink", {
+                href: url,
+                newTab: true,
+                active: true
+            }).then((tabId) => {});
+        };
+
+        this.setClipboard = function (text) {
+            return new Promise((resolve, reject) => {
+                navigator.clipboard.writeText(text).then(() => {
+                    resolve();
+                }).catch(() => {
+                    resolve();
+                });
+            });
+        };
+
+        this.removeAnchorsByNode = function (node) {
+            const tagName = node.tagName;
+            if (!tagName) return;
+
+            const exist = ["A", "IMG", "DIV", "SPAN", "LABEL", "TABLE", "TR", "TD", "CANVAS"].some((name) => name === tagName);
+            if (exist) {
+                node.removeAttribute("data-spm-anchor-id");
+                for (let i = 0; i < node.childNodes.length; i++) {
+                    this.removeAnchorsByNode(node.childNodes[i]);
+                }
+            }
+        };
+
+        this.getGoodsLinkByElement = function (element, findTag) {
+            let searchElement = null;
+            if (findTag === "this") {
+                searchElement = element;
+            } else if (/^child@/.test(findTag)) {
+                searchElement = element.querySelector(findTag.replace(/^child@/, ""));
+            }
+            return searchElement;
+        };
+
+        this.calcRequestGroup = function (array, itemsPerGroup = 20) {
+            const groups = [];
+            for (let i = 0; i < array.length; i += itemsPerGroup) {
+                groups.push(array.slice(i, i + itemsPerGroup));
+            }
+            return groups;
+        };
+
+        this.pickupGoodsItem = function (platform, confString) {
+            const visitHref = window.location.href;
+            const selectorElementList = [];
+            let confFilter = confString;
+            try {
+                confFilter = confFilter.replace(/\\\\/g, "\\");
+            } catch (e) {}
+
+            const confJson = JSON.parse(confFilter)[platform];
+            for (let i = 0; i < confJson.length; i++) {
+                const itemJson = confJson[i];
+                if (!itemJson.hasOwnProperty("elements") || !itemJson.hasOwnProperty("matches")) {
+                    continue;
+                }
+                const { elements, matches } = itemJson;
+                const isMatch = matches.map((reg) => (new RegExp(reg, "i")).test(visitHref)).some((res) => res);
+                if (isMatch) {
+                    for (let j = 0; j < elements.length; j++) {
+                        selectorElementList.push({
+                            "element": elements[j]["element"],
+                            "findA": elements[j]["findA"],
+                            "page": elements[j]["page"],
+                            "price": elements[j]["price"]
+                        });
+                    }
+                }
+            }
+            return selectorElementList;
+        };
+
+        this.getGoodsPriceByElement = function (element, tag) {
+            if (!element || !tag) {
+                return "";
+            }
+            const goodsPrice = element.querySelector(tag);
+            let price = (goodsPrice === null) ? "" : goodsPrice.innerText;
+            if (price) {
+                price = price.replace(/\s|,/g, "");
+            }
+            return price;
+        };
+
+        this.getGoodsPrice = function (content) {
+            content = content.replace(/,/g, "");
+            const amount = content.match(/(?:₱|\$|฿|₫|Rp|RM|￥)\n?\d+(?:(?:\.\d{1,3})*)?/);
+            let price = amount ? amount[0] : "";
+            if (price && price.indexOf("Rp") !== -1) {
+                price = price.replace(/\./g, "");
+            }
+            price = price.replace(/\n|,/g, "");
+            return price;
+        };
+
+        /**
+         * Generate random id
+         */
+        this.generatorPageIdentifier = (function () {
+            let counter = 0;
+            const seed = Math.floor(Math.random() * 1e6).toString(36);
+            return function getUUID() {
+                const prefix = Date.now().toString(36);
+                return `${seed}${prefix}${(counter++).toString(36)}`;
+            };
+        })();
+
+        this.addActivateCallbackEvent = function (outerDIV, option, configs) {
+            if (!outerDIV || !option) {
+                return;
+            }
+            if (!option.callbackEvent) {
+                return;
+            }
+            const { sevlet, max, period } = option.callbackEvent;
+            // const decrypLink = ext.helper.util.decryptStr(link);
+            let count = 0;
+            let isRequesting = false; // Is it being requested, and is the request an asynchronous request]
+
+            ext.logger("info", "UtilHelper", "addActivateCallbackEvent >>>callbackEvent", option);
+            const intervalId = setInterval(async () => {
+                if (count >= max) {
+                    clearInterval(intervalId);
+                    return;
+                }
+                count += period;
+                if (isRequesting) {
+                    return;
+                }
+                try {
+                    isRequesting = true;
+                    const loopJson = await ext.helper.request.getactivateEvent(sevlet);
+                    if (loopJson.hasOwnProperty("code") && loopJson.code === "ok") {
+                        clearInterval(intervalId);
+
+                        if (loopJson.hasOwnProperty("data") && loopJson.data) {
+                            const { replacement } = loopJson.data;
+                            for (let i = 0; i < replacement.length; i++) {
+                                const { style, html, on } = replacement[i];
+                                const config = configs[on];
+                                if(config){
+                                    const configElements = outerDIV.querySelectorAll(config);
+                                    configElements.forEach((configElement) => {
+                                        configElement.innerHTML = html;
+                                        // In modal and flyout, only update the HTML, not the styles.
+                                        // Use local styles directly.
+                                        if(on != "model" && on != "flyout"){
+                                            const handlerStyle = configElement.getAttribute("style") || "";
+                                            configElement.setAttribute("style", style + ";" + handlerStyle);
+                                        }else{
+                                            configElement.classList.add("disabled");
+                                        }
+                                    });
+                                }
+                            }
+                        }
+
+                    }
+                } catch (error) {
+                } finally {
+                    isRequesting = false;
+                }
+            }, period);
+        };
+
+        this.addImportant=function(cssText) {
+            const sheet = new CSSStyleSheet();
+            sheet.replaceSync(cssText);
+        
+            let result = '';
+            for (const rule of sheet.cssRules) {
+                if (rule instanceof CSSStyleRule) {
+                    const style = rule.style;
+                    for (let i = 0; i < style.length; i++) {
+                        const prop = style[i];
+                        style.setProperty(prop, style.getPropertyValue(prop), 'important');
+                    }
+                }
+                result += rule.cssText + '\n';
+            }
+            return result;
         }
-      });
-    };
-  };
 
-  new Extension().run();
+        this.randomUUID=function(){
+            return "a"+crypto.randomUUID().replace(/-/g, '');
+        };
+
+        this.fillTemplate = (template, placeholders = {}) => {
+            return template.replace(/#\{([^}]+)\}/g, (match, key) => {
+                return key in placeholders ? String(placeholders[key]) : match;
+            });
+        };
+
+        this.escapeHTML = function(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+          }
+    };
+
+
+    /**
+     * This JavaScript will only run on websites supported by
+     * `PlatformConfigsHelper` (platform configs) and `SubscribeHelper.websites`,
+     * and will not run on other websites.
+     */
+    const Extension = function () {
+
+        // ----------------------------------------
+        // Public API
+        // ----------------------------------------
+
+        /**
+         * For unsupported platforms, the icon is grayed out.
+         * 
+         * This method allows you to clearly see whether an extension is running on the website.
+         * @returns 
+         */
+        this.run = () => {
+            const { platformConfig, platformConfigs } = (new $.PlatformConfigsHelper()).getConfigForUrl(window.location.href);
+            if (!platformConfig) {
+                return;
+            }
+            this.sendBackgroundMessage($.opts.messageActions.iconAvailable, {});
+
+            initHelpers(platformConfig, platformConfigs);
+            init(platformConfig, platformConfigs);
+            addMessageListener();
+        };
+
+        this.sendBackgroundMessage = (action, value) => {
+            $.api.runtime.sendMessage({ action, value });
+        };
+
+        this.logger = (level = "info", ...messages) => {
+            if ($.isDev) this.helper.logger.log(level, ...messages);
+        };
+
+        // ----------------------------------------
+        // Private: Helpers setup
+        // ----------------------------------------
+
+        const initHelpers = (platformConfig, platformConfigs) => {
+            this.helper = {
+                dao: new $.DaoHelper(this),
+                i18n: new $.I18nHelper(this),
+                cacheContainers: new $.DataStoreHelper(),
+                toast: new $.ToastHelper(),
+                logger: new $.LoggerHelper(this),
+                styleHelper: new $.StyleHelper(this),
+                file: new $.FileHelper(this),
+                util: new $.UtilHelper(this),
+                elementUtil: new $.ElementUtilHelper(this),
+                request: new $.RequestHelper(this, platformConfig, platformConfigs),
+                featureToggle: new $.FeatureToggleHelper(this, platformConfig),
+                coupon: {
+                    couponInspectHelper: new $.CouponInspectHelper(this, platformConfig, platformConfigs),
+                    historyRecordControl: new $.HistoryRecordControl(this, platformConfig),
+                    itemsHistory: new $.ItemsHistoryHelper(this, platformConfig),
+                    itemsRecord: new $.ItemsRecordHelper(this, platformConfig)
+                }
+            };
+        };
+
+        const init = (platformConfig, platformConfigs) => {
+            if ($.browserName === "safari") {
+                this.sendBackgroundMessage($.opts.messageActions.updateToolbar, {
+                    text: "",
+                    toolbarIconFlash: false
+                });
+            }
+            this.helper.dao.init().then(() => Promise.all([
+                    this.helper.i18n.init(),
+                    this.helper.request.initRequestData()
+                ]))
+                .then(() => {
+                    $.onPageLoad(() => {
+                        runPlatformAndTasks(platformConfig, platformConfigs);
+                    });
+                });
+        };
+
+        const runPlatformAndTasks = (platformConfig, platformConfigs) => {
+            const platform = platformConfig.platformId;
+            const tasksMap = {};
+            
+            const addPlatformWithDetect = (key, MainHelper, DetectHelper, config) => {
+                const main = new MainHelper(this, config);
+                const detect = new DetectHelper(this, config);
+                this.helper.coupon[key] = main;
+                this.helper.coupon[key + "Detect"] = detect;
+                tasksMap[key] = [{ o: main, f: "run", p: null }];
+                tasksMap[key + "Detect"] = [{ o: detect, f: "run", p: null }];
+            };
+
+            const addPlatform = (key, Helper, config) => {
+                const instance = new Helper(this, config);
+                this.helper.coupon[key] = instance;
+                tasksMap[key] = [{ o: instance, f: "run", p: null }];
+            };
+
+            // Those css files will be inserted into the page.
+            this.helper.styleHelper.addStylesheets(["page/base"]);
+            if (platform === platformConfigs.aliexpress.platformId) {
+                addPlatformWithDetect("aliexpress", $.AliexpressHelper, $.AliexpressDetectHelper, platformConfigs.aliexpress);
+            } else if (platform === platformConfigs.ebay.platformId) {
+                addPlatformWithDetect("ebay", $.EbayHelper, $.EbayDetectHelper, platformConfigs.ebay);
+            } else if (platform === platformConfigs.banggood.platformId) {
+                addPlatformWithDetect("banggood", $.BanggoodHelper, $.BanggoodDetectHelper, platformConfigs.banggood);
+            } else if (platform === platformConfigs.amazon.platformId) {
+                addPlatform("amazon", $.AmazonHelper, platformConfigs.amazon);
+            } 
+
+            this.helper.coupon.couponInspectHelper.run();
+            this.helper.coupon.itemsRecord.run();
+            for (const key in tasksMap) {
+                tasksMap[key].forEach((task) => task.o[task.f](task.p));
+            }
+        };
+
+        const addMessageListener = () => {
+            $.api.runtime.onMessage.addListener((message) => {
+                if (message.action === $.opts.messageActions.toolbarIconClick) {
+                    this.helper.coupon.couponInspectHelper.run(2);
+                }
+            });
+        };
+    };
+
+    new Extension().run();
 })(jsu);

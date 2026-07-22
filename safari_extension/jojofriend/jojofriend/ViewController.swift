@@ -15,6 +15,9 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
 
     @IBOutlet var webView: WKWebView!
 
+    private let contentSizeDisabled = NSSize(width: 400, height: 478)
+    private let contentSizeEnabled = NSSize(width: 400, height: 368)
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -28,7 +31,6 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: extensionBundleIdentifier) { (state, error) in
             guard let state = state, error == nil else {
-                // Insert code to inform the user that something went wrong.
                 return
             }
 
@@ -38,6 +40,7 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
                 } else {
                     webView.evaluateJavaScript("show(\(state.isEnabled), false)")
                 }
+                self.resizeWindow(enabled: state.isEnabled)
             }
         }
     }
@@ -52,6 +55,21 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
                 NSApplication.shared.terminate(nil)
             }
         }
+    }
+
+    private func resizeWindow(enabled: Bool) {
+        guard let window = view.window else { return }
+
+        let contentSize = enabled ? contentSizeEnabled : contentSizeDisabled
+        let contentRect = NSRect(origin: .zero, size: contentSize)
+        let targetFrame = window.frameRect(forContentRect: contentRect)
+        let currentFrame = window.frame
+        let newOrigin = NSPoint(
+            x: currentFrame.origin.x,
+            y: currentFrame.origin.y + currentFrame.size.height - targetFrame.size.height
+        )
+
+        window.setFrame(NSRect(origin: newOrigin, size: targetFrame.size), display: true, animate: false)
     }
 
 }
