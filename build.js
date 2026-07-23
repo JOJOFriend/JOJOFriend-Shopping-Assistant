@@ -7,7 +7,7 @@
 
     global.modulePath = __dirname + "/node_modules/";
 	
-	const release = false;
+	const release = true;
 	const platform = "safari";   //chrome firefox safari
     
     try {

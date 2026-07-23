@@ -17,15 +17,16 @@ def resize_image(input_image_path, output_dir):
 
 
 def convert_to_grayscale(input_image_path, output_image_path):
-    img = Image.open(input_image_path)
-    img_gray = img.convert("L")
-
-    enhancer = ImageEnhance.Contrast(img_gray)
-    img_gray = enhancer.enhance(1.5)
-
-    img_gray = img_gray.filter(ImageFilter.SHARPEN)
-    img_gray.save(output_image_path)
-
+    img = Image.open(input_image_path).convert("RGBA")
+    r, g, b, a = img.split()
+    rgb_img = Image.merge("RGB", (r, g, b))
+    gray = rgb_img.convert("L")
+    enhancer = ImageEnhance.Contrast(gray)
+    gray = enhancer.enhance(1.5)
+    gray = gray.filter(ImageFilter.SHARPEN)
+    gray_rgb = Image.merge("RGB", (gray, gray, gray))
+    result = Image.merge("RGBA", (*gray_rgb.split(), a))
+    result.save(output_image_path)
 
 def generate_images(input_image_path, output_dir, base_size=512, scales=[1.0, 0.9, 0.8, 0.7, 0.8, 0.9, 1.0]):
     img = Image.open(input_image_path)
@@ -57,7 +58,7 @@ def breathing_scales(frames=10, amplitude=0.15):
 
 if __name__ == "__main__":
     FILENAME = "icon512.png"
-    ROOT = "../images/icon"
+    ROOT = "/Users/zhangps/softwaredevelopment/script/github/JOJOFriend-Shopping-Assistant/src/images/icon"
     BASE_PIC = f"{ROOT}/default"
     BASE_UNAVAILABLE_PIC = f"{ROOT}/unavailable"
     BASE_EFFECT_PIC = f"{ROOT}/effect"

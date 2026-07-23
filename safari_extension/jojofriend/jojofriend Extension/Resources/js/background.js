@@ -1,1558 +1,1558 @@
-if (!self.window) { // required for jsu
-    self.window = self;
+if (!self.window) {// required for jsu
+  self.window = self;
 }
 if (!self.document) {
-    self.document = {};
+  self.document = {};
 }
 /**
  * jsu - Javascript Utilities
  */
 (() => {
-    "use strict";
+  "use strict";
 
-    if (window.jsu) { // already initialized
-        return false;
-    }
+  if (window.jsu) {// already initialized
+    return false;
+  }
 
-    const runningFetch=[];
-    const d = document;
-    const eventHandlerMap = new WeakMap();
-    const dataMap = new WeakMap();
-    const nodes = Symbol();
+  const runningFetch = [];
+  const d = document;
+  const eventHandlerMap = new WeakMap();
+  const dataMap = new WeakMap();
+  const nodes = Symbol();
+
+  /**
+   * jsuTools
+   */
+  const jsuTools = {
+    /**
+     * Promise for a delay of the given duration
+     *
+     * @param {int} t
+     * @returns {Promise}
+     */
+    delay: (t = 0) => {
+      return new Promise((resolve) => {
+        setTimeout(resolve, t);
+      });
+    },
 
     /**
-     * jsuTools
+     * Returns the basic system information
+     * - OS without version
+     * - Browser + version
+     * @returns {{os: string, browser: string}}
      */
-    const jsuTools = {
-        /**
-         * Promise for a delay of the given duration
-         *
-         * @param {int} t
-         * @returns {Promise}
-         */
-        delay: (t = 0) => {
-            return new Promise((resolve) => {
-                setTimeout(resolve, t);
-            });
-        },
-
-        /**
-         * Returns the basic system information
-         * - OS without version
-         * - Browser + version
-         * @returns {{os: string, browser: string}}
-         */
-        ua: () => {
-            let os = "Other";
-            let browser = "Other";
-
-            try {
-                os = navigator.userAgentData.platform;
-            } catch (e) {
-                //
-            }
-
-            try {
-                let list = navigator.userAgentData.brands.filter(b => {
-                    return !/^[^a-z]*NOT[^a-z]/i.test(b.brand);
-                });
-                list = list.filter(b => { // ignore Chromium if there is at least one other option to pick from
-                    return b.brand.toUpperCase() !== "CHROMIUM" || list.length === 1;
-                });
-
-                if (list.length > 0) {
-                    browser = list[0].brand + " " + (list[0].version || "");
-                }
-            } catch (e) {
-                //
-            }
-
-            return {
-                os: os.trim(),
-                browser: browser.trim()
-            };
-        },
-
-        fetch: (url, opts = {}, timeout=null) => {
-        	
-        	if(JSON.stringify(opts) === '{}') {opts['method']="post"};
-        	
-        	const controller = new AbortController();
-        	let signal = controller.signal;
-        	
-        	//promise
-        	const promise = new Promise((resolve, reject)=>{
-        		fetch(url, { signal:signal, ...opts }).then((response)=>{
-	        		if (response.status < 400) {
-	      				resolve(response);
-	      			}else{
-                        reject(response);//Refuse, enter catch, catch returns error to upper layer
-                    }
-	        	})
-	        	.catch(e=>{
-	      			runningFetch.push({url: url});//Preparing to abort.
-	      			reject(null);
-	      		});
-        	});
-
-        	let out = null;
-        	if(timeout!=null){
-        		if (signal){
-                    signal.addEventListener("abort", () => controller.abort());
-                }
-        		out = setTimeout(() => controller.abort(), timeout);
-        	}
-        	return promise.finally(() => {if(out!=null) {clearTimeout(out)} });
-        },
-
-
-        /**
-         * Cancels all FetchRequests or only the ones with the given url
-         *
-         * @param {string} url
-         */
-        cancelFetch: (url = null) => {
-            runningFetch.forEach((obj) => {
-                if (url === null || obj.url === url) {
-                    const controller = new AbortController();
-                    controller.abort();
-                    obj = null;
-                }
-            });
-        },
-
-        onPageLoad:(callback)=>{
-            if (document.readyState !== "loading"){
-                callback();
-            } else {
-                document.addEventListener("DOMContentLoaded", callback, { once:true });
-            }
-        },
-
-        /**
-         * @param {*} selector 
-         * @param {*} param1 
-         * @returns 
-         * const controller = new AbortController();
-         * jsuTools.waitForSelector(".my-class", {timeout: 5000, signal: controller.signal})
-         */
-        waitForSelector:(selector, {
-            target = document.body,
-            allowEmpty = true,
-            timeout = 10000,
-            signal
-        } = {})=>{
-            return new Promise((resolve, reject) => {
-                if (!target) return resolve(null);
-
-                const check = () => {
-                    const el = target.querySelector(selector);
-                    if (!el) return null;
-                    if (!allowEmpty && !el.innerHTML) return null;
-                    return el;
-                };
-
-                // immediate check
-                const found = check();
-                if (found){
-                    return resolve(found);
-                }
-
-                // timeout check
-                const timer = setTimeout(() => {
-                    observer.disconnect();
-                    resolve(null);
-                }, timeout);
-
-                // cancel support
-                if (signal) {
-                    signal.addEventListener("abort", () => {
-                        clearTimeout(timer);
-                        observer.disconnect();
-                        reject(new Error("Aborted"));
-                    });
-                }
-
-                const observer = new MutationObserver(() => {
-                    const el = check();
-                    if (el) {
-                        clearTimeout(timer);
-                        observer.disconnect();
-                        resolve(el);
-                    }
-                });
-                observer.observe(target, {
-                    childList: true,
-                    subtree: true
-                });
-            });
-        },
-
-        /**
-         * Resolve one element from handler string (e.g. "selector1@selector2@body").
-         * Uses Promise.race; retries every 2s if none found.
-         * @param {string} handler - Selectors or "body"/"html" joined by "@"
-         * @returns {Promise<Element|null>}
-         */
-        forceGetElement: async function (handler) {
-            const self = this;
-            const getElements = async (h) => {
-                const names = h.split("@").filter((s) => s.length);
-                const promises = names.map((eleName) => {
-                    if (eleName === "body") return Promise.resolve(document.body);
-                    if (eleName === "html") return Promise.resolve(document.documentElement);
-                    return self.waitForSelector(eleName, {
-                        target: document.body,
-                        allowEmpty: true,
-                        timeout: 1500
-                    });
-                });
-                return promises.length ? Promise.race(promises) : null;
-            };
-
-            let element = await getElements(handler);
-            if (element) return element;
-
-            return new Promise((resolve) => {
-                const waitInterval = setInterval(async () => {
-                    const el = await getElements(handler);
-                    if (el) {
-                        clearInterval(waitInterval);
-                        resolve(el);
-                    }
-                }, 2000);
-            });
-        }
-    };
-
-
-    /**
-     * jsuNode
-     */
-    class jsuNode {
-
-        /**
-         * Constructor
-         *
-         * @param param
-         * @param asSelector
-         */
-        constructor(param, asSelector = true) {
-            let s = param;
-
-            if (typeof param === "string" && (asSelector === false || param.indexOf("<") > -1)) {
-                const div = d.createElement("div");
-                div.innerHTML = param;
-                s = div.childNodes;
-            }
-
-            this._fillNodeList(s);
-        }
-
-        static _isDefined(v) {
-            return typeof v !== "undefined" && v !== null;
-        }
-
-        static _forEach(list, callback, reverse = false) {
-            const listLength = list.length;
-
-            if (reverse) {
-                for (let i = listLength - 1; i >= 0; i--) {
-                    if (jsuNode._isDefined(list[i].forEach)) {
-                        jsuNode._forEach(list[i], callback, reverse);
-                    } else if (callback(list[i], i) === false) {
-                        break;
-                    }
-                }
-            } else {
-                for (let i = 0; i < listLength; i++) {
-                    if (jsuNode._isDefined(list[i].forEach)) {
-                        jsuNode._forEach(list[i], callback, reverse);
-                    } else if (callback(list[i], i) === false) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        /**
-         *
-         * @param s
-         */
-        _fillNodeList(s) {
-            if (!jsuNode._isDefined(s)) {
-                this[nodes] = [];
-            } else if (s instanceof jsuNode) {
-                this[nodes] = s.get();
-            } else if (typeof s === "string") {
-                this[nodes] = d.querySelectorAll(s);
-            } else if (s instanceof Node || s instanceof HTMLDocument || s instanceof Window) {
-                this[nodes] = [s];
-            } else if (s instanceof NodeList || s instanceof HTMLCollection) {
-                this[nodes] = s;
-            } else if (typeof s === "object") {
-                this[nodes] = [];
-
-                if (!jsuNode._isDefined(s.forEach)) {
-                    s = [s];
-                }
-
-                s.forEach((entry) => {
-                    if (entry !== null) {
-                        const eachCallback = (node) => {
-                            if (this[nodes].indexOf(node) === -1) {
-                                this[nodes].push(node);
-                            }
-                        };
-
-                        if (entry instanceof jsuNode) {
-                            entry.forEach(eachCallback);
-                        } else if (Array.isArray(entry) || entry instanceof NodeList || entry instanceof HTMLCollection || /^\[object (HTMLCollection|NodeList|Object)\]$/.test(entry.toString())) {
-                            jsuNode._forEach(entry, eachCallback);
-                        } else {
-                            this[nodes].push(entry);
-                        }
-                    }
-                });
-
-            } else {
-                throw new DOMException("invalid parameter for jsu");
-            }
-
-            this.forEach((node, idx) => {
-                this[idx] = node;
-            });
-        }
-
-
-        /**
-         * [ ForEach ]
-         *
-         * @param callback
-         * @param reverse
-         * @returns {jsuNode}
-         */
-        forEach(callback, reverse = false) {
-            jsuNode._forEach(this[nodes], callback, reverse);
-            return this;
-        }
-
-
-        /**
-         * [ Css ]
-         *
-         * @param opts
-         * @param val
-         * @returns {*|jsuNode}
-         */
-        css(opts, val) {
-            let isSetter = false;
-            const hasOpts = jsuNode._isDefined(opts);
-            const hasVal = jsuNode._isDefined(val);
-            const ret = [];
-
-            this.forEach((node) => {
-                if (hasOpts && hasVal && typeof opts === "string") { // set
-                    node.style[opts] = val;
-                    isSetter = true;
-                } else if (hasOpts) {
-                    if (typeof opts === "string") { // get specific
-                        ret.push(window.getComputedStyle(node)[opts]);
-                    } else if (typeof opts === "object") { // set by object
-                        isSetter = true;
-                        Object.keys(opts).forEach((key) => {
-                            if (typeof key === "string") {
-                                node.style[key] = opts[key];
-                            }
-                        });
-                    }
-                }
-            });
-
-            if (isSetter) {
-                return this;
-            } else {
-                return this[nodes].length > 1 ? ret : ret[0];
-            }
-        }
-
-
-        /**
-         * [ Attr ]
-         *
-         * @param opts
-         * @param val
-         * @returns {*|jsuNode}
-         */
-        attr(opts, val) {
-            let isSetter = false;
-            const hasOpts = jsuNode._isDefined(opts);
-            const hasVal = jsuNode._isDefined(val);
-            const ret = [];
-
-            this.forEach((node) => {
-                const setAttr = (key, val) => {
-                    isSetter = true;
-                    if (jsuNode._isDefined(node[key])) {
-                        node[key] = val;
-                    } else {
-                        node.setAttribute(key, val);
-                    }
-                };
-
-                const getAttr = (key) => {
-                    return jsuNode._isDefined(node[key]) ? node[key] : node.getAttribute(key);
-                };
-
-
-                if (hasOpts && hasVal && typeof opts === "string") { // set
-                    setAttr(opts, val);
-                } else if (hasOpts) {
-                    if (typeof opts === "string") { // get specific
-                        ret.push(getAttr(opts));
-                    } else if (typeof opts === "object") { // set by object
-                        Object.keys(opts).forEach((key) => {
-                            if (typeof key === "string") {
-                                setAttr(key, opts[key]);
-                            }
-                        });
-                    }
-                }
-            });
-
-            if (isSetter) {
-                return this;
-            } else {
-                return this[nodes].length > 1 ? ret : ret[0];
-            }
-        }
-
-
-        /**
-         * [ RemoveAttr ]
-         *
-         * @param key
-         * @returns {jsuNode}
-         */
-        removeAttr(key) {
-            this.forEach((node) => {
-                node.removeAttribute(key);
-            });
-
-            return this;
-        }
-
-
-        /**
-         *
-         * @param elm
-         * @param info
-         */
-        static _addEventListener(elm, info) {
-            let eventHandlerList = eventHandlerMap.get(elm);
-
-            if (!jsuNode._isDefined(eventHandlerList)) {
-                eventHandlerList = {};
-                eventHandlerMap.set(elm, eventHandlerList);
-            }
-
-            if (!eventHandlerList[info.event]) {
-                eventHandlerList[info.event] = [];
-            }
-
-            eventHandlerList[info.event].push({
-                fn: info.fn,
-                name: info.name || (info.event + "_" + (+new Date()) + Math.random().toString(36).substring(2, 14)),
-                opts: info.opts,
-                wantsUntrusted: info.wantsUntrusted
-            });
-
-            elm.addEventListener(info.event, info.fn, info.opts, info.wantsUntrusted);
-        }
-
-
-        /**
-         *
-         * @param elm
-         * @param newElm
-         */
-        static _cloneEventListener(elm, newElm) {
-            const eventHandlerList = eventHandlerMap.get(elm);
-
-            if (jsuNode._isDefined(eventHandlerList)) {
-                Object.keys(eventHandlerList).forEach((eventType) => {
-                    eventHandlerList[eventType].forEach((event) => {
-                        jsuNode._addEventListener(newElm, {
-                            event: eventType,
-                            fn: event.fn,
-                            opts: event.opts,
-                            wantsUntrusted: event.wantsUntrusted
-                        });
-                    });
-                });
-            }
-
-            if (newElm.children) {
-                jsuNode._forEach(newElm.children, (node, idx) => {
-                    jsuNode._cloneEventListener(elm.children[idx], node);
-                });
-            }
-        }
-
-
-        /**
-         *
-         * @param elm
-         * @param key
-         * @param val
-         */
-        static _addData(elm, key, val) {
-            let dataList = dataMap.get(elm);
-
-            if (!jsuNode._isDefined(dataList)) {
-                dataList = {};
-                dataMap.set(elm, dataList);
-            }
-
-            dataList[key] = val;
-        }
-
-
-        /**
-         *
-         * @param elm
-         * @param newElm
-         */
-        static _cloneData(elm, newElm) {
-            const dataList = dataMap.get(elm);
-
-            if (jsuNode._isDefined(dataList)) {
-                Object.keys(dataList).forEach((k) => {
-                    jsuNode._addData(newElm, k, dataList[k]);
-                });
-            }
-
-            if (newElm.children) {
-                jsuNode._forEach(newElm.children, (node, idx) => {
-                    jsuNode._cloneData(elm.children[idx], node);
-                });
-            }
-        }
-
-
-        /**
-         *
-         * @param elmObj
-         * @returns {jsuNode}
-         */
-        static _cloneElement(elmObj) {
-            const clonedList = [];
-
-            elmObj.forEach((elm) => {
-                const clonedElm = elm.cloneNode(true);
-                jsuNode._cloneEventListener(elm, clonedElm);
-                jsuNode._cloneData(elm, clonedElm);
-                clonedList.push(clonedElm);
-            });
-
-            return new jsuNode(clonedList);
-        }
-
-
-        /**
-         * [ Clone ]
-         *
-         * @returns {jsuNode}
-         */
-        clone() {
-            return jsuNode._cloneElement(this);
-        }
-
-
-        /**
-         * [ Data ]
-         *
-         * @param key
-         * @param val
-         * @returns {*|jsuNode}
-         */
-        data(key, val) {
-            let isSetter = false;
-            const hasKey = jsuNode._isDefined(key);
-            const hasVal = jsuNode._isDefined(val);
-            const ret = [];
-
-            this.forEach((node) => {
-                const elmDataList = dataMap.get(node);
-                const hasData = jsuNode._isDefined(elmDataList);
-
-                if (hasKey && hasVal) { // set
-                    isSetter = true;
-                    jsuNode._addData(node, key, val);
-                } else if (hasKey) {
-                    if (typeof key === "string") { // get specific
-                        ret.push(hasData ? elmDataList[key] : undefined);
-
-                    } else if (typeof key === "object") { // set by object
-                        isSetter = true;
-                        Object.keys(key).forEach((k) => {
-                            if (typeof k === "string") {
-                                jsuNode._addData(node, k, key[k]);
-                            }
-                        });
-                    }
-                } else { // get all
-                    ret.push(hasData ? elmDataList : {});
-                }
-            });
-
-            if (isSetter) {
-                return this;
-            } else {
-                return this[nodes].length > 1 ? ret : ret[0];
-            }
-        }
-
-
-        /**
-         * [ RemoveData ]
-         *
-         * @param key
-         * @returns {jsuNode}
-         */
-        removeData(key) {
-            const removeAll = !jsuNode._isDefined(key);
-
-            this.forEach((node) => {
-                const elmDataList = dataMap.get(node);
-
-                if (jsuNode._isDefined(elmDataList)) {
-                    if (removeAll) { // remove all
-                        dataMap["delete"](node);
-                    } else if (jsuNode._isDefined(elmDataList[key])) { // remove specific
-                        delete elmDataList[key];
-                    }
-                }
-            });
-
-            return this;
-        }
-
-
-        /**
-         * [ On ]
-         *
-         * @param eventStr
-         * @param callbackOrElm
-         * @param callbackOrOpts
-         * @param optsOrWantsUntrusted
-         * @param wantsUntrusted
-         * @returns {jsuNode}
-         */
-        on(eventStr, callbackOrElm, callbackOrOpts, optsOrWantsUntrusted, wantsUntrusted) {
-            const updateEventObject = (e, overrideObj) => {
-                Object.keys(overrideObj).forEach((key) => {
-                    try {
-                        Object.defineProperty(e, key, {
-                            value: overrideObj[key]
-                        });
-                    } catch (ex) {
-                        //
-                    }
-                });
-            };
-
-            let opts = callbackOrOpts;
-
-            if (typeof callbackOrOpts === "function") {
-                opts = optsOrWantsUntrusted;
-            } else {
-                wantsUntrusted = optsOrWantsUntrusted;
-            }
-
-            if (typeof opts === "undefined") {
-                opts = null;
-            }
-
-            if (typeof wantsUntrusted === "undefined") {
-                wantsUntrusted = null;
-            }
-
-            const eventDelegation = typeof callbackOrElm === "string";
-
-            this.forEach((node) => {
-                const events = eventStr.split(/\s+/g);
-                events.forEach((event) => {
-                    const eventInfo = event.split(/\./);
-
-                    const fn = (e) => {
-                        updateEventObject(e, {type: eventInfo[0]});
-
-                        if (eventDelegation) { // event delegation
-                            const opts = {
-                                preventDefault: () => {
-                                    e.preventDefault();
-                                },
-                                stopPropagation: () => {
-                                    e.stopPropagation();
-                                }
-                            };
-
-                            jsuNode._forEach(node.querySelectorAll(":scope " + callbackOrElm), (element) => {
-                                let el = e.target;
-                                while (el && el !== node) {
-                                    if (el === element) {
-                                        const clonedEventObj = eventInfo[0].startsWith("key") ? new KeyboardEvent(eventInfo[0], e) : new MouseEvent(eventInfo[0], e);
-                                        updateEventObject(clonedEventObj, {
-                                            preventDefault: opts.preventDefault,
-                                            stopPropagation: opts.stopPropagation,
-                                            currentTarget: el,
-                                            target: e.target
-                                        });
-                                        callbackOrOpts(clonedEventObj);
-                                    }
-                                    el = el.parentNode;
-                                }
-                            });
-                        } else if (typeof callbackOrElm === "function") { // normal eventListener
-                            callbackOrElm(e);
-                        }
-                    };
-
-                    jsuNode._addEventListener(node, {
-                        event: eventInfo[0],
-                        name: eventInfo[1],
-                        fn: fn,
-                        opts: opts,
-                        wantsUntrusted: wantsUntrusted
-                    });
-                });
-            }, true);
-
-            return this;
-        }
-
-
-        /**
-         * [ Off ]
-         *
-         * @param eventStr
-         * @returns {jsuNode}
-         */
-        off(eventStr) {
-            this.forEach((node) => {
-                const eventHandlerList = eventHandlerMap.get(node);
-
-                if (jsuNode._isDefined(eventHandlerList)) {
-                    const events = eventStr.split(/\s+/g);
-                    events.forEach((event) => {
-                        const eventInfo = event.split(/\./);
-
-                        if (eventInfo[0] === "*") { // remove all eventlisteners
-                            Object.entries(eventHandlerList).forEach(([eventName, entries]) => {
-                                jsuNode._forEach(entries, (info, idx) => {
-                                    if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
-                                        node.removeEventListener(eventName, info.fn);
-                                        eventHandlerList[eventName].splice(idx, 1);
-                                    }
-                                }, true);
-                            });
-                        } else if (eventHandlerList[eventInfo[0]]) { // remove specific eventlisteners (e.g. click, mouseover, ...)
-                            jsuNode._forEach(eventHandlerList[eventInfo[0]], (info, idx) => {
-                                if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
-                                    node.removeEventListener(eventInfo[0], info.fn);
-                                    eventHandlerList[eventInfo[0]].splice(idx, 1);
-                                }
-                            }, true);
-                        }
-                    });
-                }
-            });
-
-            return this;
-        }
-
-
-        /**
-         * [ Trigger ]
-         *
-         * @param eventStr
-         * @param opts
-         * @returns {jsuNode}
-         */
-        trigger(eventStr, opts) {
-            const events = eventStr.split(/\s+/g);
-            events.forEach((event) => {
-                const eventInfo = event.split(/\./);
-                const eventObj = new CustomEvent(eventInfo[0], opts);
-                this.forEach((node) => {
-                    node.dispatchEvent(eventObj);
-                });
-            });
-
-            return this;
-        }
-
-
-        /**
-         * [ AddClass ]
-         *
-         * @param cl
-         * @returns {jsuNode}
-         */
-        addClass(cl) {
-            if (typeof cl !== "object") {
-                cl = [cl];
-            }
-
-            this.forEach((node) => {
-                cl.forEach((c) => {
-                    if (!node.classList.contains(c)) {
-                        node.classList.add(c);
-                    }
-                });
-            });
-            return this;
-        }
-
-
-        /**
-         * [ RemoveClass ]
-         *
-         * @param cl
-         * @returns {jsuNode}
-         */
-        removeClass(cl) {
-            if (typeof cl !== "object") {
-                cl = [cl];
-            }
-
-            this.forEach((node) => {
-                cl.forEach((c) => {
-                    if (node.classList.contains(c)) {
-                        node.classList.remove(c);
-                    }
-                });
-            });
-            return this;
-        }
-
-
-        /**
-         * [ ToggleClass ]
-         *
-         * @param cl
-         * @returns {jsuNode}
-         */
-        toggleClass(cl) {
-            this.forEach((node) => {
-                node.classList.toggle(cl);
-            });
-            return this;
-        }
-
-
-        /**
-         * [ HasClass ]
-         *
-         * @param cl
-         * @returns {boolean|array}
-         */
-        hasClass(cl) {
-            const ret = [];
-            this.forEach((node) => {
-                ret.push(node.classList.contains(cl));
-            });
-            return this[nodes].length > 1 ? ret : ret[0];
-        }
-
-
-        /**
-         *
-         * @param dim
-         * @param includeMargins
-         * @returns {int|Array}
-         */
-        _realDimension(dim, includeMargins = false) {
-            const ret = [];
-            let type = "width";
-            let margins = ["left", "right"];
-
-            if (dim === "h") {
-                type = "height";
-                margins = ["top", "bottom"];
-            }
-
-            this.forEach((node) => {
-                const boundClientRect = node.getBoundingClientRect();
-                const computedStyle = window.getComputedStyle(node);
-
-                let dim = parseFloat((boundClientRect[type] + "").replace(/,/g, "."));
-
-                if (includeMargins) {
-                    margins.forEach((margin) => {
-                        const value = computedStyle.getPropertyValue("margin-" + margin);
-                        dim += parseFloat((value + "").replace(/,/g, "."));
-                    });
-                }
-
-                ret.push(dim);
-            });
-
-            return this[nodes].length > 1 ? ret : ret[0];
-        }
-
-
-        /**
-         * [ RealWidth ]
-         *
-         * @param includeMargins
-         * @returns {int|Array}
-         */
-        realWidth(includeMargins = false) {
-            return this._realDimension("w", includeMargins);
-        }
-
-
-        /**
-         * [ RealHeight ]
-         *
-         * @param includeMargins
-         * @returns {int|Array}
-         */
-        realHeight(includeMargins = false) {
-            return this._realDimension("h", includeMargins);
-        }
-
-
-        /**
-         * [ Find ]
-         *
-         * @param selector
-         * @returns {jsuNode}
-         */
-        find(selector) {
-            const ret = [];
-            this.forEach((node) => {
-                if (node instanceof HTMLIFrameElement) {
-                    ret.push(node.contentDocument.querySelectorAll(":scope " + selector));
-                } else {
-                    ret.push(node.querySelectorAll(":scope " + selector));
-                }
-
-            });
-
-            return new jsuNode(ret);
-        }
-
-
-        /**
-         * [ Children ]
-         *
-         * @param selector
-         * @returns {jsuNode}
-         */
-        children(selector) {
-            const ret = [];
-            if (!selector) {
-                selector = "*";
-            }
-
-            this.forEach((node) => {
-                ret.push(node.querySelectorAll(":scope > " + selector));
-            });
-
-            return new jsuNode(ret);
-        }
-
-
-        /**
-         *
-         * @param content
-         * @param methodName
-         * @returns {string|jsuNode}
-         */
-        _htmlText(content, methodName) {
-            const hasContent = jsuNode._isDefined(content);
-            let ret = hasContent ? this : "";
-
-            this.forEach((node) => {
-                if (hasContent) {
-                    node[methodName] = content;
-                } else {
-                    ret += node[methodName];
-                }
-            });
-
-            return ret;
-        }
-
-
-        /**
-         * [ Html ]
-         *
-         * @param content
-         * @returns {string|jsuNode}
-         */
-        html(content) {
-            return this._htmlText(content, "innerHTML");
-        }
-
-
-        /**
-         * [ Text ]
-         *
-         * @param content
-         * @returns {string|jsuNode}
-         */
-        text(content) {
-            return this._htmlText(content, "innerText");
-        }
-
-        /**
-         * [ Remove ]
-         */
-        remove() {
-            this.forEach((node) => {
-                if (node && node.parentElement) {
-                    eventHandlerMap["delete"](node);
-                    dataMap["delete"](node);
-                    node.parentElement.removeChild(node);
-                }
-            });
-        }
-
-
-        /**
-         *
-         * @param s
-         * @param type
-         * @param asSelector
-         * @returns {jsuNode}
-         */
-        _moveElement(s, type, asSelector = true) {
-            if (Array.isArray(s)) {
-                s.forEach((s) => {
-                    this._moveElement(s, type, asSelector);
-                });
-            } else {
-                if (typeof s === "string" && s.indexOf("<") > -1) {
-                    asSelector = false;
-                }
-
-                const elmObj = new jsuNode(s, asSelector);
-
-                this.forEach((node) => {
-                    const clonedElmObj = jsuNode._cloneElement(elmObj);
-                    clonedElmObj.forEach((elm) => {
-                        switch (type) {
-                            case "append": {
-                                node.appendChild(elm);
-                                break;
-                            }
-                            case "prepend": {
-                                node.insertBefore(elm, node.firstChild);
-                                break;
-                            }
-                            case "before": {
-                                node.parentNode.insertBefore(elm, node);
-                                break;
-                            }
-                            case "after": {
-                                node.parentNode.insertBefore(elm, node.nextSibling);
-                                break;
-                            }
-                        }
-                    });
-                });
-
-                elmObj.remove();
-            }
-
-            return this;
-        }
-
-
-        /**
-         *
-         * @param s
-         * @param type
-         * @returns {jsuNode}
-         */
-        _moveElementTo(s, type) {
-            const ret = [];
-            const elmObj = new jsuNode(s);
-
-            elmObj.forEach((node) => {
-                const clonedThis = jsuNode._cloneElement(this);
-                clonedThis.forEach((elm) => {
-                    switch (type) {
-                        case "append": {
-                            node.appendChild(elm);
-                            break;
-                        }
-                        case "prepend": {
-                            node.insertBefore(elm, node.firstChild);
-                            break;
-                        }
-                        case "before": {
-                            node.parentNode.insertBefore(elm, node);
-                            break;
-                        }
-                        case "after": {
-                            node.parentNode.insertBefore(elm, node.nextSibling);
-                            break;
-                        }
-                    }
-                    ret.push(elm);
-                });
-            });
-
-            this.remove();
-
-            return new jsuNode(ret);
-        }
-
-        /**
-         * [ Append ]
-         *
-         * @param s
-         * @param asSelector
-         * @returns {jsuNode}
-         */
-        append(s, asSelector) {
-            return this._moveElement(s, "append", asSelector);
-        }
-
-
-        /**
-         * [ AppendTo ]
-         *
-         * @param s
-         * @returns {jsuNode}
-         */
-        appendTo(s) {
-            return this._moveElementTo(s, "append");
-        }
-
-
-        /**
-         * [ Prepend ]
-         *
-         * @param s
-         * @param asSelector
-         * @returns {jsuNode}
-         */
-        prepend(s, asSelector = true) {
-            return this._moveElement(s, "prepend", asSelector);
-        }
-
-
-        /**
-         * [ PrependTo ]
-         *
-         * @param s
-         * @returns {jsuNode}
-         */
-        prependTo(s) {
-            return this._moveElementTo(s, "prepend");
-        }
-
-
-        /**
-         * [ Before ]
-         *
-         * @param s
-         * @param asSelector
-         * @returns {jsuNode}
-         */
-        before(s, asSelector = true) {
-            return this._moveElement(s, "before", asSelector);
-        }
-
-
-        /**
-         * [ InsertBefore ]
-         *
-         * @param s
-         * @returns {jsuNode}
-         */
-        insertBefore(s) {
-            return this._moveElementTo(s, "before");
-        }
-
-
-        /**
-         * [ After ]
-         *
-         * @param s
-         * @param asSelector
-         * @returns {jsuNode}
-         */
-        after(s, asSelector = true) {
-            return this._moveElement(s, "after", asSelector);
-        }
-
-
-        /**
-         * [ InsertAfter ]
-         *
-         * @param s
-         * @returns {jsuNode}
-         */
-        insertAfter(s) {
-            return this._moveElementTo(s, "after");
-        }
-
-
-        /**
-         *
-         * @param s
-         * @param type
-         * @returns {jsuNode}
-         */
-        _nextPrev(s, type) {
-            const hasSelector = jsuNode._isDefined(s);
-            const ret = [];
-
-            this.forEach((node) => {
-                const siblingElm = type === "prev" ? node.previousElementSibling : node.nextElementSibling;
-
-                if (jsuNode._isDefined(siblingElm) &&
-                    (!hasSelector || (jsuNode._isDefined(siblingElm.matches) && siblingElm.matches(s)))) {
-                    ret.push(siblingElm);
-                }
-            });
-
-            return new jsuNode(ret);
-        }
-
-
-        /**
-         * [ Next ]
-         *
-         * @param s
-         * @returns {jsuNode}
-         */
-        next(s) {
-            return this._nextPrev(s, "next");
-        }
-
-
-        /**
-         * [ Prev ]
-         *
-         * @param s
-         * @returns {jsuNode}
-         */
-        prev(s) {
-            return this._nextPrev(s, "prev");
-        }
-
-
-        /**
-         *
-         * @param s
-         * @param type
-         * @returns {jsuNode|Array}
-         */
-        _siblings(s, type = "siblings") {
-            const hasSelector = jsuNode._isDefined(s);
-            const ret = [];
-
-            this.forEach((node) => {
-                let el = null;
-                const elmList = [];
-
-                if (type === "siblings" && node.parentNode.firstElementChild) {
-                    el = node.parentNode.firstElementChild;
-                    type = "next";
-                } else if (type === "previous" || type === "next") {
-                    el = node[type + "ElementSibling"];
-                }
-
-                while (el && el.matches) {
-                    if (el !== node && (!hasSelector || el.matches(s))) {
-                        elmList.push(el);
-                    }
-                    el = el[type + "ElementSibling"];
-                }
-
-                ret.push(new jsuNode(elmList));
-            });
-
-            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-        }
-
-
-        /**
-         * [ Siblings ]
-         *
-         * @param s
-         * @returns {jsuNode|Array}
-         */
-        siblings(s) {
-            return this._siblings(s);
-        }
-
-
-        /**
-         * [ NextAll ]
-         *
-         * @param s
-         * @returns {jsuNode|Array}
-         */
-        nextAll(s) {
-            return this._siblings(s, "next");
-        }
-
-
-        /**
-         * [ PrevAll ]
-         *
-         * @param s
-         * @returns {jsuNode|Array}
-         */
-        prevAll(s) {
-            return this._siblings(s, "previous");
-        }
-
-
-        /**
-         * [ Parent ]
-         *
-         * @param s
-         * @returns {jsuNode|Array}
-         */
-        parent(s) {
-            const hasSelector = jsuNode._isDefined(s);
-            const ret = [];
-
-            this.forEach((node) => {
-                let parentElm = node.parentNode;
-
-                if (hasSelector && (!jsuNode._isDefined(parentElm.matches) || !parentElm.matches(s))) {
-                    parentElm = null;
-                }
-
-                ret.push(new jsuNode(parentElm));
-            });
-
-            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-        }
-
-
-        /**
-         * [ Parents ]
-         *
-         * @param s
-         * @returns {jsuNode|Array}
-         */
-        parents(s) {
-            const hasSelector = jsuNode._isDefined(s);
-            const ret = [];
-
-            this.forEach((node) => {
-                const parentsList = [];
-                let el = node.parentNode;
-
-                while (el && el.matches && el !== this) {
-                    if (!hasSelector || el.matches(s)) {
-                        parentsList.push(el);
-                    }
-
-                    el = el.parentNode;
-                }
-
-                ret.push(new jsuNode(parentsList));
-            });
-
-            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-        }
-
-
-        /**
-         * [ Document ]
-         *
-         * @returns {jsuNode}
-         */
-        document() {
-            const ret = [];
-
-            this.forEach((node) => {
-                ret.push(new jsuNode(node.ownerDocument));
-            });
-
-            return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
-        }
-
-
-        /**
-         * [ Eq ]
-         *
-         * @param idx
-         * @returns {jsuNode}
-         */
-        eq(idx) {
-            if (idx < 0) {
-                idx = this[nodes].length + idx;
-            }
-            return new jsuNode(this[nodes][idx]);
-        }
-
-
-        /**
-         * [ Get ]
-         *
-         * @param idx
-         * @returns {Array}
-         */
-        get(idx) {
-            if (jsuNode._isDefined(idx)) {
-                if (idx < 0) {
-                    idx = this[nodes].length + idx;
-                }
-                return this[nodes][idx];
-            }
-
-            return this[nodes];
-        }
-
-
-        /**
-         * [ Length ]
-         *
-         * @returns {int}
-         */
-        length() {
-            return this[nodes].length;
-        }
-    }
-
-    /**
-     * Bind jsu to window object
-     */
-    (() => {
-        const obj = s => new jsuNode(s);
-
-        Object.entries(jsuTools).forEach(([name, func]) => { // append tools
-            obj[name] = func;
+    ua: () => {
+      let os = "Other";
+      let browser = "Other";
+
+      try {
+        os = navigator.userAgentData.platform;
+      } catch (e) {
+
+        //
+      }
+      try {
+        let list = navigator.userAgentData.brands.filter((b) => {
+          return !/^[^a-z]*NOT[^a-z]/i.test(b.brand);
+        });
+        list = list.filter((b) => {// ignore Chromium if there is at least one other option to pick from
+          return b.brand.toUpperCase() !== "CHROMIUM" || list.length === 1;
         });
 
-        window.jsu = obj;
-    })();
+        if (list.length > 0) {
+          browser = list[0].brand + " " + (list[0].version || "");
+        }
+      } catch (e) {
+
+        //
+      }
+      return {
+        os: os.trim(),
+        browser: browser.trim()
+      };
+    },
+
+    fetch: (url, opts = {}, timeout = null) => {
+
+      if (JSON.stringify(opts) === '{}') {opts['method'] = "post";};
+
+      const controller = new AbortController();
+      let signal = controller.signal;
+
+      //promise
+      const promise = new Promise((resolve, reject) => {
+        fetch(url, { signal: signal, ...opts }).then((response) => {
+          if (response.status < 400) {
+            resolve(response);
+          } else {
+            reject(response); //Refuse, enter catch, catch returns error to upper layer
+          }
+        }).
+        catch((e) => {
+          runningFetch.push({ url: url }); //Preparing to abort.
+          reject(null);
+        });
+      });
+
+      let out = null;
+      if (timeout != null) {
+        if (signal) {
+          signal.addEventListener("abort", () => controller.abort());
+        }
+        out = setTimeout(() => controller.abort(), timeout);
+      }
+      return promise.finally(() => {if (out != null) {clearTimeout(out);}});
+    },
+
+
+    /**
+     * Cancels all FetchRequests or only the ones with the given url
+     *
+     * @param {string} url
+     */
+    cancelFetch: (url = null) => {
+      runningFetch.forEach((obj) => {
+        if (url === null || obj.url === url) {
+          const controller = new AbortController();
+          controller.abort();
+          obj = null;
+        }
+      });
+    },
+
+    onPageLoad: (callback) => {
+      if (document.readyState !== "loading") {
+        callback();
+      } else {
+        document.addEventListener("DOMContentLoaded", callback, { once: true });
+      }
+    },
+
+    /**
+     * @param {*} selector 
+     * @param {*} param1 
+     * @returns 
+     * const controller = new AbortController();
+     * jsuTools.waitForSelector(".my-class", {timeout: 5000, signal: controller.signal})
+     */
+    waitForSelector: (selector, {
+      target = document.body,
+      allowEmpty = true,
+      timeout = 10000,
+      signal
+    } = {}) => {
+      return new Promise((resolve, reject) => {
+        if (!target) return resolve(null);
+
+        const check = () => {
+          const el = target.querySelector(selector);
+          if (!el) return null;
+          if (!allowEmpty && !el.innerHTML) return null;
+          return el;
+        };
+
+        // immediate check
+        const found = check();
+        if (found) {
+          return resolve(found);
+        }
+
+        // timeout check
+        const timer = setTimeout(() => {
+          observer.disconnect();
+          resolve(null);
+        }, timeout);
+
+        // cancel support
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            observer.disconnect();
+            reject(new Error("Aborted"));
+          });
+        }
+
+        const observer = new MutationObserver(() => {
+          const el = check();
+          if (el) {
+            clearTimeout(timer);
+            observer.disconnect();
+            resolve(el);
+          }
+        });
+        observer.observe(target, {
+          childList: true,
+          subtree: true
+        });
+      });
+    },
+
+    /**
+     * Resolve one element from handler string (e.g. "selector1@selector2@body").
+     * Uses Promise.race; retries every 2s if none found.
+     * @param {string} handler - Selectors or "body"/"html" joined by "@"
+     * @returns {Promise<Element|null>}
+     */
+    forceGetElement: async function (handler) {
+      const self = this;
+      const getElements = async (h) => {
+        const names = h.split("@").filter((s) => s.length);
+        const promises = names.map((eleName) => {
+          if (eleName === "body") return Promise.resolve(document.body);
+          if (eleName === "html") return Promise.resolve(document.documentElement);
+          return self.waitForSelector(eleName, {
+            target: document.body,
+            allowEmpty: true,
+            timeout: 1500
+          });
+        });
+        return promises.length ? Promise.race(promises) : null;
+      };
+
+      let element = await getElements(handler);
+      if (element) return element;
+
+      return new Promise((resolve) => {
+        const waitInterval = setInterval(async () => {
+          const el = await getElements(handler);
+          if (el) {
+            clearInterval(waitInterval);
+            resolve(el);
+          }
+        }, 2000);
+      });
+    }
+  };
+
+
+  /**
+   * jsuNode
+   */
+  class jsuNode {
+
+    /**
+     * Constructor
+     *
+     * @param param
+     * @param asSelector
+     */
+    constructor(param, asSelector = true) {
+      let s = param;
+
+      if (typeof param === "string" && (asSelector === false || param.indexOf("<") > -1)) {
+        const div = d.createElement("div");
+        div.innerHTML = param;
+        s = div.childNodes;
+      }
+
+      this._fillNodeList(s);
+    }
+
+    static _isDefined(v) {
+      return typeof v !== "undefined" && v !== null;
+    }
+
+    static _forEach(list, callback, reverse = false) {
+      const listLength = list.length;
+
+      if (reverse) {
+        for (let i = listLength - 1; i >= 0; i--) {
+          if (jsuNode._isDefined(list[i].forEach)) {
+            jsuNode._forEach(list[i], callback, reverse);
+          } else if (callback(list[i], i) === false) {
+            break;
+          }
+        }
+      } else {
+        for (let i = 0; i < listLength; i++) {
+          if (jsuNode._isDefined(list[i].forEach)) {
+            jsuNode._forEach(list[i], callback, reverse);
+          } else if (callback(list[i], i) === false) {
+            break;
+          }
+        }
+      }
+    }
+
+    /**
+     *
+     * @param s
+     */
+    _fillNodeList(s) {
+      if (!jsuNode._isDefined(s)) {
+        this[nodes] = [];
+      } else if (s instanceof jsuNode) {
+        this[nodes] = s.get();
+      } else if (typeof s === "string") {
+        this[nodes] = d.querySelectorAll(s);
+      } else if (s instanceof Node || s instanceof HTMLDocument || s instanceof Window) {
+        this[nodes] = [s];
+      } else if (s instanceof NodeList || s instanceof HTMLCollection) {
+        this[nodes] = s;
+      } else if (typeof s === "object") {
+        this[nodes] = [];
+
+        if (!jsuNode._isDefined(s.forEach)) {
+          s = [s];
+        }
+
+        s.forEach((entry) => {
+          if (entry !== null) {
+            const eachCallback = (node) => {
+              if (this[nodes].indexOf(node) === -1) {
+                this[nodes].push(node);
+              }
+            };
+
+            if (entry instanceof jsuNode) {
+              entry.forEach(eachCallback);
+            } else if (Array.isArray(entry) || entry instanceof NodeList || entry instanceof HTMLCollection || /^\[object (HTMLCollection|NodeList|Object)\]$/.test(entry.toString())) {
+              jsuNode._forEach(entry, eachCallback);
+            } else {
+              this[nodes].push(entry);
+            }
+          }
+        });
+
+      } else {
+        throw new DOMException("invalid parameter for jsu");
+      }
+
+      this.forEach((node, idx) => {
+        this[idx] = node;
+      });
+    }
+
+
+    /**
+     * [ ForEach ]
+     *
+     * @param callback
+     * @param reverse
+     * @returns {jsuNode}
+     */
+    forEach(callback, reverse = false) {
+      jsuNode._forEach(this[nodes], callback, reverse);
+      return this;
+    }
+
+
+    /**
+     * [ Css ]
+     *
+     * @param opts
+     * @param val
+     * @returns {*|jsuNode}
+     */
+    css(opts, val) {
+      let isSetter = false;
+      const hasOpts = jsuNode._isDefined(opts);
+      const hasVal = jsuNode._isDefined(val);
+      const ret = [];
+
+      this.forEach((node) => {
+        if (hasOpts && hasVal && typeof opts === "string") {// set
+          node.style[opts] = val;
+          isSetter = true;
+        } else if (hasOpts) {
+          if (typeof opts === "string") {// get specific
+            ret.push(window.getComputedStyle(node)[opts]);
+          } else if (typeof opts === "object") {// set by object
+            isSetter = true;
+            Object.keys(opts).forEach((key) => {
+              if (typeof key === "string") {
+                node.style[key] = opts[key];
+              }
+            });
+          }
+        }
+      });
+
+      if (isSetter) {
+        return this;
+      } else {
+        return this[nodes].length > 1 ? ret : ret[0];
+      }
+    }
+
+
+    /**
+     * [ Attr ]
+     *
+     * @param opts
+     * @param val
+     * @returns {*|jsuNode}
+     */
+    attr(opts, val) {
+      let isSetter = false;
+      const hasOpts = jsuNode._isDefined(opts);
+      const hasVal = jsuNode._isDefined(val);
+      const ret = [];
+
+      this.forEach((node) => {
+        const setAttr = (key, val) => {
+          isSetter = true;
+          if (jsuNode._isDefined(node[key])) {
+            node[key] = val;
+          } else {
+            node.setAttribute(key, val);
+          }
+        };
+
+        const getAttr = (key) => {
+          return jsuNode._isDefined(node[key]) ? node[key] : node.getAttribute(key);
+        };
+
+
+        if (hasOpts && hasVal && typeof opts === "string") {// set
+          setAttr(opts, val);
+        } else if (hasOpts) {
+          if (typeof opts === "string") {// get specific
+            ret.push(getAttr(opts));
+          } else if (typeof opts === "object") {// set by object
+            Object.keys(opts).forEach((key) => {
+              if (typeof key === "string") {
+                setAttr(key, opts[key]);
+              }
+            });
+          }
+        }
+      });
+
+      if (isSetter) {
+        return this;
+      } else {
+        return this[nodes].length > 1 ? ret : ret[0];
+      }
+    }
+
+
+    /**
+     * [ RemoveAttr ]
+     *
+     * @param key
+     * @returns {jsuNode}
+     */
+    removeAttr(key) {
+      this.forEach((node) => {
+        node.removeAttribute(key);
+      });
+
+      return this;
+    }
+
+
+    /**
+     *
+     * @param elm
+     * @param info
+     */
+    static _addEventListener(elm, info) {
+      let eventHandlerList = eventHandlerMap.get(elm);
+
+      if (!jsuNode._isDefined(eventHandlerList)) {
+        eventHandlerList = {};
+        eventHandlerMap.set(elm, eventHandlerList);
+      }
+
+      if (!eventHandlerList[info.event]) {
+        eventHandlerList[info.event] = [];
+      }
+
+      eventHandlerList[info.event].push({
+        fn: info.fn,
+        name: info.name || info.event + "_" + +new Date() + Math.random().toString(36).substring(2, 14),
+        opts: info.opts,
+        wantsUntrusted: info.wantsUntrusted
+      });
+
+      elm.addEventListener(info.event, info.fn, info.opts, info.wantsUntrusted);
+    }
+
+
+    /**
+     *
+     * @param elm
+     * @param newElm
+     */
+    static _cloneEventListener(elm, newElm) {
+      const eventHandlerList = eventHandlerMap.get(elm);
+
+      if (jsuNode._isDefined(eventHandlerList)) {
+        Object.keys(eventHandlerList).forEach((eventType) => {
+          eventHandlerList[eventType].forEach((event) => {
+            jsuNode._addEventListener(newElm, {
+              event: eventType,
+              fn: event.fn,
+              opts: event.opts,
+              wantsUntrusted: event.wantsUntrusted
+            });
+          });
+        });
+      }
+
+      if (newElm.children) {
+        jsuNode._forEach(newElm.children, (node, idx) => {
+          jsuNode._cloneEventListener(elm.children[idx], node);
+        });
+      }
+    }
+
+
+    /**
+     *
+     * @param elm
+     * @param key
+     * @param val
+     */
+    static _addData(elm, key, val) {
+      let dataList = dataMap.get(elm);
+
+      if (!jsuNode._isDefined(dataList)) {
+        dataList = {};
+        dataMap.set(elm, dataList);
+      }
+
+      dataList[key] = val;
+    }
+
+
+    /**
+     *
+     * @param elm
+     * @param newElm
+     */
+    static _cloneData(elm, newElm) {
+      const dataList = dataMap.get(elm);
+
+      if (jsuNode._isDefined(dataList)) {
+        Object.keys(dataList).forEach((k) => {
+          jsuNode._addData(newElm, k, dataList[k]);
+        });
+      }
+
+      if (newElm.children) {
+        jsuNode._forEach(newElm.children, (node, idx) => {
+          jsuNode._cloneData(elm.children[idx], node);
+        });
+      }
+    }
+
+
+    /**
+     *
+     * @param elmObj
+     * @returns {jsuNode}
+     */
+    static _cloneElement(elmObj) {
+      const clonedList = [];
+
+      elmObj.forEach((elm) => {
+        const clonedElm = elm.cloneNode(true);
+        jsuNode._cloneEventListener(elm, clonedElm);
+        jsuNode._cloneData(elm, clonedElm);
+        clonedList.push(clonedElm);
+      });
+
+      return new jsuNode(clonedList);
+    }
+
+
+    /**
+     * [ Clone ]
+     *
+     * @returns {jsuNode}
+     */
+    clone() {
+      return jsuNode._cloneElement(this);
+    }
+
+
+    /**
+     * [ Data ]
+     *
+     * @param key
+     * @param val
+     * @returns {*|jsuNode}
+     */
+    data(key, val) {
+      let isSetter = false;
+      const hasKey = jsuNode._isDefined(key);
+      const hasVal = jsuNode._isDefined(val);
+      const ret = [];
+
+      this.forEach((node) => {
+        const elmDataList = dataMap.get(node);
+        const hasData = jsuNode._isDefined(elmDataList);
+
+        if (hasKey && hasVal) {// set
+          isSetter = true;
+          jsuNode._addData(node, key, val);
+        } else if (hasKey) {
+          if (typeof key === "string") {// get specific
+            ret.push(hasData ? elmDataList[key] : undefined);
+
+          } else if (typeof key === "object") {// set by object
+            isSetter = true;
+            Object.keys(key).forEach((k) => {
+              if (typeof k === "string") {
+                jsuNode._addData(node, k, key[k]);
+              }
+            });
+          }
+        } else {// get all
+          ret.push(hasData ? elmDataList : {});
+        }
+      });
+
+      if (isSetter) {
+        return this;
+      } else {
+        return this[nodes].length > 1 ? ret : ret[0];
+      }
+    }
+
+
+    /**
+     * [ RemoveData ]
+     *
+     * @param key
+     * @returns {jsuNode}
+     */
+    removeData(key) {
+      const removeAll = !jsuNode._isDefined(key);
+
+      this.forEach((node) => {
+        const elmDataList = dataMap.get(node);
+
+        if (jsuNode._isDefined(elmDataList)) {
+          if (removeAll) {// remove all
+            dataMap["delete"](node);
+          } else if (jsuNode._isDefined(elmDataList[key])) {// remove specific
+            delete elmDataList[key];
+          }
+        }
+      });
+
+      return this;
+    }
+
+
+    /**
+     * [ On ]
+     *
+     * @param eventStr
+     * @param callbackOrElm
+     * @param callbackOrOpts
+     * @param optsOrWantsUntrusted
+     * @param wantsUntrusted
+     * @returns {jsuNode}
+     */
+    on(eventStr, callbackOrElm, callbackOrOpts, optsOrWantsUntrusted, wantsUntrusted) {
+      const updateEventObject = (e, overrideObj) => {
+        Object.keys(overrideObj).forEach((key) => {
+          try {
+            Object.defineProperty(e, key, {
+              value: overrideObj[key]
+            });
+          } catch (ex) {
+
+            //
+          }});
+      };
+
+      let opts = callbackOrOpts;
+
+      if (typeof callbackOrOpts === "function") {
+        opts = optsOrWantsUntrusted;
+      } else {
+        wantsUntrusted = optsOrWantsUntrusted;
+      }
+
+      if (typeof opts === "undefined") {
+        opts = null;
+      }
+
+      if (typeof wantsUntrusted === "undefined") {
+        wantsUntrusted = null;
+      }
+
+      const eventDelegation = typeof callbackOrElm === "string";
+
+      this.forEach((node) => {
+        const events = eventStr.split(/\s+/g);
+        events.forEach((event) => {
+          const eventInfo = event.split(/\./);
+
+          const fn = (e) => {
+            updateEventObject(e, { type: eventInfo[0] });
+
+            if (eventDelegation) {// event delegation
+              const opts = {
+                preventDefault: () => {
+                  e.preventDefault();
+                },
+                stopPropagation: () => {
+                  e.stopPropagation();
+                }
+              };
+
+              jsuNode._forEach(node.querySelectorAll(":scope " + callbackOrElm), (element) => {
+                let el = e.target;
+                while (el && el !== node) {
+                  if (el === element) {
+                    const clonedEventObj = eventInfo[0].startsWith("key") ? new KeyboardEvent(eventInfo[0], e) : new MouseEvent(eventInfo[0], e);
+                    updateEventObject(clonedEventObj, {
+                      preventDefault: opts.preventDefault,
+                      stopPropagation: opts.stopPropagation,
+                      currentTarget: el,
+                      target: e.target
+                    });
+                    callbackOrOpts(clonedEventObj);
+                  }
+                  el = el.parentNode;
+                }
+              });
+            } else if (typeof callbackOrElm === "function") {// normal eventListener
+              callbackOrElm(e);
+            }
+          };
+
+          jsuNode._addEventListener(node, {
+            event: eventInfo[0],
+            name: eventInfo[1],
+            fn: fn,
+            opts: opts,
+            wantsUntrusted: wantsUntrusted
+          });
+        });
+      }, true);
+
+      return this;
+    }
+
+
+    /**
+     * [ Off ]
+     *
+     * @param eventStr
+     * @returns {jsuNode}
+     */
+    off(eventStr) {
+      this.forEach((node) => {
+        const eventHandlerList = eventHandlerMap.get(node);
+
+        if (jsuNode._isDefined(eventHandlerList)) {
+          const events = eventStr.split(/\s+/g);
+          events.forEach((event) => {
+            const eventInfo = event.split(/\./);
+
+            if (eventInfo[0] === "*") {// remove all eventlisteners
+              Object.entries(eventHandlerList).forEach(([eventName, entries]) => {
+                jsuNode._forEach(entries, (info, idx) => {
+                  if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
+                    node.removeEventListener(eventName, info.fn);
+                    eventHandlerList[eventName].splice(idx, 1);
+                  }
+                }, true);
+              });
+            } else if (eventHandlerList[eventInfo[0]]) {// remove specific eventlisteners (e.g. click, mouseover, ...)
+              jsuNode._forEach(eventHandlerList[eventInfo[0]], (info, idx) => {
+                if (typeof eventInfo[1] === "undefined" || eventInfo[1] === info.name) {
+                  node.removeEventListener(eventInfo[0], info.fn);
+                  eventHandlerList[eventInfo[0]].splice(idx, 1);
+                }
+              }, true);
+            }
+          });
+        }
+      });
+
+      return this;
+    }
+
+
+    /**
+     * [ Trigger ]
+     *
+     * @param eventStr
+     * @param opts
+     * @returns {jsuNode}
+     */
+    trigger(eventStr, opts) {
+      const events = eventStr.split(/\s+/g);
+      events.forEach((event) => {
+        const eventInfo = event.split(/\./);
+        const eventObj = new CustomEvent(eventInfo[0], opts);
+        this.forEach((node) => {
+          node.dispatchEvent(eventObj);
+        });
+      });
+
+      return this;
+    }
+
+
+    /**
+     * [ AddClass ]
+     *
+     * @param cl
+     * @returns {jsuNode}
+     */
+    addClass(cl) {
+      if (typeof cl !== "object") {
+        cl = [cl];
+      }
+
+      this.forEach((node) => {
+        cl.forEach((c) => {
+          if (!node.classList.contains(c)) {
+            node.classList.add(c);
+          }
+        });
+      });
+      return this;
+    }
+
+
+    /**
+     * [ RemoveClass ]
+     *
+     * @param cl
+     * @returns {jsuNode}
+     */
+    removeClass(cl) {
+      if (typeof cl !== "object") {
+        cl = [cl];
+      }
+
+      this.forEach((node) => {
+        cl.forEach((c) => {
+          if (node.classList.contains(c)) {
+            node.classList.remove(c);
+          }
+        });
+      });
+      return this;
+    }
+
+
+    /**
+     * [ ToggleClass ]
+     *
+     * @param cl
+     * @returns {jsuNode}
+     */
+    toggleClass(cl) {
+      this.forEach((node) => {
+        node.classList.toggle(cl);
+      });
+      return this;
+    }
+
+
+    /**
+     * [ HasClass ]
+     *
+     * @param cl
+     * @returns {boolean|array}
+     */
+    hasClass(cl) {
+      const ret = [];
+      this.forEach((node) => {
+        ret.push(node.classList.contains(cl));
+      });
+      return this[nodes].length > 1 ? ret : ret[0];
+    }
+
+
+    /**
+     *
+     * @param dim
+     * @param includeMargins
+     * @returns {int|Array}
+     */
+    _realDimension(dim, includeMargins = false) {
+      const ret = [];
+      let type = "width";
+      let margins = ["left", "right"];
+
+      if (dim === "h") {
+        type = "height";
+        margins = ["top", "bottom"];
+      }
+
+      this.forEach((node) => {
+        const boundClientRect = node.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(node);
+
+        let dim = parseFloat((boundClientRect[type] + "").replace(/,/g, "."));
+
+        if (includeMargins) {
+          margins.forEach((margin) => {
+            const value = computedStyle.getPropertyValue("margin-" + margin);
+            dim += parseFloat((value + "").replace(/,/g, "."));
+          });
+        }
+
+        ret.push(dim);
+      });
+
+      return this[nodes].length > 1 ? ret : ret[0];
+    }
+
+
+    /**
+     * [ RealWidth ]
+     *
+     * @param includeMargins
+     * @returns {int|Array}
+     */
+    realWidth(includeMargins = false) {
+      return this._realDimension("w", includeMargins);
+    }
+
+
+    /**
+     * [ RealHeight ]
+     *
+     * @param includeMargins
+     * @returns {int|Array}
+     */
+    realHeight(includeMargins = false) {
+      return this._realDimension("h", includeMargins);
+    }
+
+
+    /**
+     * [ Find ]
+     *
+     * @param selector
+     * @returns {jsuNode}
+     */
+    find(selector) {
+      const ret = [];
+      this.forEach((node) => {
+        if (node instanceof HTMLIFrameElement) {
+          ret.push(node.contentDocument.querySelectorAll(":scope " + selector));
+        } else {
+          ret.push(node.querySelectorAll(":scope " + selector));
+        }
+
+      });
+
+      return new jsuNode(ret);
+    }
+
+
+    /**
+     * [ Children ]
+     *
+     * @param selector
+     * @returns {jsuNode}
+     */
+    children(selector) {
+      const ret = [];
+      if (!selector) {
+        selector = "*";
+      }
+
+      this.forEach((node) => {
+        ret.push(node.querySelectorAll(":scope > " + selector));
+      });
+
+      return new jsuNode(ret);
+    }
+
+
+    /**
+     *
+     * @param content
+     * @param methodName
+     * @returns {string|jsuNode}
+     */
+    _htmlText(content, methodName) {
+      const hasContent = jsuNode._isDefined(content);
+      let ret = hasContent ? this : "";
+
+      this.forEach((node) => {
+        if (hasContent) {
+          node[methodName] = content;
+        } else {
+          ret += node[methodName];
+        }
+      });
+
+      return ret;
+    }
+
+
+    /**
+     * [ Html ]
+     *
+     * @param content
+     * @returns {string|jsuNode}
+     */
+    html(content) {
+      return this._htmlText(content, "innerHTML");
+    }
+
+
+    /**
+     * [ Text ]
+     *
+     * @param content
+     * @returns {string|jsuNode}
+     */
+    text(content) {
+      return this._htmlText(content, "innerText");
+    }
+
+    /**
+     * [ Remove ]
+     */
+    remove() {
+      this.forEach((node) => {
+        if (node && node.parentElement) {
+          eventHandlerMap["delete"](node);
+          dataMap["delete"](node);
+          node.parentElement.removeChild(node);
+        }
+      });
+    }
+
+
+    /**
+     *
+     * @param s
+     * @param type
+     * @param asSelector
+     * @returns {jsuNode}
+     */
+    _moveElement(s, type, asSelector = true) {
+      if (Array.isArray(s)) {
+        s.forEach((s) => {
+          this._moveElement(s, type, asSelector);
+        });
+      } else {
+        if (typeof s === "string" && s.indexOf("<") > -1) {
+          asSelector = false;
+        }
+
+        const elmObj = new jsuNode(s, asSelector);
+
+        this.forEach((node) => {
+          const clonedElmObj = jsuNode._cloneElement(elmObj);
+          clonedElmObj.forEach((elm) => {
+            switch (type) {
+              case "append":{
+                  node.appendChild(elm);
+                  break;
+                }
+              case "prepend":{
+                  node.insertBefore(elm, node.firstChild);
+                  break;
+                }
+              case "before":{
+                  node.parentNode.insertBefore(elm, node);
+                  break;
+                }
+              case "after":{
+                  node.parentNode.insertBefore(elm, node.nextSibling);
+                  break;
+                }
+            }
+          });
+        });
+
+        elmObj.remove();
+      }
+
+      return this;
+    }
+
+
+    /**
+     *
+     * @param s
+     * @param type
+     * @returns {jsuNode}
+     */
+    _moveElementTo(s, type) {
+      const ret = [];
+      const elmObj = new jsuNode(s);
+
+      elmObj.forEach((node) => {
+        const clonedThis = jsuNode._cloneElement(this);
+        clonedThis.forEach((elm) => {
+          switch (type) {
+            case "append":{
+                node.appendChild(elm);
+                break;
+              }
+            case "prepend":{
+                node.insertBefore(elm, node.firstChild);
+                break;
+              }
+            case "before":{
+                node.parentNode.insertBefore(elm, node);
+                break;
+              }
+            case "after":{
+                node.parentNode.insertBefore(elm, node.nextSibling);
+                break;
+              }
+          }
+          ret.push(elm);
+        });
+      });
+
+      this.remove();
+
+      return new jsuNode(ret);
+    }
+
+    /**
+     * [ Append ]
+     *
+     * @param s
+     * @param asSelector
+     * @returns {jsuNode}
+     */
+    append(s, asSelector) {
+      return this._moveElement(s, "append", asSelector);
+    }
+
+
+    /**
+     * [ AppendTo ]
+     *
+     * @param s
+     * @returns {jsuNode}
+     */
+    appendTo(s) {
+      return this._moveElementTo(s, "append");
+    }
+
+
+    /**
+     * [ Prepend ]
+     *
+     * @param s
+     * @param asSelector
+     * @returns {jsuNode}
+     */
+    prepend(s, asSelector = true) {
+      return this._moveElement(s, "prepend", asSelector);
+    }
+
+
+    /**
+     * [ PrependTo ]
+     *
+     * @param s
+     * @returns {jsuNode}
+     */
+    prependTo(s) {
+      return this._moveElementTo(s, "prepend");
+    }
+
+
+    /**
+     * [ Before ]
+     *
+     * @param s
+     * @param asSelector
+     * @returns {jsuNode}
+     */
+    before(s, asSelector = true) {
+      return this._moveElement(s, "before", asSelector);
+    }
+
+
+    /**
+     * [ InsertBefore ]
+     *
+     * @param s
+     * @returns {jsuNode}
+     */
+    insertBefore(s) {
+      return this._moveElementTo(s, "before");
+    }
+
+
+    /**
+     * [ After ]
+     *
+     * @param s
+     * @param asSelector
+     * @returns {jsuNode}
+     */
+    after(s, asSelector = true) {
+      return this._moveElement(s, "after", asSelector);
+    }
+
+
+    /**
+     * [ InsertAfter ]
+     *
+     * @param s
+     * @returns {jsuNode}
+     */
+    insertAfter(s) {
+      return this._moveElementTo(s, "after");
+    }
+
+
+    /**
+     *
+     * @param s
+     * @param type
+     * @returns {jsuNode}
+     */
+    _nextPrev(s, type) {
+      const hasSelector = jsuNode._isDefined(s);
+      const ret = [];
+
+      this.forEach((node) => {
+        const siblingElm = type === "prev" ? node.previousElementSibling : node.nextElementSibling;
+
+        if (jsuNode._isDefined(siblingElm) && (
+        !hasSelector || jsuNode._isDefined(siblingElm.matches) && siblingElm.matches(s))) {
+          ret.push(siblingElm);
+        }
+      });
+
+      return new jsuNode(ret);
+    }
+
+
+    /**
+     * [ Next ]
+     *
+     * @param s
+     * @returns {jsuNode}
+     */
+    next(s) {
+      return this._nextPrev(s, "next");
+    }
+
+
+    /**
+     * [ Prev ]
+     *
+     * @param s
+     * @returns {jsuNode}
+     */
+    prev(s) {
+      return this._nextPrev(s, "prev");
+    }
+
+
+    /**
+     *
+     * @param s
+     * @param type
+     * @returns {jsuNode|Array}
+     */
+    _siblings(s, type = "siblings") {
+      const hasSelector = jsuNode._isDefined(s);
+      const ret = [];
+
+      this.forEach((node) => {
+        let el = null;
+        const elmList = [];
+
+        if (type === "siblings" && node.parentNode.firstElementChild) {
+          el = node.parentNode.firstElementChild;
+          type = "next";
+        } else if (type === "previous" || type === "next") {
+          el = node[type + "ElementSibling"];
+        }
+
+        while (el && el.matches) {
+          if (el !== node && (!hasSelector || el.matches(s))) {
+            elmList.push(el);
+          }
+          el = el[type + "ElementSibling"];
+        }
+
+        ret.push(new jsuNode(elmList));
+      });
+
+      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+    }
+
+
+    /**
+     * [ Siblings ]
+     *
+     * @param s
+     * @returns {jsuNode|Array}
+     */
+    siblings(s) {
+      return this._siblings(s);
+    }
+
+
+    /**
+     * [ NextAll ]
+     *
+     * @param s
+     * @returns {jsuNode|Array}
+     */
+    nextAll(s) {
+      return this._siblings(s, "next");
+    }
+
+
+    /**
+     * [ PrevAll ]
+     *
+     * @param s
+     * @returns {jsuNode|Array}
+     */
+    prevAll(s) {
+      return this._siblings(s, "previous");
+    }
+
+
+    /**
+     * [ Parent ]
+     *
+     * @param s
+     * @returns {jsuNode|Array}
+     */
+    parent(s) {
+      const hasSelector = jsuNode._isDefined(s);
+      const ret = [];
+
+      this.forEach((node) => {
+        let parentElm = node.parentNode;
+
+        if (hasSelector && (!jsuNode._isDefined(parentElm.matches) || !parentElm.matches(s))) {
+          parentElm = null;
+        }
+
+        ret.push(new jsuNode(parentElm));
+      });
+
+      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+    }
+
+
+    /**
+     * [ Parents ]
+     *
+     * @param s
+     * @returns {jsuNode|Array}
+     */
+    parents(s) {
+      const hasSelector = jsuNode._isDefined(s);
+      const ret = [];
+
+      this.forEach((node) => {
+        const parentsList = [];
+        let el = node.parentNode;
+
+        while (el && el.matches && el !== this) {
+          if (!hasSelector || el.matches(s)) {
+            parentsList.push(el);
+          }
+
+          el = el.parentNode;
+        }
+
+        ret.push(new jsuNode(parentsList));
+      });
+
+      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+    }
+
+
+    /**
+     * [ Document ]
+     *
+     * @returns {jsuNode}
+     */
+    document() {
+      const ret = [];
+
+      this.forEach((node) => {
+        ret.push(new jsuNode(node.ownerDocument));
+      });
+
+      return this[nodes].length > 1 ? new jsuNode(ret) : ret[0];
+    }
+
+
+    /**
+     * [ Eq ]
+     *
+     * @param idx
+     * @returns {jsuNode}
+     */
+    eq(idx) {
+      if (idx < 0) {
+        idx = this[nodes].length + idx;
+      }
+      return new jsuNode(this[nodes][idx]);
+    }
+
+
+    /**
+     * [ Get ]
+     *
+     * @param idx
+     * @returns {Array}
+     */
+    get(idx) {
+      if (jsuNode._isDefined(idx)) {
+        if (idx < 0) {
+          idx = this[nodes].length + idx;
+        }
+        return this[nodes][idx];
+      }
+
+      return this[nodes];
+    }
+
+
+    /**
+     * [ Length ]
+     *
+     * @returns {int}
+     */
+    length() {
+      return this[nodes].length;
+    }
+  }
+
+  /**
+   * Bind jsu to window object
+   */
+  (() => {
+    const obj = (s) => new jsuNode(s);
+
+    Object.entries(jsuTools).forEach(([name, func]) => {// append tools
+      obj[name] = func;
+    });
+
+    window.jsu = obj;
+  })();
 
 })();
-($ => {
-    "use strict";
+(($) => {
+  "use strict";
 
-	//Firefox supports browsers and also supports Chrome.
-	//chrome only supports chrome
-    $.api = typeof browser !== "undefined" ? browser : chrome;
-	const manifest = $.api.runtime.getManifest();
-	
-    $.isDev = manifest.version_name.trim() === "Dev"; //isDev, standalone version
+  //Firefox supports browsers and also supports Chrome.
+  //chrome only supports chrome
+  $.api = typeof browser !== "undefined" ? browser : chrome;
+  const manifest = $.api.runtime.getManifest();
 
-    // Replaced at build time by build.js (__BUILD_PLATFORM__ -> chrome | firefox | safari)
-    $.browserName = "safari";
-	
-	//Configuration file
-    $.opts = {
-        manifest: manifest,
-        apiVersion:"2.0.1",
-        number:"8000",      //This is an identifier specific to the extension; once set, it cannot be changed.
-        baseUrl:"https://o.jiayoushichang.com",
-        // baseUrl:"http://127.0.0.1:8080/jojofriend",
-        urlAliases: {},
-        classes:{
-            page:{
-                style: "ws-be-style",
-            }
-        },
-        attr: {
-            name: "data-name",
-			style: "data-style",
-            couponProcessMark: "coup-mk",
-            shadowNamePrefix: "ac-el-"
-		},
-        website:{
-            installNotice:"https://www.jojofriend.com/ext/notice"
-		},
-        messageActions:{
-            updateToolbar:"update_toolbar",
-            iconAvailable:"iconAvailable",
-            iconUnavailable:"iconUnavailable",
-            toolbarIconClick:"toolbar_icon_click"
-        },
-        storageKeys:{
-            position:{
-                logoTop:"p/logoTop",
-            },
-            history:{
-                record:"h/record",
-                offset:"h/offset",
-                number:"h/number",
-            },
-            website:{
-                token:"w/userToken",
-                exchangeInfo:"w/exchangeInfo"
-            }
-        },
-        featureToggleKeys: {
-            windowShow: "window_show"
-        },
-        updateExchangeInfoDelay: 1000*60*10 //Updated every 10 minutes.
-    };
-    
-    $.cl = $.opts.classes;
-    $.attr = $.opts.attr;
+  $.isDev = manifest.version_name.trim() === "Dev"; //isDev, standalone version
+
+  // Replaced at build time by build.js (__BUILD_PLATFORM__ -> chrome | firefox | safari)
+  $.browserName = "safari";
+
+  //Configuration file
+  $.opts = {
+    manifest: manifest,
+    apiVersion: "2.0.1",
+    number: "8000", //This is an identifier specific to the extension; once set, it cannot be changed.
+    baseUrl: "https://o.jiayoushichang.com",
+    // baseUrl:"http://127.0.0.1:8080/jojofriend",
+    urlAliases: {},
+    classes: {
+      page: {
+        style: "ws-be-style"
+      }
+    },
+    attr: {
+      name: "data-name",
+      style: "data-style",
+      couponProcessMark: "coup-mk",
+      shadowNamePrefix: "ac-el-"
+    },
+    website: {
+      installNotice: "https://www.jojofriend.com/ext/notice"
+    },
+    messageActions: {
+      updateToolbar: "update_toolbar",
+      iconAvailable: "iconAvailable",
+      iconUnavailable: "iconUnavailable",
+      toolbarIconClick: "toolbar_icon_click"
+    },
+    storageKeys: {
+      position: {
+        logoTop: "p/logoTop"
+      },
+      history: {
+        record: "h/record",
+        offset: "h/offset",
+        number: "h/number"
+      },
+      website: {
+        token: "w/userToken",
+        exchangeInfo: "w/exchangeInfo"
+      }
+    },
+    featureToggleKeys: {
+      windowShow: "window_show"
+    },
+    updateExchangeInfoDelay: 1000 * 60 * 10 //Updated every 10 minutes.
+  };
+
+  $.cl = $.opts.classes;
+  $.attr = $.opts.attr;
 
 
-    /**
-     * Simple in-memory store for data items.
-     * @constructor
-     */
-    $.DataStoreHelper = function () {
-        const data = [];
+  /**
+   * Simple in-memory store for data items.
+   * @constructor
+   */
+  $.DataStoreHelper = function () {
+    const data = [];
 
-        this.add = function (item) {
-            data.push(item);
-        };
-
-        this.remove = function (item) {
-            const index = data.indexOf(item);
-            if (index !== -1) {
-                data.splice(index, 1);
-            }
-        };
-
-        this.clear = function () {
-            data.length = 0;
-        };
-
-        /** 
-         * @returns {Array} Shallow copy of all items (prevents external mutation). 
-         * */
-        this.getAll = function () {
-            return [...data];
-        };
-
-        this.getSize = function () {
-            return data.length;
-        };
+    this.add = function (item) {
+      data.push(item);
     };
 
+    this.remove = function (item) {
+      const index = data.indexOf(item);
+      if (index !== -1) {
+        data.splice(index, 1);
+      }
+    };
 
-    /**
-     * All supported websites must be defined here.
-     * @constructor
-     */
-    $.PlatformConfigsHelper = function () {
-        // In the string \\ becomes \ after JSON.parse(), valid in regex.
-        // disabled: whether the entire feature is enabled
-        // record.disabled: whether the history record is enabled
-        // On the matched website, the toolbar icon will display the normal logo instead of being grayed out.
-        const defaultPlatformConfigsString = `
+    this.clear = function () {
+      data.length = 0;
+    };
+
+    /** 
+     * @returns {Array} Shallow copy of all items (prevents external mutation). 
+     * */
+    this.getAll = function () {
+      return [...data];
+    };
+
+    this.getSize = function () {
+      return data.length;
+    };
+  };
+
+
+  /**
+   * All supported websites must be defined here.
+   * @constructor
+   */
+  $.PlatformConfigsHelper = function () {
+    // In the string \\ becomes \ after JSON.parse(), valid in regex.
+    // disabled: whether the entire feature is enabled
+    // record.disabled: whether the history record is enabled
+    // On the matched website, the toolbar icon will display the normal logo instead of being grayed out.
+    const defaultPlatformConfigsString = `
             {
                 "366": {
                     "platformId": "366",
@@ -28692,1085 +28692,1085 @@ if (!self.document) {
             }
         `;
 
-        /***
-        * This is a partner website.
-        * If it's a partner website, the toolbar icon will display the normal logo instead of being grayed out.
-        */
-        const partnerPlatforms = [
-            "https:\\/\\/www\\.tool77\\.com\\/.*",
-            "https:\\/\\/www\\.grabshorts\\.com\\/.*",
-            "https:\\/\\/www\\.spotriff\\.com\\/.*"
-        ];
+    /***
+    * This is a partner website.
+    * If it's a partner website, the toolbar icon will display the normal logo instead of being grayed out.
+    */
+    const partnerPlatforms = [
+    "https:\\/\\/www\\.tool77\\.com\\/.*",
+    "https:\\/\\/www\\.grabshorts\\.com\\/.*",
+    "https:\\/\\/www\\.spotriff\\.com\\/.*"];
 
-        let cachedPlatformConfigs = null;
-        const getParsedPlatformConfigs = () => {
-            if (!cachedPlatformConfigs) {
-                cachedPlatformConfigs = JSON.parse(defaultPlatformConfigsString);
-            }
-            return cachedPlatformConfigs;
+
+    let cachedPlatformConfigs = null;
+    const getParsedPlatformConfigs = () => {
+      if (!cachedPlatformConfigs) {
+        cachedPlatformConfigs = JSON.parse(defaultPlatformConfigsString);
+      }
+      return cachedPlatformConfigs;
+    };
+
+    const ensurePlatformConfigDecorated = (item, matchReg) => {
+      if (item.urlMatch instanceof RegExp) {
+        return;
+      }
+      item.urlMatch = matchReg;
+      if (item.detailUrlPattern) {
+        item.detailUrlPattern = item.detailUrlPattern instanceof RegExp ? item.detailUrlPattern : new RegExp(item.detailUrlPattern);
+      }
+      if (item.tradeUrlPatterns) {
+        item.tradeUrlPatterns = item.tradeUrlPatterns.map((p) => p instanceof RegExp ? p : new RegExp(p));
+      }
+    };
+
+    this.getConfigForUrl = (currentUrl = window.location.href) => {
+      const platformConfigs = getParsedPlatformConfigs();
+      let platformConfig = null;
+      if (currentUrl) {
+        for (const key in platformConfigs) {
+          const item = platformConfigs[key];
+          const { disabled } = item;
+          const matchReg = item.urlMatch instanceof RegExp ? item.urlMatch : new RegExp(item.urlMatch);
+          if (matchReg.test(currentUrl) && !disabled) {
+            ensurePlatformConfigDecorated(item, matchReg);
+            platformConfig = item;
+            break;
+          }
+        }
+      }
+      return { platformConfig, platformConfigs };
+    };
+
+    this.isPartnerPlatform = (currentUrl = window.location.href) => {
+      return partnerPlatforms.some((partnerPlatform) => new RegExp(partnerPlatform).test(currentUrl));
+    };
+  };
+
+
+
+  $.ConnectHelper = function (b) {
+
+    /**
+     * Registers the unified runtime.onMessage listener (sync; must run before content scripts rely on it).
+     *
+     * @param {object} [actionHandlers]
+     * @param {function(number, object): void} [actionHandlers.onUpdateToolbar]
+     * @param {function(number): void} [actionHandlers.onIconAvailable]
+     * @param {function(number): void} [actionHandlers.onIconUnavailable]
+     */
+    this.registerMessageListener = (actionHandlers = {}) => {
+      const mapping = {
+        langvars: b.helper.language.getLangVars,
+        rtlLangs: b.helper.language.getRtlLanguages,
+        languageInfos: b.helper.language.getAvailableLanguages,
+        languageVars: b.helper.language.getVars,
+        languageRefresh: b.helper.language.init,
+        openLink: b.helper.util.openLink,
+        closeLink: b.helper.util.closeLink,
+        request: b.helper.request.getServerData,
+
+        storageSessionGet: b.helper.storageSession.get,
+        storageSessionSet: b.helper.storageSession.set,
+        storageSessionRemove: b.helper.storageSession.remove,
+        storageSessionClear: b.helper.storageSession.clear,
+        getEid: b.helper.dao.getEid
+      };
+
+      const handleActionMessage = (message, sender) => {
+        const tabId = sender.tab?.id;
+        const { action, value } = message;
+        const actions = $.opts.messageActions;
+
+        if (action === actions.updateToolbar) {
+          actionHandlers.onUpdateToolbar?.(tabId, value);
+        } else if (action === actions.iconAvailable) {
+          actionHandlers.onIconAvailable?.(tabId);
+        } else if (action === actions.iconUnavailable) {
+          actionHandlers.onIconUnavailable?.(tabId);
+        }
+      };
+
+      $.api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action) {
+          handleActionMessage(message, sender);
+          return false;
         }
 
-        const ensurePlatformConfigDecorated = (item, matchReg) => {
-            if (item.urlMatch instanceof RegExp) {
-                return;
-            }
-            item.urlMatch = matchReg;
-            if (item.detailUrlPattern) {
-                item.detailUrlPattern = item.detailUrlPattern instanceof RegExp ? item.detailUrlPattern : new RegExp(item.detailUrlPattern);
-            }
-            if (item.tradeUrlPatterns) {
-                item.tradeUrlPatterns = item.tradeUrlPatterns.map((p) => (p instanceof RegExp ? p : new RegExp(p)));
-            }
+        if (message.type) {
+          const handler = mapping[message.type];
+          if (!handler) {
+            b.log("Unknown message type:" + message.type);
+            return false;
+          }
+
+          message.tabId = sender.tab ? sender.tab.id : null;
+
+          handler(message).
+          then((result) => {
+            sendResponse(result);
+          }).
+          catch((error) => {
+            b.log(error);
+            sendResponse();
+          });
+
+          return true;
         }
 
-        this.getConfigForUrl = (currentUrl = window.location.href) => {
-            const platformConfigs = getParsedPlatformConfigs();
-            let platformConfig = null;
-            if (currentUrl) {
-                for (const key in platformConfigs) {
-                    const item = platformConfigs[key];
-                    const { disabled } = item;
-                    const matchReg = item.urlMatch instanceof RegExp ? item.urlMatch : new RegExp(item.urlMatch);
-                    if (matchReg.test(currentUrl) && !disabled) {
-                        ensurePlatformConfigDecorated(item, matchReg);
-                        platformConfig = item;
-                        break;
-                    }
-                }
-            }
-            return { platformConfig, platformConfigs };
-        };
+        return false;
+      });
+    };
 
-        this.isPartnerPlatform = (currentUrl = window.location.href) => {
-            return partnerPlatforms.some((partnerPlatform) => new RegExp(partnerPlatform).test(currentUrl));
-        };
+    /** @returns {Promise<void>} */
+    this.init = async () => Promise.resolve();
+  };
+
+
+
+  $.DaoHelper = function (b) {
+
+    let data = {};
+
+    /**
+     * All background data is stored in the "model" key.
+     * @returns {Promise}
+     */
+    this.init = () => new Promise((resolve) => {
+      $.api.storage.local.get(["model"], (obj) => {
+        data = obj.model || {};
+
+        // Initialize installation metadata if missing.
+        if (typeof data.installationDate === "undefined") {
+          data.installationDate = +new Date();
+        }
+
+        if (typeof data.lastUpdateDate === "undefined") {
+          data.lastUpdateDate = +new Date();
+        }
+
+        // Generate and persist a unique identifier if missing.
+        if (typeof data.eId === "undefined" || data.eId === "") {
+          data.eId = b.helper.util.generatorIdentifier();
+        }
+
+        saveModelData().then(resolve);
+      });
+    });
+
+    /**
+     * Saves the given value under the given name
+     *
+     * @param {string} key
+     * @param {*} val
+     * @returns {Promise}
+     */
+    this.setData = (key, val) => new Promise((resolve) => {
+      data[key] = val;
+      saveModelData().then(resolve);
+    });
+
+    /**
+     * Convenience wrapper around setData using an options object.
+     */
+    this.setValue = (opts) => this.setData(opts.key, opts.value);
+
+    /**
+     * Get the value by key
+     */
+    this.getValue = (opts) => new Promise((resolve) => {
+      resolve(this.getData(opts.key));
+    });
+
+
+    /**
+     * Returns the value to the given name
+     *
+     * @param {string} key
+     * @returns {*|null}
+     */
+    this.getData = (key) => data[key] || null;
+
+    /**
+     * get unique Identifier, Initialize values ​​during installation
+     * @returns 
+     */
+    this.getEid = () => new Promise((resolve) => {
+      resolve(data.eId || "");
+    });
+
+    /**
+     * Saves the data object into the synced storage
+     *
+     * @returns {Promise}
+     */
+    const saveModelData = () => new Promise((resolve) => {
+      if (Object.getOwnPropertyNames(data).length > 0) {
+        $.api.storage.local.set(
+          { model: data }, () => {
+            // do nothing specific with the error -> is thrown if too many save attempts are triggered
+            $.api.runtime.lastError;
+            resolve();
+          }
+        );
+      } else {
+        resolve();
+      }
+    });
+  };
+
+
+
+  $.LanguageHelper = function () {
+
+    /* ------------------ Language registry (BCP-47 format) ------------------ */
+    // IMPORTANT:
+    // All language identifiers here MUST follow BCP-47 (hyphen format, e.g. zh-CN).
+    // Chrome extension folder names (_locales) will be converted later to zh_CN.
+    const defaultLabelMap = {
+      ar: "اتّباع لغة المتصفح",
+      de: "Browser-Sprache folgen",
+      en: "Follow Browser",
+      es: "Seguir el navegador",
+      fr: "Suivre la langue du navigateur",
+      he: "התאם לשפת הדפדפן",
+      hi: "ब्राउज़र भाषा का अनुसरण करें",
+      id: "Ikuti bahasa browser",
+      it: "Segui la lingua del browser",
+      ja: "ブラウザーに従う",
+      ko: "브라우저 언어 따르기",
+      ms: "Ikut bahasa pelayar",
+      nl: "Browsertaal volgen",
+      pl: "Dopasuj do jezyka przegladarki",
+      pt: "Seguir o idioma do navegador",
+      ru: "Следовать языку браузера",
+      th: "ใช้ภาษาตามเบราว์เซอร์",
+      tr: "Tarayici dilini takip et",
+      uk: "Використовувати мову браузера",
+      vi: "Theo ngon ngu trinh duyet",
+      zh: "跟随浏览器",
+      "zh-TW": "跟隨瀏覽器"
+    };
+
+    const allLanguages = {
+      default: "Follow Browser",
+      ar: "العربية",
+      de: "Deutsch",
+      en: "English",
+      "en-US": "English (US)",
+      es: "Español",
+      fr: "Français",
+      he: "עברית",
+      hi: "हिन्दी",
+      id: "Bahasa Indonesia",
+      it: "Italiano",
+      ja: "日本語",
+      ko: "한국어",
+      ms: "Bahasa Melayu",
+      nl: "Nederlands",
+      pl: "Polski",
+      "pt-BR": "Português (Brasil)",
+      "pt-PT": "Português (Portugal)",
+      ru: "Русский",
+      th: "ไทย",
+      tr: "Türkçe",
+      uk: "Українська",
+      vi: "Tiếng Việt",
+      "zh-CN": "简体中文",
+      "zh-TW": "繁體中文"
     };
 
 
+    const rtlLangs = ["ar", "he", "fa"];
 
-    $.ConnectHelper = function (b) {
+    // Language aliases (short codes mapped to canonical ones)
+    const aliasLangs = { pt: "pt-PT" };
 
-        /**
-         * Registers the unified runtime.onMessage listener (sync; must run before content scripts rely on it).
-         *
-         * @param {object} [actionHandlers]
-         * @param {function(number, object): void} [actionHandlers.onUpdateToolbar]
-         * @param {function(number): void} [actionHandlers.onIconAvailable]
-         * @param {function(number): void} [actionHandlers.onIconUnavailable]
-         */
-        this.registerMessageListener = (actionHandlers = {}) => {
-            const mapping = {
-                langvars: b.helper.language.getLangVars,
-                rtlLangs: b.helper.language.getRtlLanguages,
-                languageInfos: b.helper.language.getAvailableLanguages,
-                languageVars: b.helper.language.getVars,
-                languageRefresh: b.helper.language.init,
-                openLink: b.helper.util.openLink,
-                closeLink: b.helper.util.closeLink,
-                request: b.helper.request.getServerData,
+    let language = null;
+    let languageLabel = null;
+    let langVars = {};
+    let isRtl = false;
+    let selectedLanguage = "default";
 
-                storageSessionGet: b.helper.storageSession.get,
-                storageSessionSet: b.helper.storageSession.set,
-                storageSessionRemove: b.helper.storageSession.remove,
-                storageSessionClear: b.helper.storageSession.clear,
-                getEid: b.helper.dao.getEid
-            };
+    const getDefaultLanguageLabel = () => {
+      const supportedKeys = new Set(
+        Object.keys(allLanguages).filter((key) => key !== "default")
+      );
+      const supportedShorts = new Set(
+        Array.from(supportedKeys).map((key) => key.toLowerCase().split("-")[0])
+      );
 
-            const handleActionMessage = (message, sender) => {
-                const tabId = sender.tab?.id;
-                const { action, value } = message;
-                const actions = $.opts.messageActions;
+      try {
+        const ui = $.api.i18n.getUILanguage();
+        // Do not rely on normalizeLocaleKey declaration order here.
+        const normalized = String(ui || "").
+        trim().
+        replace(/_/g, "-").
+        split("-").
+        filter(Boolean).
+        map((part, i) => i === 0 ? part.toLowerCase() : part.toUpperCase()).
+        join("-");
+        const short = normalized ? normalized.toLowerCase().split("-")[0] : "";
 
-                if (action === actions.updateToolbar) {
-                    actionHandlers.onUpdateToolbar?.(tabId, value);
-                } else if (action === actions.iconAvailable) {
-                    actionHandlers.onIconAvailable?.(tabId);
-                } else if (action === actions.iconUnavailable) {
-                    actionHandlers.onIconUnavailable?.(tabId);
-                }
-            };
+        // 1) exact locale (e.g. zh-TW) if supported
+        if (normalized && supportedKeys.has(normalized) && defaultLabelMap[normalized]) {
+          return defaultLabelMap[normalized];
+        }
 
-            $.api.runtime.onMessage.addListener((message, sender, sendResponse) => {
-                if (message.action) {
-                    handleActionMessage(message, sender);
-                    return false;
-                }
+        // 2) short locale (e.g. zh) if supported group exists
+        if (supportedShorts.has(short) && defaultLabelMap[short]) {
+          return defaultLabelMap[short];
+        }
 
-                if (message.type) {
-                    const handler = mapping[message.type];
-                    if (!handler) {
-                        b.log("Unknown message type:" + message.type);
-                        return false;
-                    }
+        // 3) fallback to english
+        return defaultLabelMap.en;
+      } catch (err) {
+        return defaultLabelMap.en;
+      }
+    };
+    allLanguages.default = getDefaultLanguageLabel();
 
-                    message.tabId = sender.tab ? sender.tab.id : null;
+    // Convert zh_CN -> zh-CN (standard format)
+    const toBCP47 = (code) => code ? code.replace(/_/g, "-") : null;
 
-                    handler(message)
-                        .then((result) => {
-                            sendResponse(result);
-                        })
-                        .catch((error) => {
-                            b.log(error);
-                            sendResponse();
-                        });
+    // Convert zh-CN -> zh_CN (Chrome _locales folder format)
+    const toChromeLocale = (code) => code ? code.replace(/-/g, "_") : null;
 
-                    return true;
-                }
+    /**
+     * Normalize any locale string to BCP-47:
+     * zh_CN / zh-cn / zh-Hans-CN → zh-CN
+     */
+    const normalizeLocaleKey = (raw) => {
+      if (!raw) return null;
 
-                return false;
-            });
-        };
+      const parts = raw.trim().replace(/_/g, "-").split("-").filter(Boolean);
+      const lang = parts[0].toLowerCase();
 
-        /** @returns {Promise<void>} */
-        this.init = async () => Promise.resolve();
+      // Find region part if exists (US, CN, TW, 419, ...)
+      const region = parts.slice(1).find((p) => /^[a-z]{2}$/i.test(p) || /^\d{3}$/.test(p));
+      return region ? `${lang}-${region.toUpperCase()}` : lang;
     };
 
+    /**
+     * Build a mapping index like:
+     * "zh-cn" -> "zh-CN"
+     * "zh" -> "zh-CN"
+     * This solves incomplete short code mapping issues.
+     */
+    const buildLocaleIndex = () => {
+      const index = {};
+      Object.keys(allLanguages).forEach((key) => {
+        const norm = normalizeLocaleKey(key);
+        index[norm.toLowerCase()] = key;
 
-
-    $.DaoHelper = function (b) {
-
-        let data = {};
-
-        /**
-         * All background data is stored in the "model" key.
-         * @returns {Promise}
-         */
-        this.init = () => new Promise((resolve) => {
-            $.api.storage.local.get(["model"], (obj) => {
-                data = obj.model || {};
-
-                // Initialize installation metadata if missing.
-                if (typeof data.installationDate === "undefined") {
-                    data.installationDate = +new Date();
-                }
-
-                if (typeof data.lastUpdateDate === "undefined") {
-                    data.lastUpdateDate = +new Date();
-                }
-
-                // Generate and persist a unique identifier if missing.
-                if (typeof data.eId === "undefined" || data.eId === "") {
-                    data.eId = b.helper.util.generatorIdentifier();
-                }
-
-                saveModelData().then(resolve);
-            });
-        });
-
-        /**
-         * Saves the given value under the given name
-         *
-         * @param {string} key
-         * @param {*} val
-         * @returns {Promise}
-         */
-        this.setData = (key, val) => new Promise((resolve) => {
-            data[key] = val;
-            saveModelData().then(resolve);
-        });
-
-        /**
-         * Convenience wrapper around setData using an options object.
-         */
-        this.setValue = (opts) => this.setData(opts.key, opts.value);
-
-		/**
-		 * Get the value by key
-		 */
-        this.getValue = (opts) => new Promise((resolve) => {
-            resolve(this.getData(opts.key));
-        });
-
-
-        /**
-         * Returns the value to the given name
-         *
-         * @param {string} key
-         * @returns {*|null}
-         */
-        this.getData = (key) => data[key] || null;
-
-        /**
-         * get unique Identifier, Initialize values ​​during installation
-         * @returns 
-         */
-        this.getEid = () => new Promise((resolve) => {
-            resolve(data.eId || "");
-        });
-
-        /**
-         * Saves the data object into the synced storage
-         *
-         * @returns {Promise}
-         */
-        const saveModelData = () => new Promise((resolve) => {
-            if (Object.getOwnPropertyNames(data).length > 0) {
-                $.api.storage.local.set(
-                    {model: data}, () => {
-                        // do nothing specific with the error -> is thrown if too many save attempts are triggered
-                        $.api.runtime.lastError;
-                        resolve();
-                    }
-                );
-            } else {
-                resolve();
-            }
-        });
+        // also map short language code
+        const short = norm.split("-")[0];
+        if (!index[short]) index[short] = key;
+      });
+      return index;
     };
 
+    const localeIndex = buildLocaleIndex();
 
-
-    $.LanguageHelper = function () {
-
-        /* ------------------ Language registry (BCP-47 format) ------------------ */
-        // IMPORTANT:
-        // All language identifiers here MUST follow BCP-47 (hyphen format, e.g. zh-CN).
-        // Chrome extension folder names (_locales) will be converted later to zh_CN.
-        const defaultLabelMap = {
-            ar: "اتّباع لغة المتصفح",
-            de: "Browser-Sprache folgen",
-            en: "Follow Browser",
-            es: "Seguir el navegador",
-            fr: "Suivre la langue du navigateur",
-            he: "התאם לשפת הדפדפן",
-            hi: "ब्राउज़र भाषा का अनुसरण करें",
-            id: "Ikuti bahasa browser",
-            it: "Segui la lingua del browser",
-            ja: "ブラウザーに従う",
-            ko: "브라우저 언어 따르기",
-            ms: "Ikut bahasa pelayar",
-            nl: "Browsertaal volgen",
-            pl: "Dopasuj do jezyka przegladarki",
-            pt: "Seguir o idioma do navegador",
-            ru: "Следовать языку браузера",
-            th: "ใช้ภาษาตามเบราว์เซอร์",
-            tr: "Tarayici dilini takip et",
-            uk: "Використовувати мову браузера",
-            vi: "Theo ngon ngu trinh duyet",
-            zh: "跟随浏览器",
-            "zh-TW": "跟隨瀏覽器",
-        };
-
-        const allLanguages = {
-            default: "Follow Browser",
-            ar: "العربية",
-            de: "Deutsch",
-            en: "English",
-            "en-US": "English (US)",
-            es: "Español",
-            fr: "Français",
-            he: "עברית",
-            hi: "हिन्दी",
-            id: "Bahasa Indonesia",
-            it: "Italiano",
-            ja: "日本語",
-            ko: "한국어",
-            ms: "Bahasa Melayu",
-            nl: "Nederlands",
-            pl: "Polski",
-            "pt-BR": "Português (Brasil)",
-            "pt-PT": "Português (Portugal)",
-            ru: "Русский",
-            th: "ไทย",
-            tr: "Türkçe",
-            uk: "Українська",
-            vi: "Tiếng Việt",
-            "zh-CN": "简体中文",
-            "zh-TW": "繁體中文",
-        };
-
-
-        const rtlLangs = ["ar", "he", "fa"];
-
-        // Language aliases (short codes mapped to canonical ones)
-        const aliasLangs = { pt: "pt-PT" };
-
-        let language = null;
-        let languageLabel = null;
-        let langVars = {};
-        let isRtl = false;
-        let selectedLanguage = "default";
-
-        const getDefaultLanguageLabel = () => {
-            const supportedKeys = new Set(
-                Object.keys(allLanguages).filter((key) => key !== "default")
-            );
-            const supportedShorts = new Set(
-                Array.from(supportedKeys).map((key) => key.toLowerCase().split("-")[0])
-            );
-
-            try {
-                const ui = $.api.i18n.getUILanguage();
-                // Do not rely on normalizeLocaleKey declaration order here.
-                const normalized = String(ui || "")
-                    .trim()
-                    .replace(/_/g, "-")
-                    .split("-")
-                    .filter(Boolean)
-                    .map((part, i) => (i === 0 ? part.toLowerCase() : part.toUpperCase()))
-                    .join("-");
-                const short = normalized ? normalized.toLowerCase().split("-")[0] : "";
-
-                // 1) exact locale (e.g. zh-TW) if supported
-                if (normalized && supportedKeys.has(normalized) && defaultLabelMap[normalized]) {
-                    return defaultLabelMap[normalized];
-                }
-
-                // 2) short locale (e.g. zh) if supported group exists
-                if (supportedShorts.has(short) && defaultLabelMap[short]) {
-                    return defaultLabelMap[short];
-                }
-
-                // 3) fallback to english
-                return defaultLabelMap.en;
-            } catch (err) {
-                return defaultLabelMap.en;
-            }
-        };
-        allLanguages.default = getDefaultLanguageLabel();
-
-        // Convert zh_CN -> zh-CN (standard format)
-        const toBCP47 = (code) => code ? code.replace(/_/g, "-") : null;
-
-        // Convert zh-CN -> zh_CN (Chrome _locales folder format)
-        const toChromeLocale = (code) => code ? code.replace(/-/g, "_") : null;
-
-        /**
-         * Normalize any locale string to BCP-47:
-         * zh_CN / zh-cn / zh-Hans-CN → zh-CN
-         */
-        const normalizeLocaleKey = (raw) => {
-            if (!raw) return null;
-
-            const parts = raw.trim().replace(/_/g, "-").split("-").filter(Boolean);
-            const lang = parts[0].toLowerCase();
-
-            // Find region part if exists (US, CN, TW, 419, ...)
-            const region = parts.slice(1).find(p => /^[a-z]{2}$/i.test(p) || /^\d{3}$/.test(p));
-            return region ? `${lang}-${region.toUpperCase()}` : lang;
-        };
-
-        /**
-         * Build a mapping index like:
-         * "zh-cn" -> "zh-CN"
-         * "zh" -> "zh-CN"
-         * This solves incomplete short code mapping issues.
-         */
-        const buildLocaleIndex = () => {
-            const index = {};
-            Object.keys(allLanguages).forEach(key => {
-                const norm = normalizeLocaleKey(key);
-                index[norm.toLowerCase()] = key;
-
-                // also map short language code
-                const short = norm.split("-")[0];
-                if (!index[short]) index[short] = key;
-            });
-            return index;
-        };
-
-        const localeIndex = buildLocaleIndex();
-
-        /**
-         * Resolve any input language to the canonical key in allLanguages.
-         */
-        const resolveCanonicalLang = (code) => {
-            const norm = normalizeLocaleKey(code);
-            if (!norm) return null;
-            return localeIndex[norm.toLowerCase()] || norm;
-        };
-
-        /**
-         * Create a prioritized language fallback list.
-         * Example for zh-HK:
-         * zh-HK → zh-TW → zh → default
-         */
-        const getLangCandidates = (rawLang, defaultLang) => {
-            const candidates = [];
-            const canonical = resolveCanonicalLang(rawLang);
-            if (canonical) candidates.push(canonical);
-
-            const norm = normalizeLocaleKey(rawLang);
-            if (norm) {
-                const [short, region] = norm.split("-");
-
-                // Special Chinese region handling
-                if (short === "zh") {
-                    if (region === "HK" || region === "MO") candidates.push("zh-TW");
-                    if (region === "SG") candidates.push("zh-CN");
-                }
-
-                // Portuguese alias handling
-                if (short === "pt") candidates.push("pt-PT");
-
-                if (localeIndex[short]) candidates.push(localeIndex[short]);
-            }
-
-            candidates.push(defaultLang);
-            return [...new Set(candidates)];
-        };
-
-        /**
-         * Load translation file from _locales.
-         * Note: ONLY here we convert to zh_CN format.
-         */
-        const getVars = (lang, defaultLang = null) => new Promise((resolve) => {
-
-            const load = (baseVars) => {
-                fetch($.api.runtime.getURL("_locales/" + toChromeLocale(lang) + "/messages.json"))
-                    .then(r => r.ok ? r.json() : Promise.reject())
-                    .then(data => {
-                        Object.assign(baseVars, data);
-                        resolve({ langVars: baseVars });
-                    })
-                    .catch(() => resolve({ langVars: baseVars }));
-            };
-
-            // Always load default language first as base, then override
-            if (defaultLang && defaultLang !== lang) {
-                getVars(defaultLang, null).then(res => load(res.langVars));
-            } else {
-                load({});
-            }
-        });
-
-
-        // ------------------ Initialization ------------------
-
-        /**
-         * Determine best language and load translations.
-         */
-        this.init = () => new Promise((resolve) => {
-            $.api.storage.local.get(["language"], (data) => {
-                const storedLanguage = data?.language || "default";
-                const followBrowser = storedLanguage === "default";
-                selectedLanguage = storedLanguage;
-                let lang = followBrowser ? this.getUILanguage() : storedLanguage;
-
-                lang = resolveCanonicalLang(lang);
-                if (aliasLangs[lang]) lang = aliasLangs[lang];
-
-                const defaultLang = resolveCanonicalLang($.opts.manifest.default_locale);
-                const candidates = getLangCandidates(lang, defaultLang);
-
-                this.getAvailableLanguages().then((available) => {
-                    const infos = available && available.infos ? available.infos : {};
-                    const usable = candidates.find((l) => infos[l] && infos[l].available);
-                    language = usable || defaultLang;
-                    languageLabel = followBrowser ? allLanguages.default : allLanguages[language];
-                    isRtl = rtlLangs.some(r => language.startsWith(r));
-
-                    getVars(language, defaultLang).then(res => {
-                        langVars = res.langVars;
-                        resolve();
-                    });
-                });
-            });
-        });
-
-  
-        // ------------------ Public APIs ------------------
-
-        this.getUILanguage = () => {
-            try {
-                return normalizeLocaleKey($.api.i18n.getUILanguage());
-            } catch {
-                return $.opts.manifest.default_locale;
-            }
-        };
-
-        this.getLanguage = () => language;
-
-        this.getRtlLanguages = async () => rtlLangs;
-
-        this.getLangVars = () => new Promise((resolve) => {
-            const checkTask = () => {
-                if (language) {
-                    resolve({
-                        language: language,
-                        selectedLanguage: selectedLanguage,
-                        languageLabel: languageLabel,
-                        dir: isRtl ? "rtl" : "ltr",
-                        vars: langVars
-                    });
-                } else {
-                    setTimeout(checkTask, 100);
-                }
-            };
-            checkTask();
-        });
-
-        this.getVars = (opts = {}) => getVars(opts.language, $.opts.manifest.default_locale);
-
-        /**
-         * Check which _locales folders actually exist.
-         */
-        this.getAvailableLanguages = () => new Promise((resolve) => {
-            const infos = {};
-            const langs = Object.keys(allLanguages);
-
-            let done = 0;
-            langs.forEach((lang) => {
-                infos[lang] = {
-                    language: lang,
-                    languageLabel: allLanguages[lang],
-                    available: false
-                };
-
-                fetch($.api.runtime.getURL("_locales/" + toChromeLocale(lang) + "/messages.json"), { method: "HEAD" })
-                    .then(() => {
-                        infos[lang].available = true;
-                    })
-                    .catch(() => {})
-                    .finally(() => {
-                        if (++done === langs.length) {
-                            resolve({infos: infos});
-                        }
-                    });
-            });
-        });
-
-        /**
-         * Detect languages with incomplete translations from your translation platform.
-         */
-        this.getIncompleteLanguages = () => new Promise((resolve) => {
-            const url = $.opts?.website?.translation?.info;
-            if (!url) return resolve([]);
-
-            fetch(url)
-                .then(r => r.ok ? r.json() : Promise.reject())
-                .then(infos => {
-                    const total = Object.values(infos.categories || {})
-                        .reduce((s, c) => s + (c.total || 0), 0);
-
-                    const incomplete = (infos.languages || [])
-                        .filter(l => (l.varsAmount || 0) < total)
-                        .map(l => resolveCanonicalLang(l.name));
-
-                    resolve(incomplete);
-                })
-                .catch(() => resolve([]));
-        });
+    /**
+     * Resolve any input language to the canonical key in allLanguages.
+     */
+    const resolveCanonicalLang = (code) => {
+      const norm = normalizeLocaleKey(code);
+      if (!norm) return null;
+      return localeIndex[norm.toLowerCase()] || norm;
     };
 
+    /**
+     * Create a prioritized language fallback list.
+     * Example for zh-HK:
+     * zh-HK → zh-TW → zh → default
+     */
+    const getLangCandidates = (rawLang, defaultLang) => {
+      const candidates = [];
+      const canonical = resolveCanonicalLang(rawLang);
+      if (canonical) candidates.push(canonical);
+
+      const norm = normalizeLocaleKey(rawLang);
+      if (norm) {
+        const [short, region] = norm.split("-");
+
+        // Special Chinese region handling
+        if (short === "zh") {
+          if (region === "HK" || region === "MO") candidates.push("zh-TW");
+          if (region === "SG") candidates.push("zh-CN");
+        }
+
+        // Portuguese alias handling
+        if (short === "pt") candidates.push("pt-PT");
+
+        if (localeIndex[short]) candidates.push(localeIndex[short]);
+      }
+
+      candidates.push(defaultLang);
+      return [...new Set(candidates)];
+    };
+
+    /**
+     * Load translation file from _locales.
+     * Note: ONLY here we convert to zh_CN format.
+     */
+    const getVars = (lang, defaultLang = null) => new Promise((resolve) => {
+
+      const load = (baseVars) => {
+        fetch($.api.runtime.getURL("_locales/" + toChromeLocale(lang) + "/messages.json")).
+        then((r) => r.ok ? r.json() : Promise.reject()).
+        then((data) => {
+          Object.assign(baseVars, data);
+          resolve({ langVars: baseVars });
+        }).
+        catch(() => resolve({ langVars: baseVars }));
+      };
+
+      // Always load default language first as base, then override
+      if (defaultLang && defaultLang !== lang) {
+        getVars(defaultLang, null).then((res) => load(res.langVars));
+      } else {
+        load({});
+      }
+    });
 
 
-    $.Background = function () {
+    // ------------------ Initialization ------------------
 
-        const apiAction = $.api.action || $.api.browserAction;
+    /**
+     * Determine best language and load translations.
+     */
+    this.init = () => new Promise((resolve) => {
+      $.api.storage.local.get(["language"], (data) => {
+        const storedLanguage = data?.language || "default";
+        const followBrowser = storedLanguage === "default";
+        selectedLanguage = storedLanguage;
+        let lang = followBrowser ? this.getUILanguage() : storedLanguage;
+
+        lang = resolveCanonicalLang(lang);
+        if (aliasLangs[lang]) lang = aliasLangs[lang];
+
+        const defaultLang = resolveCanonicalLang($.opts.manifest.default_locale);
+        const candidates = getLangCandidates(lang, defaultLang);
+
+        this.getAvailableLanguages().then((available) => {
+          const infos = available && available.infos ? available.infos : {};
+          const usable = candidates.find((l) => infos[l] && infos[l].available);
+          language = usable || defaultLang;
+          languageLabel = followBrowser ? allLanguages.default : allLanguages[language];
+          isRtl = rtlLangs.some((r) => language.startsWith(r));
+
+          getVars(language, defaultLang).then((res) => {
+            langVars = res.langVars;
+            resolve();
+          });
+        });
+      });
+    });
+
+
+    // ------------------ Public APIs ------------------
+
+    this.getUILanguage = () => {
+      try {
+        return normalizeLocaleKey($.api.i18n.getUILanguage());
+      } catch {
+        return $.opts.manifest.default_locale;
+      }
+    };
+
+    this.getLanguage = () => language;
+
+    this.getRtlLanguages = async () => rtlLangs;
+
+    this.getLangVars = () => new Promise((resolve) => {
+      const checkTask = () => {
+        if (language) {
+          resolve({
+            language: language,
+            selectedLanguage: selectedLanguage,
+            languageLabel: languageLabel,
+            dir: isRtl ? "rtl" : "ltr",
+            vars: langVars
+          });
+        } else {
+          setTimeout(checkTask, 100);
+        }
+      };
+      checkTask();
+    });
+
+    this.getVars = (opts = {}) => getVars(opts.language, $.opts.manifest.default_locale);
+
+    /**
+     * Check which _locales folders actually exist.
+     */
+    this.getAvailableLanguages = () => new Promise((resolve) => {
+      const infos = {};
+      const langs = Object.keys(allLanguages);
+
+      let done = 0;
+      langs.forEach((lang) => {
+        infos[lang] = {
+          language: lang,
+          languageLabel: allLanguages[lang],
+          available: false
+        };
+
+        fetch($.api.runtime.getURL("_locales/" + toChromeLocale(lang) + "/messages.json"), { method: "HEAD" }).
+        then(() => {
+          infos[lang].available = true;
+        }).
+        catch(() => {}).
+        finally(() => {
+          if (++done === langs.length) {
+            resolve({ infos: infos });
+          }
+        });
+      });
+    });
+
+    /**
+     * Detect languages with incomplete translations from your translation platform.
+     */
+    this.getIncompleteLanguages = () => new Promise((resolve) => {
+      const url = $.opts?.website?.translation?.info;
+      if (!url) return resolve([]);
+
+      fetch(url).
+      then((r) => r.ok ? r.json() : Promise.reject()).
+      then((infos) => {
+        const total = Object.values(infos.categories || {}).
+        reduce((s, c) => s + (c.total || 0), 0);
+
+        const incomplete = (infos.languages || []).
+        filter((l) => (l.varsAmount || 0) < total).
+        map((l) => resolveCanonicalLang(l.name));
+
+        resolve(incomplete);
+      }).
+      catch(() => resolve([]));
+    });
+  };
+
+
+
+  $.Background = function () {
+
+    const apiAction = $.api.action || $.api.browserAction;
+    this.animationInterval = null;
+    this.icons = {};
+
+    /**
+     * Initialises the helper objects
+     */
+    const initHelpers = () => {
+      this.helper = {
+        dao: new $.DaoHelper(this),
+        connect: new $.ConnectHelper(this),
+        language: new $.LanguageHelper(this),
+        upgrade: new $.UpgradeHelper(this),
+        util: new $.UtilHelper(this),
+        request: new $.RequestHelper(this),
+        storageSession: new $.storageSessionHelper(this),
+        platformConfigHelper: new $.PlatformConfigsHelper(this)
+      };
+    };
+
+    /**
+     * Checks if a URL is supported by the extension
+     * @param {string} url - The URL to check
+     * @returns {boolean} - True if the URL is supported
+     */
+    const isUrlSupported = (url) => {
+      if (!url || !this.helper || !this.helper.platformConfigHelper) {
+        return false;
+      }
+      const { platformConfig } = this.helper.platformConfigHelper.getConfigForUrl(url);
+      return !!platformConfig || this.helper.platformConfigHelper.isPartnerPlatform(url);
+    };
+
+    /**
+     * Calls the according method of the upgrade helper after installing or updating the extension,
+     * waits 500ms if the helper is not initialized yet and calls itself again
+     *
+     * @param {object} details - Installation/update details
+     * @param {number} retryCount - Current retry count (max 100)
+     */
+    const callOnInstalledCallback = (details, retryCount = 0) => {
+      if (this.helper?.upgrade?.loaded) {
+        if (details.reason === "install") {
+          this.helper.upgrade.onInstalled();
+        } else if (details.reason === "update") {
+          this.helper.upgrade.onUpdated(details);
+        }
+      } else if (retryCount < 100) {
+        $.delay(500).then(() => {
+          callOnInstalledCallback(details, retryCount + 1);
+        });
+      }
+    };
+
+    const setupBrowserListeners = () => {
+      $.api.runtime.onInstalled.addListener((details) => {
+        callOnInstalledCallback(details);
+      });
+
+      if ($.browserName === "safari") {
+        // Safari may prompt for site access; keep tab queries warm on navigation.
+        $.api.tabs.onActivated.addListener(() => {
+          $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
+        });
+        $.api.tabs.onUpdated.addListener(() => {
+          $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
+        });
+      }
+    };
+
+    /**
+     * Send message to content script
+     * @param {number} tabId - Target tab ID
+     * @param {string} action - Message action
+     * @param {*} value - Message value
+     * @param {Function} [callback] - Optional callback
+     */
+    const sendContentScriptMessage = (tabId, action, value, callback) => {
+      if (!tabId) {
+        return;
+      }
+      try {
+        $.api.tabs.sendMessage(tabId, { action, value }, callback);
+      } catch (err) {
+
+      }
+    };
+
+    /**
+     * Generate icon paths for a specific folder
+     * @param {string} folder - Icon folder name
+     * @returns {object} - Icon paths object
+     */
+    const generateIcons = (folder) => {
+      if (this.icons[folder]) {
+        return this.icons[folder];
+      }
+
+      const iconSizes = ["16", "32", "48", "128", "512"];
+      const paths = iconSizes.reduce((acc, size) => {
+        acc[size] = $.api.runtime.getURL(`images/icon/${folder}/icon${size}.png`);
+        return acc;
+      }, {});
+
+      const iconData = { path: paths };
+      this.icons[folder] = iconData;
+      return iconData;
+    };
+
+    /**
+     * Update icon to available state
+     * @param {number} [tabId] - Optional tab ID to update specific tab icon
+     */
+    const updateIconAvailable = (tabId) => {
+      const iconData = generateIcons("default");
+      if (tabId) {
+        apiAction.setIcon({ path: iconData.path, tabId });
+      } else {
+        apiAction.setIcon(iconData);
+      }
+    };
+
+    /**
+     * Update icon to unavailable state
+     * @param {number} [tabId] - Optional tab ID to update specific tab icon
+     */
+    const updateIconUnavailable = (tabId) => {
+      const iconData = generateIcons("unavailable");
+      if (tabId) {
+        apiAction.setIcon({ path: iconData.path, tabId });
+      } else {
+        apiAction.setIcon(iconData);
+      }
+    };
+
+    /**
+     * Update tab icon based on support status
+     * @param {number} tabId - Target tab ID
+     * @param {string} url - Tab URL
+     */
+    const updateTabIcon = (tabId, url) => {
+      if (!tabId || !url) {
+        return;
+      }
+      const iconType = isUrlSupported(url) ? "default" : "unavailable";
+      apiAction.setIcon({ path: generateIcons(iconType).path, tabId });
+    };
+
+    /**
+     * Start icon animation: play frames in order at fixed interval, then stop and restore default icon
+     * @param {number} tabId - Target tab ID for animated icon
+     */
+    const startIconAnimation = (tabId) => {
+      if (this.animationInterval) {
+        stopIconAnimation();
+      }
+
+      const ANIMATION_DELAY = 50;
+      const PICTURE_GROUPS = 10;
+
+      const icons = Array.from(
+        { length: PICTURE_GROUPS },
+        (_, i) => generateIcons(`effect/${i + 1}`)
+      );
+
+      let index = 0;
+      this.animationInterval = setInterval(() => {
+        const iconData = icons[index];
+        if (tabId) {
+          apiAction.setIcon({ path: iconData.path, tabId });
+        } else {
+          apiAction.setIcon(iconData);
+        }
+        index += 1;
+        if (index >= icons.length) {
+          stopIconAnimation();
+          if (tabId) {
+            const defaultIcon = generateIcons("default");
+            apiAction.setIcon({ path: defaultIcon.path, tabId });
+          }
+        }
+      }, ANIMATION_DELAY);
+    };
+
+    /**
+     * Stop icon animation
+     */
+    const stopIconAnimation = () => {
+      if (this.animationInterval) {
+        clearInterval(this.animationInterval);
         this.animationInterval = null;
-        this.icons = {};
-
-        /**
-         * Initialises the helper objects
-         */
-        const initHelpers = () => {
-            this.helper = {
-                dao: new $.DaoHelper(this),
-                connect: new $.ConnectHelper(this),
-                language: new $.LanguageHelper(this),
-                upgrade: new $.UpgradeHelper(this),
-                util: new $.UtilHelper(this),
-                request: new $.RequestHelper(this),
-                storageSession: new $.storageSessionHelper(this),
-                platformConfigHelper: new $.PlatformConfigsHelper(this)
-            };
-        };
-
-        /**
-         * Checks if a URL is supported by the extension
-         * @param {string} url - The URL to check
-         * @returns {boolean} - True if the URL is supported
-         */
-        const isUrlSupported = (url) => {
-            if (!url || !this.helper || !this.helper.platformConfigHelper) {
-                return false;
-            }
-            const { platformConfig } = this.helper.platformConfigHelper.getConfigForUrl(url);
-            return !!platformConfig || this.helper.platformConfigHelper.isPartnerPlatform(url);
-        };
-
-        /**
-         * Calls the according method of the upgrade helper after installing or updating the extension,
-         * waits 500ms if the helper is not initialized yet and calls itself again
-         *
-         * @param {object} details - Installation/update details
-         * @param {number} retryCount - Current retry count (max 100)
-         */
-        const callOnInstalledCallback = (details, retryCount = 0) => {
-            if (this.helper?.upgrade?.loaded) {
-                if (details.reason === "install") {
-                    this.helper.upgrade.onInstalled();
-                } else if (details.reason === "update") {
-                    this.helper.upgrade.onUpdated(details);
-                }
-            } else if (retryCount < 100) {
-                $.delay(500).then(() => {
-                    callOnInstalledCallback(details, retryCount + 1);
-                });
-            }
-        };
-
-        const setupBrowserListeners = () => {
-            $.api.runtime.onInstalled.addListener((details) => {
-                callOnInstalledCallback(details);
-            });
-
-            if ($.browserName === "safari") {
-                // Safari may prompt for site access; keep tab queries warm on navigation.
-                $.api.tabs.onActivated.addListener(() => {
-                    $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
-                });
-                $.api.tabs.onUpdated.addListener(() => {
-                    $.api.tabs.query({ active: true, currentWindow: true }).then(() => {});
-                });
-            }
-        };
-
-        /**
-         * Send message to content script
-         * @param {number} tabId - Target tab ID
-         * @param {string} action - Message action
-         * @param {*} value - Message value
-         * @param {Function} [callback] - Optional callback
-         */
-        const sendContentScriptMessage = (tabId, action, value, callback) => {
-            if (!tabId) {
-                return;
-            }
-            try {
-                $.api.tabs.sendMessage(tabId, { action, value }, callback);
-            } catch (err) {
-                console.warn("Failed to send message:", err);
-            }
-        };
-
-        /**
-         * Generate icon paths for a specific folder
-         * @param {string} folder - Icon folder name
-         * @returns {object} - Icon paths object
-         */
-        const generateIcons = (folder) => {
-            if (this.icons[folder]) {
-                return this.icons[folder];
-            }
-
-            const iconSizes = ["16", "32", "48", "128", "512"];
-            const paths = iconSizes.reduce((acc, size) => {
-                acc[size] = $.api.runtime.getURL(`images/icon/${folder}/icon${size}.png`);
-                return acc;
-            }, {});
-
-            const iconData = { path: paths };
-            this.icons[folder] = iconData;
-            return iconData;
-        };
-
-        /**
-         * Update icon to available state
-         * @param {number} [tabId] - Optional tab ID to update specific tab icon
-         */
-        const updateIconAvailable = (tabId) => {
-            const iconData = generateIcons("default");
-            if (tabId) {
-                apiAction.setIcon({ path: iconData.path, tabId });
-            } else {
-                apiAction.setIcon(iconData);
-            }
-        };
-
-        /**
-         * Update icon to unavailable state
-         * @param {number} [tabId] - Optional tab ID to update specific tab icon
-         */
-        const updateIconUnavailable = (tabId) => {
-            const iconData = generateIcons("unavailable");
-            if (tabId) {
-                apiAction.setIcon({ path: iconData.path, tabId });
-            } else {
-                apiAction.setIcon(iconData);
-            }
-        };
-
-        /**
-         * Update tab icon based on support status
-         * @param {number} tabId - Target tab ID
-         * @param {string} url - Tab URL
-         */
-        const updateTabIcon = (tabId, url) => {
-            if (!tabId || !url) {
-                return;
-            }
-            const iconType = isUrlSupported(url) ? "default" : "unavailable";
-            apiAction.setIcon({ path: generateIcons(iconType).path, tabId });
-        };
-
-        /**
-         * Start icon animation: play frames in order at fixed interval, then stop and restore default icon
-         * @param {number} tabId - Target tab ID for animated icon
-         */
-        const startIconAnimation = (tabId) => {
-            if (this.animationInterval) {
-                stopIconAnimation();
-            }
-
-            const ANIMATION_DELAY = 50;
-            const PICTURE_GROUPS = 10;
-
-            const icons = Array.from(
-                { length: PICTURE_GROUPS },
-                (_, i) => generateIcons(`effect/${i + 1}`)
-            );
-
-            let index = 0;
-            this.animationInterval = setInterval(() => {
-                const iconData = icons[index];
-                if (tabId) {
-                    apiAction.setIcon({ path: iconData.path, tabId });
-                } else {
-                    apiAction.setIcon(iconData);
-                }
-                index += 1;
-                if (index >= icons.length) {
-                    stopIconAnimation();
-                    if (tabId) {
-                        const defaultIcon = generateIcons("default");
-                        apiAction.setIcon({ path: defaultIcon.path, tabId });
-                    }
-                }
-            }, ANIMATION_DELAY);
-        };
-
-        /**
-         * Stop icon animation
-         */
-        const stopIconAnimation = () => {
-            if (this.animationInterval) {
-                clearInterval(this.animationInterval);
-                this.animationInterval = null;
-            }
-        };
-
-        /**
-         * Update badge text and background color, optionally animate icon
-         * @param {number} tabId - Target tab ID
-         * @param {object} value - Badge configuration containing text and icon animation flag
-         */
-        const updateBadgeAndAnimateIcon = (tabId, value) => {
-            if (!tabId || !value) {
-                return;
-            }
-
-            const { text, toolbarIconFlash } = value;
-            apiAction.setBadgeText({ tabId, text });
-            apiAction.setBadgeBackgroundColor({ tabId, color: "#F9EDE5" });
-
-            if (toolbarIconFlash) {
-                startIconAnimation(tabId);
-            }
-        };
-
-        /**
-         * Setup icon click listener
-         */
-        const setupIconClickListener = () => {
-            apiAction.onClicked.addListener((tab) => {
-                if (!tab?.id || !tab?.url) {
-                    return;
-                }
-                if (!isUrlSupported(tab.url)) {
-                    return;
-                }
-                sendContentScriptMessage(tab.id, $.opts.messageActions.toolbarIconClick, {});
-            });
-        };
-
-        /**
-         * Initialize helper dependencies
-         */
-        const initDependencies = () => {
-            return this.helper.connect.init()
-                .then(() => Promise.all([
-                    this.helper.dao.init(),
-                    this.helper.language.init()
-                ]))
-                .then(() => Promise.all([
-                    this.helper.upgrade.init()
-                ]));
-        };
-
-        /**
-         * Main initialization method
-         */
-        this.run = () => {
-            const startTime = Date.now();
-
-            setupBrowserListeners();
-
-            // Initialize helpers
-            initHelpers();
-
-            this.helper.connect.registerMessageListener({
-                onUpdateToolbar: updateBadgeAndAnimateIcon,
-                onIconAvailable: updateIconAvailable,
-                onIconUnavailable: updateIconUnavailable
-            });
-
-            // Setup event listeners
-            setupIconClickListener();
-
-            // Initialize dependencies
-            initDependencies().then(() => {
-                this.log("Finished bg script loading ", Date.now() - startTime);
-            });
-        };
-
-        /**
-         * Logging utility (No logs for the official version)
-         * @param {...*} args - Values to log
-         */
-        this.log = (...args) => {
-            if (!$.isDev) {
-                return;
-            }
-            const time = new Date().toISOString();
-            console.info("[bg]", time, ...args);
-        };
+      }
     };
 
-  
-    $.RequestHelper = function (b) {
+    /**
+     * Update badge text and background color, optionally animate icon
+     * @param {number} tabId - Target tab ID
+     * @param {object} value - Badge configuration containing text and icon animation flag
+     */
+    const updateBadgeAndAnimateIcon = (tabId, value) => {
+      if (!tabId || !value) {
+        return;
+      }
 
-        const request = (method, url, params = {}, headers, timeout) => {
-            if (!url) {
-                return Promise.reject({ "code": "exception", "result": null });
-            }
-            if (!timeout || timeout < 0) {
-                timeout = 20 * 1000;
-            }
-            if (!method) {
-                method = "GET";
-            }
+      const { text, toolbarIconFlash } = value;
+      apiAction.setBadgeText({ tabId, text });
+      apiAction.setBadgeBackgroundColor({ tabId, color: "#F9EDE5" });
 
-            const config = { method: method.toUpperCase(), headers: headers };
-            const controller = new AbortController(); //Create an instance of AbortController
-            const signal = controller.signal; //Get signal object
-            config.signal = signal; //Add signal to the fetch configuration
+      if (toolbarIconFlash) {
+        startIconAnimation(tabId);
+      }
+    };
 
-            if (config.method === "POST") {
-                config.headers = headers ?? { "Content-Type": "application/json;charset=UTF-8" };
-                config.body = JSON.stringify(params);
-            }
-            //Set timeout
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-            return fetch(url, config)
-                .then((response) => (response.ok ? response.text() : Promise.reject(response.statusText)))
-                .then((result) => {
-                    clearTimeout(timeoutId); //Clear timeout timer
-                    return { "code": "success", "result": result };
-                })
-                .catch((error) => {
-                    clearTimeout(timeoutId); //Clear timeout timer
-                    if (error.name === "AbortError") {
-                        return { "code": "error", "result": "Request timeout" }; //Timeout Error Handling
-                    }
-                    return { "code": "error", "result": error };
-                });
-        };
+    /**
+     * Setup icon click listener
+     */
+    const setupIconClickListener = () => {
+      apiAction.onClicked.addListener((tab) => {
+        if (!tab?.id || !tab?.url) {
+          return;
+        }
+        if (!isUrlSupported(tab.url)) {
+          return;
+        }
+        sendContentScriptMessage(tab.id, $.opts.messageActions.toolbarIconClick, {});
+      });
+    };
 
-        this.getServerData = (opts) => request(opts.method, opts.url, opts.params, opts.headers, opts.timeout);
+    /**
+     * Initialize helper dependencies
+     */
+    const initDependencies = () => {
+      return this.helper.connect.init().
+      then(() => Promise.all([
+      this.helper.dao.init(),
+      this.helper.language.init()]
+      )).
+      then(() => Promise.all([
+      this.helper.upgrade.init()]
+      ));
+    };
+
+    /**
+     * Main initialization method
+     */
+    this.run = () => {
+      const startTime = Date.now();
+
+      setupBrowserListeners();
+
+      // Initialize helpers
+      initHelpers();
+
+      this.helper.connect.registerMessageListener({
+        onUpdateToolbar: updateBadgeAndAnimateIcon,
+        onIconAvailable: updateIconAvailable,
+        onIconUnavailable: updateIconUnavailable
+      });
+
+      // Setup event listeners
+      setupIconClickListener();
+
+      // Initialize dependencies
+      initDependencies().then(() => {
+        this.log("Finished bg script loading ", Date.now() - startTime);
+      });
+    };
+
+    /**
+     * Logging utility (No logs for the official version)
+     * @param {...*} args - Values to log
+     */
+    this.log = (...args) => {
+      if (!$.isDev) {
+        return;
+      }
+      const time = new Date().toISOString();
+
+    };
+  };
+
+
+  $.RequestHelper = function (b) {
+
+    const request = (method, url, params = {}, headers, timeout) => {
+      if (!url) {
+        return Promise.reject({ "code": "exception", "result": null });
+      }
+      if (!timeout || timeout < 0) {
+        timeout = 20 * 1000;
+      }
+      if (!method) {
+        method = "GET";
+      }
+
+      const config = { method: method.toUpperCase(), headers: headers };
+      const controller = new AbortController(); //Create an instance of AbortController
+      const signal = controller.signal; //Get signal object
+      config.signal = signal; //Add signal to the fetch configuration
+
+      if (config.method === "POST") {
+        config.headers = headers ?? { "Content-Type": "application/json;charset=UTF-8" };
+        config.body = JSON.stringify(params);
+      }
+      //Set timeout
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      return fetch(url, config).
+      then((response) => response.ok ? response.text() : Promise.reject(response.statusText)).
+      then((result) => {
+        clearTimeout(timeoutId); //Clear timeout timer
+        return { "code": "success", "result": result };
+      }).
+      catch((error) => {
+        clearTimeout(timeoutId); //Clear timeout timer
+        if (error.name === "AbortError") {
+          return { "code": "error", "result": "Request timeout" }; //Timeout Error Handling
+        }
+        return { "code": "error", "result": error };
+      });
+    };
+
+    this.getServerData = (opts) => request(opts.method, opts.url, opts.params, opts.headers, opts.timeout);
+  };
+
+
+  $.storageSessionHelper = function (b) {
+    const storageSession = $.api.storage.session;
+
+    this.set = (opt) => storageSession.set(opt.params);
+    this.get = (opt) => storageSession.get(opt.params);
+    this.remove = (opt) => storageSession.remove(opt.params);
+    this.clear = () => storageSession.clear();
+  };
+
+
+  $.UpgradeHelper = function (b) {
+
+    this.loaded = false;
+
+    /**
+     *
+     * @returns {Promise}
+     */
+    this.init = async () => {
+      if ($.api.runtime.onUpdateAvailable) {
+        $.api.runtime.onUpdateAvailable.addListener(() => {// reload background script when an update is available
+          $.api.runtime.reload();
+        });
+      }
+      this.loaded = true;
+    };
+
+    /**
+     * Show onboarding page and reinitialize the content scripts after the extension was installed
+     */
+    this.onInstalled = () => {
+      const installationDate = b.helper.dao.getData("installationDate"); //Installation date
+      if (installationDate === null || +new Date() - installationDate < 60 * 1000) {
+        b.helper.util.openLink({
+          href: $.opts.website.installNotice,
+          newTab: true
+        });
+      }
+    };
+
+    /**
+     * Will be called after the extension was updated,
+     * calls the upgrade method after a version jump (1.6 -> 1.7) and reinitializes the content scripts
+     *
+     * @param {object} details
+     */
+    this.onUpdated = (details) => {
+
+    };
+  };
+
+
+
+  $.UtilHelper = function (b) {
+
+    /**
+     * treat some Chrome specific urls differently to make them work in Edge, Opera, ...
+     *
+     * @param url
+     * @returns {string|null}
+     */
+    this.getParsedUrl = (url) => {
+      if (!url) {
+        return url;
+      }
+
+      const browserAliases = $.opts.urlAliases[$.browserName];
+      if (browserAliases && browserAliases[url]) {
+        return browserAliases[url];
+      }
+
+      return url;
+    };
+
+    this.closeLink = (opts) => {
+      if (opts && Object.prototype.hasOwnProperty.call(opts, "id")) {
+        $.api.tabs.remove(opts.id);
+      }
+    };
+
+    this.generatorIdentifier = () => {
+      const prefix = ($.browserName || "unknown") + "-";
+      let uuid;
+      const g = globalThis; // window / worker / service worker
+
+      try {
+        if (g.crypto && typeof g.crypto.randomUUID === "function") {
+          uuid = g.crypto.randomUUID().replace(/-/g, "");
+
+        } else if (g.crypto && typeof g.crypto.getRandomValues === "function") {
+          const buf = new Uint8Array(16);
+          g.crypto.getRandomValues(buf);
+
+          // RFC4122 v4
+          buf[6] = buf[6] & 0x0f | 0x40;
+          buf[8] = buf[8] & 0x3f | 0x80;
+
+          uuid = Array.from(buf, (b) =>
+          b.toString(16).padStart(2, "0")
+          ).join("");
+
+        } else {
+          throw new Error("No secure random");
+        }
+
+      } catch (e) {
+        uuid = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === "x" ? r : r & 0x3 | 0x8;
+          return v.toString(16);
+        });
+      }
+      return prefix + uuid;
     };
 
 
-    $.storageSessionHelper = function (b) {
-        const storageSession = $.api.storage.session;
+    /**
+     * Opens the given url while regarding the specified parameters
+     *
+     * @param {object} opts
+     * @returns {Promise}
+     */
+    this.openLink = (opts) => {
+      return new Promise((resolve) => {
+        let params = "";
 
-        this.set = (opt) => storageSession.set(opt.params);
-        this.get = (opt) => storageSession.get(opt.params);
-        this.remove = (opt) => storageSession.remove(opt.params);
-        this.clear = () => storageSession.clear();
-    };
+        if (opts.params) {// params are given -> serialize
+          params = Object.entries(opts.params).
+          map(([key, val]) => `${encodeURIComponent(key)}=${val}`).
+          join("&");
 
+          if (params) {
+            params = "?" + params;
+          }
+        }
 
-    $.UpgradeHelper = function (b) {
+        const url = this.getParsedUrl(opts.href) + params;
 
-        this.loaded = false;
-
-        /**
-         *
-         * @returns {Promise}
-         */
-        this.init = async () => {
-            if ($.api.runtime.onUpdateAvailable) {
-                $.api.runtime.onUpdateAvailable.addListener(() => { // reload background script when an update is available
-                    $.api.runtime.reload();
-                });
-            }
-            this.loaded = true;
-        };
-
-        /**
-         * Show onboarding page and reinitialize the content scripts after the extension was installed
-         */
-        this.onInstalled = () => {
-            const installationDate = b.helper.dao.getData("installationDate"); //Installation date
-            if (installationDate === null || (+new Date() - installationDate < 60 * 1000)) {
-                b.helper.util.openLink({
-                    href: $.opts.website.installNotice,
-                    newTab: true
-                });
-            }
-        };
-
-        /**
-         * Will be called after the extension was updated,
-         * calls the upgrade method after a version jump (1.6 -> 1.7) and reinitializes the content scripts
-         *
-         * @param {object} details
-         */
-        this.onUpdated = (details) => {
-            
-        };
-    };
-
-
-
-    $.UtilHelper = function (b) {
-
-        /**
-         * treat some Chrome specific urls differently to make them work in Edge, Opera, ...
-         *
-         * @param url
-         * @returns {string|null}
-         */
-        this.getParsedUrl = (url) => {
-            if (!url) {
-                return url;
-            }
-
-            const browserAliases = $.opts.urlAliases[$.browserName];
-            if (browserAliases && browserAliases[url]) {
-                return browserAliases[url];
-            }
-
-            return url;
-        };
-
-        this.closeLink = (opts) => {
-            if (opts && Object.prototype.hasOwnProperty.call(opts, "id")) {
-                $.api.tabs.remove(opts.id);
-            }
-        };
-
-        this.generatorIdentifier = () => {
-            const prefix = ($.browserName || "unknown") + "-";
-            let uuid;
-            const g = globalThis; // window / worker / service worker
-
-            try {
-                if (g.crypto && typeof g.crypto.randomUUID === "function") {
-                    uuid = g.crypto.randomUUID().replace(/-/g, "");
-
-                } else if (g.crypto && typeof g.crypto.getRandomValues === "function") {
-                    const buf = new Uint8Array(16);
-                    g.crypto.getRandomValues(buf);
-
-                    // RFC4122 v4
-                    buf[6] = (buf[6] & 0x0f) | 0x40;
-                    buf[8] = (buf[8] & 0x3f) | 0x80;
-
-                    uuid = Array.from(buf, b =>
-                        b.toString(16).padStart(2, "0")
-                    ).join("");
-                    
-                } else {
-                    throw new Error("No secure random");
-                }
-
-            } catch (e) {
-                uuid = "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx".replace(/[xy]/g, c => {
-                    const r = Math.random() * 16 | 0;
-                    const v = c === "x" ? r : (r & 0x3 | 0x8);
-                    return v.toString(16);
-                });
-            }
-            return prefix + uuid;
-        };
-
-
-        /**
-         * Opens the given url while regarding the specified parameters
-         *
-         * @param {object} opts
-         * @returns {Promise}
-         */
-        this.openLink = (opts) => {
-            return new Promise((resolve) => {
-                let params = "";
-
-                if (opts.params) { // params are given -> serialize
-                    params = Object.entries(opts.params)
-                        .map(([key, val]) => `${encodeURIComponent(key)}=${val}`)
-                        .join("&");
-
-                    if (params) {
-                        params = "?" + params;
-                    }
-                }
-
-                const url = this.getParsedUrl(opts.href) + params;
-
-                const createTab = (idx = null) => {
-                    $.api.tabs.query({active: true, currentWindow: true}, (tabs) => {
-                        $.api.tabs.create({
-                            url: url,
-                            active: typeof opts.active === "undefined" ? true : !!(opts.active),
-                            pinned: typeof opts.pinned === "undefined" ? false : !!(opts.pinned),
-                            index: idx === null ? tabs[0].index + 1 : idx,
-                            openerTabId: tabs[0].id
-                        }, (tab) => {
-                            resolve(tab.id);
-                        });
-                    });
-                };
-
-                if (opts.newTab && opts.newTab === true) { // new tab
-                    if (opts.position === "afterLast") {
-                        $.api.tabs.query({currentWindow: true}, (tabs) => {
-                            let idx = 0;
-                            tabs.forEach((tab) => {
-                                idx = Math.max(idx, tab.index);
-                            });
-                            createTab(idx + 1);
-                        });
-                    } else if (opts.position === "beforeFirst") {
-                        createTab(0);
-                    } else {
-                        createTab();
-                    }
-                } else if (opts.newWindow && opts.newWindow === true) { // new normal window
-                    $.api.windows.create({url: url, state: "maximized"}, (tab) => {
-                        resolve(tab.id);
-                    });
-                } else if (opts.incognito && opts.incognito === true) { // incognito window
-                    $.api.windows.create({url: url, state: "maximized", incognito: true}, (tab) => {
-                        resolve(tab.id);
-                    });
-                } else { // current tab
-                    $.api.tabs.query({active: true, currentWindow: true}, (tabs) => {
-                        $.api.tabs.update(tabs[0].id, {url: url}, (tab) => {
-                            resolve(tab.id);
-                        });
-                    });
-                }
+        const createTab = (idx = null) => {
+          $.api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            $.api.tabs.create({
+              url: url,
+              active: typeof opts.active === "undefined" ? true : !!opts.active,
+              pinned: typeof opts.pinned === "undefined" ? false : !!opts.pinned,
+              index: idx === null ? tabs[0].index + 1 : idx,
+              openerTabId: tabs[0].id
+            }, (tab) => {
+              resolve(tab.id);
             });
+          });
         };
+
+        if (opts.newTab && opts.newTab === true) {// new tab
+          if (opts.position === "afterLast") {
+            $.api.tabs.query({ currentWindow: true }, (tabs) => {
+              let idx = 0;
+              tabs.forEach((tab) => {
+                idx = Math.max(idx, tab.index);
+              });
+              createTab(idx + 1);
+            });
+          } else if (opts.position === "beforeFirst") {
+            createTab(0);
+          } else {
+            createTab();
+          }
+        } else if (opts.newWindow && opts.newWindow === true) {// new normal window
+          $.api.windows.create({ url: url, state: "maximized" }, (tab) => {
+            resolve(tab.id);
+          });
+        } else if (opts.incognito && opts.incognito === true) {// incognito window
+          $.api.windows.create({ url: url, state: "maximized", incognito: true }, (tab) => {
+            resolve(tab.id);
+          });
+        } else {// current tab
+          $.api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            $.api.tabs.update(tabs[0].id, { url: url }, (tab) => {
+              resolve(tab.id);
+            });
+          });
+        }
+      });
     };
+  };
 
 })(jsu);
 try {
-    new jsu.Background().run();
+  new jsu.Background().run();
 } catch (e) {
-    console.error("Failed to load service worker");
-    console.error(e);
+  console.error("Failed to load service worker");
+  console.error(e);
 }

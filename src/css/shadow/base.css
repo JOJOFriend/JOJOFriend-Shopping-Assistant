@@ -82,10 +82,10 @@
   --color-activate-trigger-bg: #3730a3;
   --color-notification-bg: #5584ff;
   --color-notification-text: #fff;
-  --size-activate-trigger-width: 45px;
-  --size-activate-trigger-height: 45px;
-  --size-notification-width: 22px;
-  --size-notification-height: 22px;
+  --size-activate-trigger-width: 42px;
+  --size-activate-trigger-height: 42px;
+  --size-notification-width: 20px;
+  --size-notification-height: 20px;
 }
 
 /**

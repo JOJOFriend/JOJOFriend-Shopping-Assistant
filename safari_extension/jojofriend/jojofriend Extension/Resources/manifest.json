@@ -5,7 +5,7 @@
 	"description": "__MSG_extension_description__",
 	"default_locale": "en",
 	"version": "1.0.7",
-	"version_name": "Dev",
+	"version_name": "1.0.7.released",
 	"icons": {
 		"16": "images/icon/default/icon16.png",
         "32": "images/icon/default/icon32.png",
@@ -50,6 +50,6 @@
 	    }
     ],
 	"content_security_policy": {
-		"extension_pages": "script-src 'self'; object-src 'self'; connect-src https://o.jiayoushichang.com https://www.jojofriend.com http://127.0.0.1:8080;"
+		"extension_pages": "script-src 'self'; object-src 'self'; connect-src https://o.jiayoushichang.com https://www.jojofriend.com;"
 	}
 }
