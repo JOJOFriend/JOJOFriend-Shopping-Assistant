@@ -15,34 +15,37 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
 
     @IBOutlet var webView: WKWebView!
 
-    private let contentSizeDisabled = NSSize(width: 400, height: 478)
-    private let contentSizeEnabled = NSSize(width: 400, height: 368)
+    private var hasRevealedContent = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        self.webView.isHidden = true
         self.webView.navigationDelegate = self
-
         self.webView.configuration.userContentController.add(self, name: "controller")
 
-        self.webView.loadFileURL(Bundle.main.url(forResource: "Main", withExtension: "html")!, allowingReadAccessTo: Bundle.main.resourceURL!)
+        SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: extensionBundleIdentifier) { (state, error) in
+            DispatchQueue.main.async {
+                let enabled = state?.isEnabled ?? false
+                self.injectInitialState(enabled: enabled)
+                self.webView.loadFileURL(
+                    Bundle.main.url(forResource: "Main", withExtension: "html")!,
+                    allowingReadAccessTo: Bundle.main.resourceURL!
+                )
+            }
+        }
+    }
+
+    override func viewWillAppear() {
+        super.viewWillAppear()
+
+        if !self.hasRevealedContent {
+            self.view.window?.alphaValue = 0
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: extensionBundleIdentifier) { (state, error) in
-            guard let state = state, error == nil else {
-                return
-            }
-
-            DispatchQueue.main.async {
-                if #available(macOS 13, *) {
-                    webView.evaluateJavaScript("show(\(state.isEnabled), true)")
-                } else {
-                    webView.evaluateJavaScript("show(\(state.isEnabled), false)")
-                }
-                self.resizeWindow(enabled: state.isEnabled)
-            }
-        }
+        self.revealContent()
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -57,19 +60,40 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
         }
     }
 
-    private func resizeWindow(enabled: Bool) {
-        guard let window = view.window else { return }
+    private func injectInitialState(enabled: Bool) {
+        let useSettings: String
+        if #available(macOS 13, *) {
+            useSettings = "true"
+        } else {
+            useSettings = "false"
+        }
 
-        let contentSize = enabled ? contentSizeEnabled : contentSizeDisabled
-        let contentRect = NSRect(origin: .zero, size: contentSize)
-        let targetFrame = window.frameRect(forContentRect: contentRect)
-        let currentFrame = window.frame
-        let newOrigin = NSPoint(
-            x: currentFrame.origin.x,
-            y: currentFrame.origin.y + currentFrame.size.height - targetFrame.size.height
-        )
+        let preferredLanguages = Locale.preferredLanguages
+            .map { language in
+                language
+                    .replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "'", with: "\\'")
+            }
+            .map { "'\($0)'" }
+            .joined(separator: ", ")
 
-        window.setFrame(NSRect(origin: newOrigin, size: targetFrame.size), display: true, animate: false)
+        let source = """
+        window.__INITIAL_ENABLED__=\(enabled ? "true" : "false");
+        window.__USE_SETTINGS__=\(useSettings);
+        window.__PREFERRED_LANGUAGES__=[\(preferredLanguages)];
+        """
+        let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        self.webView.configuration.userContentController.addUserScript(script)
+    }
+
+    private func revealContent() {
+        guard !self.hasRevealedContent else {
+            return
+        }
+
+        self.hasRevealedContent = true
+        self.webView.isHidden = false
+        self.view.window?.alphaValue = 1
     }
 
 }

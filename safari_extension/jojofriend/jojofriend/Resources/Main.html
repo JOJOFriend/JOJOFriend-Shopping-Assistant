@@ -5,24 +5,26 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <title>JOJOFriend</title>
-    <link rel="stylesheet" href="../Style.css">
+    <link rel="stylesheet" href="Style.css">
 </head>
 <body>
     <div class="app">
         <main class="panel state-off">
-            <img class="brand-logo" src="../icon.png" alt="JOJOFriend" width="56" height="56">
+            <img class="brand-logo" src="icon.png" alt="JOJOFriend" width="56" height="56">
 
-            <h1 class="headline">Almost done!</h1>
-            <p class="subhead">Complete these steps to start using JOJOFriend:</p>
+            <h1 class="headline" data-i18n="host_headline_off"></h1>
+            <p class="subhead" data-i18n="host_subhead_off"></p>
 
             <ol class="steps-list">
                 <li class="step-item">
                     <span class="step-num" aria-hidden="true">1</span>
-                    <p class="step-text">Go to <button type="button" class="text-link open-preferences">Extension Settings</button>. Check the box next to JOJOFriend to enable it.</p>
+                    <p class="step-text">
+                        <span data-i18n="host_step1_prefix"></span><button type="button" class="text-link open-preferences" data-i18n="host_step1_link"></button><span data-i18n="host_step1_suffix"></span>
+                    </p>
                 </li>
                 <li class="step-item">
                     <span class="step-num" aria-hidden="true">2</span>
-                    <p class="step-text">Select <strong>Always Allow on Every Website</strong> so we can find coupons everywhere you shop.</p>
+                    <p class="step-text" data-i18n="host_step2" data-i18n-html></p>
                 </li>
             </ol>
 
@@ -37,45 +39,45 @@
                         <aside class="settings-sidebar">
                             <div class="ext-row is-selected">
                                 <span class="mock-checkbox animate-check"></span>
-                                <img class="ext-icon" src="../icon.png" alt="">
-                                <span class="ext-name">JOJOFriend Shopping Assistant</span>
+                                <img class="ext-icon" src="icon.png" alt="">
+                                <span class="ext-name" data-i18n="host_extension_name"></span>
                             </div>
                         </aside>
                         <div class="settings-detail">
-                            <div class="detail-header">JOJOFriend Shopping Assistant</div>
+                            <div class="detail-header" data-i18n="host_extension_name"></div>
                             <div class="detail-spacer"></div>
-                            <div class="allow-btn">Always Allow on Every Website...</div>
+                            <div class="allow-btn" data-i18n="host_mock_allow"></div>
                         </div>
                     </div>
                 </div>
                 <span class="highlight-box highlight-allow"></span>
             </div>
 
-            <button type="button" class="btn btn-primary open-preferences">Go to Extension Settings</button>
+            <button type="button" class="btn btn-primary open-preferences" data-i18n="host_btn_open"></button>
         </main>
 
         <main class="panel state-on">
             <div class="success-panel">
-                <img class="brand-logo brand-logo-sm" src="../icon.png" alt="JOJOFriend" width="48" height="48">
+                <img class="brand-logo brand-logo-sm" src="icon.png" alt="JOJOFriend" width="48" height="48">
 
                 <div class="status-badge">
                     <span class="status-icon" aria-hidden="true">✓</span>
-                    Extension enabled
+                    <span data-i18n="host_status_enabled"></span>
                 </div>
 
-                <h1 class="headline headline-sm">You're all set!</h1>
-                <p class="subhead subhead-sm">JOJOFriend is active in Safari. Start shopping and we'll help you save.</p>
+                <h1 class="headline headline-sm" data-i18n="host_headline_on"></h1>
+                <p class="subhead subhead-sm" data-i18n="host_subhead_on"></p>
 
                 <ul class="status-features">
-                    <li>Auto-find coupons at checkout</li>
-                    <li>Apply the best code in one click</li>
-                    <li>Works across supported stores</li>
+                    <li data-i18n="host_feature_1"></li>
+                    <li data-i18n="host_feature_2"></li>
+                    <li data-i18n="host_feature_3"></li>
                 </ul>
 
-                <button type="button" class="btn btn-secondary open-preferences">Manage in Safari Settings</button>
+                <button type="button" class="btn btn-secondary open-preferences" data-i18n="host_btn_manage"></button>
             </div>
         </main>
     </div>
-    <script src="../Script.js" defer></script>
+    <script src="Script.js"></script>
 </body>
 </html>
