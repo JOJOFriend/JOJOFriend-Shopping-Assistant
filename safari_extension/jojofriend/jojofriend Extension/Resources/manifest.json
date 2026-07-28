@@ -4,8 +4,8 @@
 	"short_name": "JOJOFriend",
 	"description": "__MSG_extension_description__",
 	"default_locale": "en",
-	"version": "1.0.7",
-	"version_name": "1.0.7.released",
+	"version": "1.0.8",
+	"version_name": "1.0.8.released",
 	"icons": {
 		"16": "images/icon/default/icon16.png",
         "32": "images/icon/default/icon32.png",
